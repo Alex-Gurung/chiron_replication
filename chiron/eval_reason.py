@@ -35,7 +35,7 @@ def question(names, order):
 def ask(text, names, order):
     msgs = [{"role": "user", "content": text}]
     for attempt in range(2):
-        body = json.dumps({"model": MODEL, "messages": msgs, "max_tokens": 16384, "temperature": 0.6, "top_p": 0.95,
+        body = json.dumps({"model": MODEL, "messages": msgs, "max_tokens": 32768, "temperature": 0.6, "top_p": 0.95,
                            "top_k": 20, "chat_template_kwargs": {"enable_thinking": True}}).encode()
         req = urlrequest.Request(API + "/chat/completions", data=body, headers={"Content-Type": "application/json"})
         with urlrequest.urlopen(req, timeout=7200) as r:
