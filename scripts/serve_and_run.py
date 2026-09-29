@@ -40,6 +40,8 @@ def main():
     ap.add_argument("--gpu-mem", type=float, default=0.92)
     ap.add_argument("client", nargs=argparse.REMAINDER)
     args = ap.parse_args()
+    if args.model != "gptoss":
+        os.nice(19)            # eval jobs yield CPU to the latency-bound gpt-oss generation sharing the pod
     client = args.client[1:] if args.client[:1] == ["--"] else args.client
     devices = os.environ["CUDA_VISIBLE_DEVICES"].split(",")
     job = os.environ.get("JOB_NAME", "local")
