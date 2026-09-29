@@ -51,13 +51,24 @@ def chiron_sheets(keys):
     out = {}
     for book, b, label in keys:
         rows = sorted(x for x in by[(book, label)] if x[0] < b)
-        cats = {cat: dedup([t for _, _, c, t in rows if c == cat]) for cat in CATEGORIES}
-        out[(book, b, label)] = cats
+        kept = {cat: set(dedup([t for _, _, c, t in rows if c == cat])) for cat in CATEGORIES}
+        out[(book, b, label)] = [(c, t) for _, _, c, t in rows if t in kept[c] and not kept[c].discard(t)]
     return out
 
 
-def render(cats, only=None):
-    parts = [f"### {cat}\n" + ("\n".join(f"- {s}" for s in cats[cat]) or "- No information.")
+def budget(rows, k):
+    """Most recent statements first until k words, then back in book order."""
+    picked, n = [], 0
+    for c, t in reversed(rows):
+        if n + len(t.split()) > k:
+            break
+        picked.append((c, t))
+        n += len(t.split())
+    return picked[::-1]
+
+
+def render(rows, only=None):
+    parts = [f"### {cat}\n" + ("\n".join(f"- {t}" for c, t in rows if c == cat) or "- No information.")
              for cat in CATEGORIES if only in (None, cat)]
     return "\n\n".join(parts)
 
@@ -97,10 +108,12 @@ def main():
             summ[(r["book"], r["boundary"], r["label"])] = r["summary"]
     for k in keys:
         add("summary", *k, summ.get(k))
-    for k, cats in chiron_sheets(keys).items():
-        add("chiron", *k, render(cats))
+    for k, rows in chiron_sheets(keys).items():
+        add("chiron", *k, render(rows))
         for cat in CATEGORIES:
-            add("chiron_" + cat.split("/")[0].lower(), *k, render(cats, cat))
+            add("chiron_" + cat.split("/")[0].lower(), *k, render(rows, cat))
+        for words in (250, 500, 1000, 2000, 4000):
+            add(f"chiron_r{words}", *k, render(budget(rows, words)))
     for book, b, l in keys:
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():

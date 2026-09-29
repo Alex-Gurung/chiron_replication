@@ -54,6 +54,28 @@ def main():
                            "all3": s["all3_ok"] / max(1, s["all3_n"]), "n_char": s["char_n"],
                            "mean_tokens": s["tokens"] / s["char_n"], "nondigit": s["nondigit"] / s["char_n"]}
                        for k, s in stats.items()}
+    cats = ["chiron_physical", "chiron_dialogue", "chiron_knowledge", "chiron_goals"]
+    if all((root / f"{c}.jsonl").exists() for c in cats):
+        per = {}
+        for c in cats:
+            for r in read_jsonl(root / f"{c}.jsonl"):
+                lp = r["logprobs"]
+                z = math.log(sum(math.exp(v) for v in lp.values() if v > -math.inf) or 1e-300)
+                per.setdefault((r["item_id"], tuple(r["order"]), r["target"]), {"answer": r["answer"], "book": r["book"]})[c] = \
+                    {d: (v - z if v > -math.inf else -1e9) for d, v in lp.items()}
+        for k in range(1, len(cats) + 1):
+            for subset in itertools.combinations(cats, k):
+                stats = collections.defaultdict(collections.Counter)
+                for rec in per.values():
+                    if not all(c in rec for c in subset):
+                        continue
+                    pred = max("012", key=lambda d: sum(rec[c][d] for c in subset))
+                    for key in ("all", rec["book"]):
+                        stats[key]["n"] += 1
+                        stats[key]["ok"] += int(pred == str(rec["answer"]))
+                name = "agreed:" + "+".join(c[7:] for c in subset)
+                table[name] = {key: {"char_acc": s["ok"] / s["n"], "assign_acc": float("nan"), "all3": float("nan"),
+                                     "n_char": s["n"], "mean_tokens": 0, "nondigit": 0} for key, s in stats.items()}
     write_json(root / "scores.json", table)
     books = sorted({k for v in table.values() for k in v if k != "all"})
     print(f"{'condition':24s} {'char':>6s} {'assign':>6s} {'all3':>6s} {'tokens':>7s}  " + "  ".join(f"{b:>6s}" for b in books))
