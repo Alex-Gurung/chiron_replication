@@ -119,7 +119,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody><tr><th scope='row'>CHIRON-style</th><td>chiron_r250: 39.8% at 1.8k tokens, chiron_r500: 39.1% at 2.9k tokens, chiron_r1000: 40.8% at 5.1k tokens, chiron_r2000: 42.1% at 9.3k tokens, chiron_r4000: 43.2% at 16.3k tokens, chiron: 44.0% at 34.8k tokens</td></tr>
 <tr><th scope='row'>v2 sheet</th><td>v2@100: 38.7% at 1.0k tokens, v2@250: 40.4% at 1.7k tokens, v2@500: 41.2% at 2.8k tokens, v2: 43.1% at 4.0k tokens</td></tr>
-<tr><th scope='row'>Legacy</th><td>legacy@100: 39.6% at 1.0k tokens, legacy@250: 41.7% at 1.6k tokens, legacy: 42.3% at 2.7k tokens, legacy_full: 45.3% at 58.2k tokens</td></tr>
+<tr><th scope='row'>Legacy, compressed</th><td>legacy@100: 39.6% at 1.0k tokens, legacy@250: 41.7% at 1.6k tokens, legacy: 42.3% at 2.7k tokens</td></tr>
 <tr><th scope='row'>Summary</th><td>summary@100: 38.7% at 1.0k tokens, summary@250: 39.2% at 1.6k tokens, summary@500: 40.1% at 2.6k tokens, summary: 41.1% at 4.0k tokens</td></tr>
 <tr><th scope='row'>Book text</th><td>book_last2000: 41.8% at 3.2k tokens, book_last8000: 42.2% at 11.0k tokens, book_last32000: 44.1% at 39.4k tokens, book: 41.5% at 83.2k tokens</td></tr></tbody></table></div></details>
   </section>
@@ -186,10 +186,10 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
 <script>
 (function () {
-  const data = {"series": [{"name": "CHIRON-style", "points": [{"cond": "chiron_r250", "x": 1771.9840539711745, "y": 39.77714027213671}, {"cond": "chiron_r500", "x": 2914.65010732904, "y": 39.10138656836739}, {"cond": "chiron_r1000", "x": 5135.66850659307, "y": 40.771771559239866}, {"cond": "chiron_r2000", "x": 9300.512112848819, "y": 42.05321212757791}, {"cond": "chiron_r4000", "x": 16280.636307881017, "y": 43.182916049478564}, {"cond": "chiron", "x": 34800.92701625268, "y": 44.02084591141054}]}, {"name": "v2 sheet", "points": [{"cond": "v2@100", "x": 1028.5985893897578, "y": 38.69281770279999}, {"cond": "v2@250", "x": 1720.8883777982214, "y": 40.392256605452694}, {"cond": "v2@500", "x": 2766.1165286721866, "y": 41.20333729317133}, {"cond": "v2", "x": 3973.3713584789944, "y": 43.14028246494605}]}, {"name": "Legacy", "points": [{"cond": "legacy@100", "x": 989.9454155167126, "y": 39.58258952546985}, {"cond": "legacy@250", "x": 1596.5976694265562, "y": 41.70680947990767}, {"cond": "legacy", "x": 2669.4477154247165, "y": 42.25743729501867}, {"cond": "legacy_full", "x": 58168.560870898495, "y": 45.33732258459045}]}, {"name": "Summary", "points": [{"cond": "summary@100", "x": 1010.0392517632628, "y": 38.68550524724406}, {"cond": "summary@250", "x": 1636.9095369518552, "y": 39.18988168524222}, {"cond": "summary@500", "x": 2649.398957375038, "y": 40.11783415297275}, {"cond": "summary", "x": 3994.6215884697945, "y": 41.1011795434693}]}, {"name": "Book text", "points": [{"cond": "book_last2000", "x": 3211.4523152407237, "y": 41.75849298608751}, {"cond": "book_last8000", "x": 11015.555351119288, "y": 42.19170039229378}, {"cond": "book_last32000", "x": 39377.45415516713, "y": 44.08688772650123}, {"cond": "book", "x": 83245.58846979454, "y": 41.5010752790504}]}], "noinfo": 40.356373311410195, "charmem": {"x": 4278.293161606869, "y": 44.00212821464923}};
+  const data = {"series": [{"name": "CHIRON-style", "points": [{"cond": "chiron_r250", "x": 1771.9840539711745, "y": 39.77714027213671}, {"cond": "chiron_r500", "x": 2914.65010732904, "y": 39.10138656836739}, {"cond": "chiron_r1000", "x": 5135.66850659307, "y": 40.771771559239866}, {"cond": "chiron_r2000", "x": 9300.512112848819, "y": 42.05321212757791}, {"cond": "chiron_r4000", "x": 16280.636307881017, "y": 43.182916049478564}, {"cond": "chiron", "x": 34800.92701625268, "y": 44.02084591141054}]}, {"name": "v2 sheet", "points": [{"cond": "v2@100", "x": 1028.5985893897578, "y": 38.69281770279999}, {"cond": "v2@250", "x": 1720.8883777982214, "y": 40.392256605452694}, {"cond": "v2@500", "x": 2766.1165286721866, "y": 41.20333729317133}, {"cond": "v2", "x": 3973.3713584789944, "y": 43.14028246494605}]}, {"name": "Legacy, compressed", "points": [{"cond": "legacy@100", "x": 989.9454155167126, "y": 39.58258952546985}, {"cond": "legacy@250", "x": 1596.5976694265562, "y": 41.70680947990767}, {"cond": "legacy", "x": 2669.4477154247165, "y": 42.25743729501867}]}, {"name": "Summary", "points": [{"cond": "summary@100", "x": 1010.0392517632628, "y": 38.68550524724406}, {"cond": "summary@250", "x": 1636.9095369518552, "y": 39.18988168524222}, {"cond": "summary@500", "x": 2649.398957375038, "y": 40.11783415297275}, {"cond": "summary", "x": 3994.6215884697945, "y": 41.1011795434693}]}, {"name": "Book text", "points": [{"cond": "book_last2000", "x": 3211.4523152407237, "y": 41.75849298608751}, {"cond": "book_last8000", "x": 11015.555351119288, "y": 42.19170039229378}, {"cond": "book_last32000", "x": 39377.45415516713, "y": 44.08688772650123}, {"cond": "book", "x": 83245.58846979454, "y": 41.5010752790504}]}], "noinfo": 40.356373311410195, "singles": [{"name": "charmem sheet", "x": 4278.293161606869, "y": 44.00212821464923}, {"name": "legacy, full", "x": 58168.560870898495, "y": 45.33732258459045}]};
   const svg = document.getElementById("lenchart"), tip = document.getElementById("tip");
   const W = 720, H = 360, L = 48, R = 150, T = 16, B = 40;
-  const xs = [], ys = [data.noinfo, data.charmem.y];
+  const xs = [], ys = [data.noinfo, ...data.singles.map(p => p.y)];
   data.series.forEach(s => s.points.forEach(p => { xs.push(p.x); ys.push(p.y); }));
   const x0 = Math.log10(500), x1 = Math.log10(100000);
   const y0 = Math.floor(Math.min(...ys) - 1), y1 = Math.ceil(Math.max(...ys) + 1);
@@ -225,9 +225,11 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     labels.push({ y: Y(last.y), text: s.name, c });
     const lg = document.createElement("span"); lg.innerHTML = `<i style="background:${c}"></i>${s.name}`; document.getElementById("legend").appendChild(lg);
   });
-  el("rect", { x: X(data.charmem.x) - 5, y: Y(data.charmem.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(data.charmem.x)} ${Y(data.charmem.y)})` });
-  labels.push({ y: Y(data.charmem.y), text: "charmem", c: "var(--fg)", x: X(data.charmem.x) });
-  const lg = document.createElement("span"); lg.innerHTML = `<i style="background:var(--fg);width:8px;height:8px;transform:rotate(45deg)"></i>charmem sheet`; document.getElementById("legend").appendChild(lg);
+  data.singles.forEach(p => {
+    el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` });
+    labels.push({ y: Y(p.y), text: p.name, c: "var(--fg)", x: X(p.x) });
+  });
+  const lg = document.createElement("span"); lg.innerHTML = `<i style="background:var(--fg);width:8px;height:8px;transform:rotate(45deg)"></i>single representation`; document.getElementById("legend").appendChild(lg);
   labels.filter(l => l.x === undefined).sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
   labels.forEach(l => {
     const t = el("text", { x: l.x === undefined ? W - R + 6 : l.x + 9, y: l.y + 4, class: "lbl" });

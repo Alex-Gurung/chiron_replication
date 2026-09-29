@@ -30,7 +30,7 @@ CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapna
                 "swapname_summary"]
 FAMILIES = [("CHIRON-style", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
             ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"]),
-            ("Legacy", ["legacy@100", "legacy@250", "legacy", "legacy_full"]),
+            ("Legacy, compressed", ["legacy@100", "legacy@250", "legacy"]),
             ("Summary", ["summary@100", "summary@250", "summary@500", "summary"]),
             ("Book text", ["book_last2000", "book_last8000", "book_last32000", "book"])]
 
@@ -115,7 +115,8 @@ def main():
         pts = [{"cond": c, "x": q["rows"][c]["mean_tokens"], "y": 100 * q["rows"][c]["macro"]} for c in conds if c in q["rows"]]
         series.append({"name": name, "points": pts})
     chart = {"series": series, "noinfo": 100 * q["rows"]["noinfo"]["macro"],
-             "charmem": {"x": q["rows"]["charmem"]["mean_tokens"], "y": 100 * q["rows"]["charmem"]["macro"]}}
+             "singles": [{"name": n, "x": q["rows"][c]["mean_tokens"], "y": 100 * q["rows"][c]["macro"]}
+                         for n, c in (("charmem sheet", "charmem"), ("legacy, full", "legacy_full"))]}
     length_rows = "\n".join(f"<tr><th scope='row'>{s['name']}</th><td>" + ", ".join(
         f"{p['cond']}: {p['y']:.1f}% at {p['x'] / 1000:.1f}k tokens" for p in s["points"]) + "</td></tr>" for s in series)
 
@@ -295,7 +296,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   const data = {{CHART_DATA}};
   const svg = document.getElementById("lenchart"), tip = document.getElementById("tip");
   const W = 720, H = 360, L = 48, R = 150, T = 16, B = 40;
-  const xs = [], ys = [data.noinfo, data.charmem.y];
+  const xs = [], ys = [data.noinfo, ...data.singles.map(p => p.y)];
   data.series.forEach(s => s.points.forEach(p => { xs.push(p.x); ys.push(p.y); }));
   const x0 = Math.log10(500), x1 = Math.log10(100000);
   const y0 = Math.floor(Math.min(...ys) - 1), y1 = Math.ceil(Math.max(...ys) + 1);
@@ -331,9 +332,11 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     labels.push({ y: Y(last.y), text: s.name, c });
     const lg = document.createElement("span"); lg.innerHTML = `<i style="background:${c}"></i>${s.name}`; document.getElementById("legend").appendChild(lg);
   });
-  el("rect", { x: X(data.charmem.x) - 5, y: Y(data.charmem.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(data.charmem.x)} ${Y(data.charmem.y)})` });
-  labels.push({ y: Y(data.charmem.y), text: "charmem", c: "var(--fg)", x: X(data.charmem.x) });
-  const lg = document.createElement("span"); lg.innerHTML = `<i style="background:var(--fg);width:8px;height:8px;transform:rotate(45deg)"></i>charmem sheet`; document.getElementById("legend").appendChild(lg);
+  data.singles.forEach(p => {
+    el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` });
+    labels.push({ y: Y(p.y), text: p.name, c: "var(--fg)", x: X(p.x) });
+  });
+  const lg = document.createElement("span"); lg.innerHTML = `<i style="background:var(--fg);width:8px;height:8px;transform:rotate(45deg)"></i>single representation`; document.getElementById("legend").appendChild(lg);
   labels.filter(l => l.x === undefined).sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
   labels.forEach(l => {
     const t = el("text", { x: l.x === undefined ? W - R + 6 : l.x + 9, y: l.y + 4, class: "lbl" });
