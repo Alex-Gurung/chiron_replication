@@ -55,9 +55,17 @@ def prompt(item, names, blocks, book_text, target):
     return "\n\n".join(parts)
 
 
+PREFIX = os.environ.get("CHIRON_ANSWER_PREFIX", "")   # e.g. "[CHAR " forces the next token to be the id digit
+
+
 def score(text, n=3):
-    body = json.dumps({"model": MODEL, "messages": [{"role": "user", "content": text}], "max_tokens": 1,
-                       "temperature": 0.0, "logprobs": True, "top_logprobs": 20}).encode()
+    msgs = [{"role": "user", "content": text}]
+    extra = {}
+    if PREFIX:
+        msgs.append({"role": "assistant", "content": PREFIX})
+        extra = {"continue_final_message": True, "add_generation_prompt": False}
+    body = json.dumps({"model": MODEL, "messages": msgs, "max_tokens": 1, "temperature": 0.0,
+                       "logprobs": True, "top_logprobs": 20, **extra}).encode()
     req = urlrequest.Request(API + "/chat/completions", data=body, headers={"Content-Type": "application/json"})
     for k in range(5):
         try:
@@ -95,7 +103,7 @@ def main():
     for r in read_jsonl(DATA / f"reps_{args.split}.jsonl"):
         reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
-    model_tag = MODEL.split("/")[-1] + args.tag
+    model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "")
     for cond in args.conditions:
         out = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}{suffix}.jsonl"
         done = {(r["item_id"], tuple(r["order"]), r["target"]) for r in read_jsonl(out)}

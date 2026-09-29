@@ -21,7 +21,7 @@ for split in ("test", "val", "train"):
         jobs.append((f"{split}_{c}", serve("qwen4b", 65536) + ev(split, f"items_{split}", c)))
         jobs.append((f"{split}_two_{c}", serve("qwen4b", 65536) + ev(split, f"items_{split}_two", c)))
     jobs.append((f"{split}_pron_charmem", serve("qwen4b", 65536) + ev(split, f"items_{split}_pron", "charmem")))
-    jobs.append((f"{split}_mistral_charmem", serve("mistral", 32768) + ev(split, f"items_{split}", "charmem")))
+    jobs.append((f"{split}_mistral_charmem", ["env", "CHIRON_ANSWER_PREFIX=[CHAR "] + serve("mistral", 32768) + ev(split, f"items_{split}", "charmem")))
 for name, cmd in jobs:
     q.add(q.conn(), f"chiron_cm_{name.replace(':', '_')}_{stamp}", cmd, gpus=1, lane="chiron", priority=0)
 print("queued", len(jobs), "charmem eval jobs", flush=True)
