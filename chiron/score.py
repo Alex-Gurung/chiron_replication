@@ -23,10 +23,12 @@ def main():
     ap.add_argument("--items", default="items_test")
     args = ap.parse_args()
     root = OUT / "eval" / args.model / args.items
-    table = {}
+    table, files = {}, collections.defaultdict(list)
     for f in sorted(glob.glob(str(root / "*.jsonl"))):
-        cond = os.path.basename(f)[:-6]
-        rows = read_jsonl(f)
+        if not f.endswith(".errors.jsonl"):
+            files[os.path.basename(f)[:-6].split(".s")[0]].append(f)          # shards: <cond>.s<k>of<n>.jsonl
+    for cond, fs in files.items():
+        rows = [r for f in fs for r in read_jsonl(f)]
         groups = collections.defaultdict(dict)
         for r in rows:
             groups[(r["item_id"], tuple(r["order"]))][r["target"]] = r
@@ -56,10 +58,10 @@ def main():
                            "mean_tokens": s["tokens"] / s["char_n"], "nondigit": s["nondigit"] / s["char_n"]}
                        for k, s in stats.items()}
     cats = ["chiron_physical", "chiron_dialogue", "chiron_knowledge", "chiron_goals"]
-    if all((root / f"{c}.jsonl").exists() for c in cats):
+    if all(c in files for c in cats):
         per = {}
         for c in cats:
-            for r in read_jsonl(root / f"{c}.jsonl"):
+            for r in (r for f in files[c] for r in read_jsonl(f)):
                 lp = r["logprobs"]
                 z = math.log(sum(math.exp(v) for v in lp.values() if v > -math.inf) or 1e-300)
                 per.setdefault((r["item_id"], tuple(r["order"]), r["target"]), {"answer": r["answer"], "book": r["book"]})[c] = \

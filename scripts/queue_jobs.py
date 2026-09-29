@@ -96,19 +96,33 @@ def main():
         two_short = ["noinfo", "v2", "swap:v2", "legacy", "summary", "swap:summary", "charmem", "swap:charmem",
                      "chiron_r500", "chiron_r2000", "book_last8000"]
         two_long = ["chiron", "swap:chiron", "legacy_full", "book"]
-        for split in sys.argv[2:]:
-            ev = lambda stem, conds: [f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", stem,
-                                      "--conditions", *conds, "--workers", "128"]
+        splits = [a for a in sys.argv[2:] if not a.startswith("--")]
+        if "--ready-only" in sys.argv:              # conditions that do not need summaries or charmem
+            keep = lambda c: "summary" not in c and "charmem" not in c
+            short, long, pron, mistral = ([c for c in x if keep(c)] for x in (short, long, pron, mistral))
+            two_short, two_long = ([c for c in x if keep(c)] for x in (two_short, two_long))
+        shards = {"train": 8, "val": 2, "test": 2}
+        for split in splits:
+            ev = lambda stem, conds, k=0, n=1: [f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", stem,
+                                                "--conditions", *conds, "--workers", "128", "--shard", str(k), "--nshards", str(n)]
             for c in short:
                 add(f"final_{split}_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev(f"items_{split}", [c]), 1)
             for c in long:
-                add(f"final_{split}_{c.replace(':', '_')}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}", [c]), 1)
-            add(f"final_{split}_pron", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_pron", pron), 1)
-            add(f"final_{split}_mistral", 1, ["--model", "mistral", "--max-model-len", "32768"], ev(f"items_{split}", mistral), 2)
+                n = shards[split]
+                for k in range(n):
+                    add(f"final_{split}_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}", [c], k, n), 1)
+            for c in pron:
+                n = shards[split] if c == "chiron" else 1
+                for k in range(n):
+                    add(f"final_{split}_pron_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_pron", [c], k, n), 1)
+            for c in mistral:
+                add(f"final_{split}_mistral_{c.replace(':', '_')}", 1, ["--model", "mistral", "--max-model-len", "32768"], ev(f"items_{split}", [c]), 2)
             for c in two_short:
                 add(f"final_{split}_two_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev(f"items_{split}_two", [c]), 2)
             for c in two_long:
-                add(f"final_{split}_two_{c.replace(':', '_')}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_two", [c]), 2)
+                n = shards[split]
+                for k in range(n):
+                    add(f"final_{split}_two_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_two", [c], k, n), 2)
     elif what == "eval":
         name, maxlen, model, stem, conds = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:]
         add(f"eval_{name}", 1, ["--model", model, "--max-model-len", maxlen],

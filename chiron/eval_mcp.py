@@ -84,9 +84,12 @@ def main():
     ap.add_argument("--workers", type=int, default=64)
     ap.add_argument("--tag", default="")
     ap.add_argument("--items", default="", help="items file stem, default items_<split> (e.g. items_test_pron)")
+    ap.add_argument("--shard", type=int, default=0)
+    ap.add_argument("--nshards", type=int, default=1)
     args = ap.parse_args()
     stem = args.items or f"items_{args.split}"
-    items = read_jsonl(DATA / f"{stem}.jsonl")
+    items = read_jsonl(DATA / f"{stem}.jsonl")[args.shard::args.nshards]
+    suffix = f".s{args.shard}of{args.nshards}" if args.nshards > 1 else ""
     principals = json.load(open(DATA / "principals.json"))
     reps = {}
     for r in read_jsonl(DATA / f"reps_{args.split}.jsonl"):
@@ -94,7 +97,7 @@ def main():
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag
     for cond in args.conditions:
-        out = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}.jsonl"
+        out = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}{suffix}.jsonl"
         done = {(r["item_id"], tuple(r["order"]), r["target"]) for r in read_jsonl(out)}
         jobs, missing = [], 0
         for it in items:
