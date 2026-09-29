@@ -134,8 +134,11 @@ def main():
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
             book_text, blocks = None, None
             if cond.startswith("book"):
-                full = "\n\n".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[book] if ch["chapter_index"] < b)
-                book_text = words(full, int(cond[9:]), last=True) if cond.startswith("book_last") else full
+                upto = b - 1 if cond.startswith("book_noprev") else b                 # book_noprev<k>: stop before chapter b-1
+                lo = b - 1 if cond == "book_prevonly" else 0                          # book_prevonly: chapter b-1 alone
+                full = "\n\n".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[book] if lo <= ch["chapter_index"] < upto)
+                k = re.match(r"book_(?:last|noprev)(\d+)$", cond)
+                book_text = words(full, int(k.group(1)), last=True) if k else full
             elif cond != "noinfo":
                 base, k = (cond.split("@") + [None])[:2]
                 swapname = base.startswith("swapname:")

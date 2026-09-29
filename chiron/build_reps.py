@@ -14,7 +14,9 @@ import argparse
 import collections
 import glob
 import json
+import os
 import pickle
+import re
 from pathlib import Path
 
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -53,23 +55,66 @@ def chiron_sheets(keys):
     for book, b, label in keys:
         rows = sorted(x for x in by[(book, label)] if x[0] < b)
         kept = {cat: set(dedup([t for _, _, c, t in rows if c == cat])) for cat in CATEGORIES}
-        out[(book, b, label)] = [(c, t) for _, _, c, t in rows if t in kept[c] and not kept[c].discard(t)]
+        out[(book, b, label)] = [(c, t, ch) for ch, _, c, t in rows if t in kept[c] and not kept[c].discard(t)]
     return out
 
 
 def budget(rows, k):
     """Most recent statements first until k words, then back in book order."""
     picked, n = [], 0
-    for c, t in reversed(rows):
+    for c, t, ch in reversed(rows):
         if n + len(t.split()) > k:
             break
-        picked.append((c, t))
+        picked.append((c, t, ch))
         n += len(t.split())
     return picked[::-1]
 
 
+FILLER = re.compile(r"[^.!?]*(?:not mentioned|no (?:physical )?description|not (?:explicitly )?described|no information)[^.!?]*[.!?]?", re.I)
+
+
+def legacy_blocks(text):
+    """Split a full legacy sheet into (header lines, [(chapter, block text)]) per question, keeping order."""
+    out, cur = [], None
+    for line in text.split("\n"):
+        m = re.match(r"<snippet (\d+)>", line)
+        if line.startswith(("## ", "Question:")):
+            cur = [line, []]
+            out.append(cur)
+        elif m and cur is not None:
+            cur[1].append([int(m.group(1)), ""])
+        elif cur is not None and cur[1]:
+            cur[1][-1][1] += line + "\n"
+    return out
+
+
+def legacy_render(text, keep, clean=False):
+    parts = []
+    for head, blocks in legacy_blocks(text):
+        body = [f"<snippet {c}>\n{FILLER.sub('', t).strip() if clean else t.strip()}" for c, t in blocks if keep(c)]
+        body = [x for x in body if x.split("\n", 1)[-1].strip()]
+        if body or head.startswith("## "):
+            parts.append(head + ("\n\n" + "\n".join(body) if body else ""))
+    return "\n\n".join(parts)
+
+
+def legacy_recent(text, budget):
+    chapters = sorted({c for _, blocks in legacy_blocks(text) for c, _ in blocks}, reverse=True)
+    words, keep = {c: 0 for c in chapters}, set()
+    for _, blocks in legacy_blocks(text):
+        for c, t in blocks:
+            words[c] += len(t.split())
+    total = 0
+    for c in chapters:
+        if total + words[c] > budget and keep:
+            break
+        keep.add(c)
+        total += words[c]
+    return legacy_render(text, lambda c: c in keep)
+
+
 def render(rows, only=None):
-    parts = [f"### {cat}\n" + ("\n".join(f"- {t}" for c, t in rows if c == cat) or "- No information.")
+    parts = [f"### {cat}\n" + ("\n".join(f"- {t}" for c, t, _ in rows if c == cat) or "- No information.")
              for cat in CATEGORIES if only in (None, cat)]
     return "\n\n".join(parts)
 
@@ -102,6 +147,11 @@ def main():
         k = f"{book}_{LEGACY_LABEL.get(l, l)}_{b}"
         add("legacy", book, b, l, comp.get(k))
         add("legacy_full", book, b, l, full.get(k))
+        if full.get(k):                                # ablations: previous chapter removed / alone, recency budget, no filler
+            add("legacy_noprev", book, b, l, legacy_render(full[k], lambda c: c != b - 1))
+            add("legacy_onlyprev", book, b, l, legacy_render(full[k], lambda c: c == b - 1))
+            add("legacy_r6000", book, b, l, legacy_recent(full[k], 6000))
+            add("legacy_nofill", book, b, l, legacy_render(full[k], lambda c: True, clean=True))
     summ = {}
     for f in glob.glob(str(OUT / "summary_v2" / "*.jsonl")):       # v1 (outputs/summary) grew past the cap; superseded
         if f.endswith(".errors.jsonl"):
@@ -112,6 +162,9 @@ def main():
         add("summary", *k, summ.get(k))
     for k, rows in chiron_sheets(keys).items():
         add("chiron", *k, render(rows))
+        prev = k[1] - 1
+        add("chiron_noprev", *k, render([r for r in rows if r[2] != prev]))
+        add("chiron_onlyprev", *k, render([r for r in rows if r[2] == prev]))
         for cat in CATEGORIES:
             add("chiron_" + cat.split("/")[0].lower(), *k, render(rows, cat))
         for words in (250, 500, 1000, 2000, 4000):
@@ -120,9 +173,11 @@ def main():
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():
             add("charmem", book, b, l, json.load(open(p))["character_sheets"].get(l))
-    with open(DATA / f"reps_{args.split}.jsonl", "w") as f:
+    tmp = DATA / f"reps_{args.split}.jsonl.tmp"               # atomic swap: running jobs never read a half-written file
+    with open(tmp, "w") as f:
         for r in recs:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    os.replace(tmp, DATA / f"reps_{args.split}.jsonl")
     cov = collections.Counter(r["condition"] for r in recs)
     words = collections.defaultdict(list)
     for r in recs:
