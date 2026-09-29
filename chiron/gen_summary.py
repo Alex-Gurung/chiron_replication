@@ -54,7 +54,12 @@ def main():
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
     out = OUT / "summary" / f"{args.tag}.jsonl"
-    have = {(r["book"], r["label"], r["boundary"]): r for r in read_jsonl(out)}
+    have = {}                                          # resume from every earlier run's file, not only this tag's
+    for f in sorted((OUT / "summary").glob("*.jsonl")):
+        if f.name.endswith(".errors.jsonl") or f.name.startswith("smoke"):
+            continue
+        for r in read_jsonl(f):
+            have[(r["book"], r["label"], r["boundary"])] = r
     fails = []
 
     def chain(book, label):
