@@ -10,7 +10,7 @@ set -uo pipefail
 Q=/home/toolkit/eaiexp/state/queue
 R=/home/toolkit/ncp_charmem_gptoss120b_reviewed_20260908
 cd /home/toolkit/chiron_replication
-busy() { ls $Q/queued $Q/running | grep -q "$1"; }
+busy() { ls $Q/queued $Q/running | grep "$1" > /dev/null; }   # not -q: an early exit SIGPIPEs ls and pipefail reads it as "not busy"
 
 while busy "chiron_charmem_[0-9]_\|chiron_charmem_fix1"; do sleep 60; done
 python3 - <<'PY'
