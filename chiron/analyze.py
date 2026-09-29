@@ -46,11 +46,11 @@ def boot(diffs, n=2000, seed=0):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--set", default="main", choices=["main", "two", "pron"])
+    ap.add_argument("--set", default="main", choices=["main", "two", "pron", "window", "short"])
     ap.add_argument("--model", default="Qwen3-4B-Instruct-2507")
     ap.add_argument("--min-items", type=int, default=10)
     args = ap.parse_args()
-    suffix = {"main": "", "two": "_two", "pron": "_pron"}[args.set]
+    suffix = {"main": "", "two": "_two", "pron": "_pron", "window": "_window", "short": "_short"}[args.set]
     by = load(args.model, [f"items_{s}{suffix}" for s in ("test", "val", "train")])
     n_items = collections.Counter()
     for s in ("test", "val", "train"):
