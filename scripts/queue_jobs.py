@@ -5,6 +5,7 @@
   python3 scripts/queue_jobs.py summary         rolling character summaries, all books
   python3 scripts/queue_jobs.py charmem         finish the Sep 8 charmem rebuild, all books
   python3 scripts/queue_jobs.py eval NAME MAXLEN MODEL ITEMS COND...   one eval job (MODEL: qwen4b|mistral)
+  python3 scripts/queue_jobs.py final SPLIT...  every condition for the given splits (needs items/reps built)
 Lower priority number is claimed first. Job names are stamped so reruns never collide.
 """
 import json
@@ -80,7 +81,27 @@ def main():
         ok = q.add(BASE, f"chiron_{name}_{STAMP}", old["cmd"], gpus=old["gpus"], lane="chiron", priority=old["priority"])
         print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
     elif what == "pronouns":
-        add("pronouns_test", 1, oss1, [f"{REPO}/chiron/pronouns.py", "--split", "test"], -1)
+        for split in sys.argv[2:] or ["test"]:
+            add(f"pronouns_{split}", 1, oss1, [f"{REPO}/chiron/pronouns.py", "--split", split], -1)
+    elif what == "final":
+        short = ["noinfo", "v2", "swap:v2", "legacy", "summary", "swap:summary", "charmem", "swap:charmem",
+                 "chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000",
+                 "v2@100", "v2@250", "v2@500", "legacy@100", "legacy@250", "summary@100", "summary@250", "summary@500",
+                 "book_last2000", "book_last8000"]
+        long = ["chiron", "swap:chiron", "chiron_physical", "chiron_dialogue", "chiron_knowledge", "chiron_goals",
+                "legacy_full", "book_last32000", "book"]
+        pron = ["noinfo", "v2", "legacy", "summary", "charmem", "chiron_r2000", "chiron", "book_last8000"]
+        mistral = ["noinfo", "v2", "swap:v2", "legacy", "summary", "charmem", "chiron_r500", "chiron_r2000",
+                   "book_last2000", "book_last8000"]
+        for split in sys.argv[2:]:
+            ev = lambda stem, conds: [f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", stem,
+                                      "--conditions", *conds, "--workers", "128"]
+            for c in short:
+                add(f"final_{split}_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev(f"items_{split}", [c]), 1)
+            for c in long:
+                add(f"final_{split}_{c.replace(':', '_')}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}", [c]), 1)
+            add(f"final_{split}_pron", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_pron", pron), 1)
+            add(f"final_{split}_mistral", 1, ["--model", "mistral", "--max-model-len", "32768"], ev(f"items_{split}", mistral), 2)
     elif what == "eval":
         name, maxlen, model, stem, conds = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:]
         add(f"eval_{name}", 1, ["--model", model, "--max-model-len", maxlen],

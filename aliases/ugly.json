@@ -1,0 +1,22 @@
+{
+ "principals": {
+  "Grady Green": [
+   "Grady Green",
+   "GRADY",
+   "Grady"
+  ],
+  "Abby Goldman": [
+   "Abby Goldman",
+   "Abby"
+  ],
+  "Kitty Goldman": [
+   "Kitty Goldman",
+   "Kitty"
+  ]
+ },
+ "ambiguous": [
+  "Goldman"
+ ],
+ "drop_if_present": [],
+ "notes": "Goldman is shared by Abby (Kitty's daughter) and Kitty, so bare Goldman is ambiguous. Grady Green is a pseudonym; bare 'Green' is left out (occurs as the colour and otherwise only in 'Grady Green'). Kitty's earlier name Abby (ch52-53 only, two mentions) is not separated from Abby Goldman."
+}

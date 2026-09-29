@@ -1,0 +1,8 @@
+{"principals": {
+  "Jess": ["Jess"],
+  "Storey": ["Storey"],
+  "Collie": ["Collie"]},
+ "ambiguous": [],
+ "drop_if_present": [],
+ "notes": "Collie (a young girl) is named only from chapter index 9; in earlier chapters (e.g. 7) she is an unnamed girl referred to by pronouns/common nouns, so nothing earlier is aliased. Jess and Storey are both male single-name characters; no full names, nicknames or other characters sharing these strings were found."
+}

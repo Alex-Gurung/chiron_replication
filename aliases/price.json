@@ -1,0 +1,31 @@
+{
+ "principals": {
+  "Annabel “Bel” Price": [
+   "Annabel Price",
+   "Bel Price",
+   "Annabel",
+   "Anna-Belly-Boo",
+   "B-Bel",
+   "Bel",
+   "Anna"
+  ],
+  "Charlie Price": [
+   "Charlie Price",
+   "Charlie"
+  ],
+  "Rachel Price": [
+   "Rachel Price",
+   "Rachel",
+   "Rach"
+  ]
+ },
+ "ambiguous": [
+  "Price",
+  "Prices"
+ ],
+ "drop_if_present": [
+  "Carter Price",
+  "Patrick Price"
+ ],
+ "notes": "Bare Price/Prices is shared by all principals and relatives (Carter, Patrick), so ambiguous. Bel is the daughter, called Anna only by Rachel as a baby-name and in chapter 7; Charlie is her father, Rachel her mother (returned after 16 years)."
+}

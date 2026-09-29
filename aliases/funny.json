@@ -1,0 +1,34 @@
+{
+ "principals": {
+  "Daphne Vincent": [
+   "Daphne Vincent",
+   "Daphne",
+   "Daph"
+  ],
+  "Miles Nowak": [
+   "Miles Nowak",
+   "Miles"
+  ],
+  "Peter Collins": [
+   "Peter Collins",
+   "Peter",
+   "Pete"
+  ]
+ },
+ "ambiguous": [
+  "Vincent",
+  "Nowak",
+  "Collins",
+  "Collinses"
+ ],
+ "drop_if_present": [
+  "Holly Vincent",
+  "Julia Nowak",
+  "Petra Collins",
+  "Mrs. Collins",
+  "Mr. Collins",
+  "Melly Collins",
+  "Jerome Collins"
+ ],
+ "notes": "Bare Vincent, Nowak and Collins are shared with relatives (Holly Vincent, Julia Nowak, the Collins family); Vincent used as a nickname for Daphne only by Ashleigh but kept ambiguous. Petra Collins is Petra Comer, a different person; Pete appears once as a joke about Peter."
+}

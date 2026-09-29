@@ -1,0 +1,26 @@
+{
+ "principals": {
+  "Lauren": [
+   "Lauren Zhang Strickland",
+   "Lauren Callebaut",
+   "Lauren Lambert",
+   "Lauren",
+   "Loz"
+  ],
+  "Bohai": [
+   "Bohai Strickland Zhang",
+   "Bohai"
+  ],
+  "Toby": [
+   "Toby"
+  ]
+ },
+ "ambiguous": [
+  "Strickland",
+  "Callebaut",
+  "Lambert",
+  "Zhang"
+ ],
+ "drop_if_present": [],
+ "notes": "Bohai is only called the husband before chapter 21; Lauren gets a different surname with each husband so only Lauren plus full-name forms are kept and bare surnames are ambiguous. No other character named Toby, Bohai or Lauren found (Laurel is a different woman)."
+}

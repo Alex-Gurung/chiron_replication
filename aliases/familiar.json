@@ -1,0 +1,8 @@
+{"principals": {
+  "Luzia Cotado": ["Luzia Calderón Cotado", "Luzia Cana Cotado", "Luzia Cotado", "Luzia Calderón", "Señorita Cotado", "Luzia"],
+  "Guillén Santángel": ["Guillén Barcelo Villalbas de Canales y Santángel", "Guillén Santángel", "Señor Santángel", "Guillén", "Santángel"],
+  "Víctor de Paredes": ["Don Víctor de Paredes", "Víctor de Paredes", "Don Víctor", "Víctor", "De Paredes", "de Paredes", "Paredes"]},
+ "ambiguous": ["Cotado"],
+ "drop_if_present": ["Blanca Cotado", "Tello de Paredes", "Casa de Paredes"],
+ "notes": "Bare Cotado is ambiguous with Luzia's mother Blanca Cotado; Señorita Cotado is always Luzia. Bare de/De Paredes is almost always Víctor, but ancestor Tello de Paredes and Casa de Paredes (family) are dropped. Luzia's forged name Calderón and true middle name Cana appear only in full-name forms."
+}

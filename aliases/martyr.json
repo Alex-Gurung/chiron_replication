@@ -1,0 +1,33 @@
+{
+ "principals": {
+  "Cyrus Shams": [
+   "Cyrus Shams",
+   "Doctor Shams",
+   "Koroosh baba",
+   "Cyrus baba",
+   "Koroosh",
+   "Cyrus",
+   "CYRUS"
+  ],
+  "Roya Shams/Orkideh": [
+   "Roya Shams",
+   "Orkideh",
+   "Roya",
+   "ROYA"
+  ],
+  "Zee": [
+   "Zbigniew Ramadan Novak",
+   "Zee Novak",
+   "Zbigniew",
+   "Zee",
+   "ZEE"
+  ]
+ },
+ "ambiguous": [
+  "Shams"
+ ],
+ "drop_if_present": [
+  "Ali Shams"
+ ],
+ "notes": "Bare Shams is shared by Cyrus, his father Ali and Roya, so it is ambiguous. Roya (Cyrus's dead mother) is called Orkideh as the artist from chapter 8; Koroosh is the Persian form of Cyrus."
+}

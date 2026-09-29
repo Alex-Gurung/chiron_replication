@@ -1,0 +1,46 @@
+{
+ "principals": {
+  "Frankie McGrath": [
+   "Frances Grace McGrath",
+   "Frankie McGrath",
+   "Frances McGrath",
+   "Second Lieutenant McGrath",
+   "Lieutenants McGrath",
+   "Lieutenant McGrath",
+   "Miss McGrath",
+   "Frances Grace",
+   "Frances",
+   "Frankie",
+   "Frank",
+   "Fran"
+  ],
+  "Rye Walsh": [
+   "Lieutenant Commander Joseph Ryerson Walsh",
+   "Joseph Ryerson Walsh",
+   "Joseph “Rye” Walsh",
+   "Lieutenant Commander Walsh",
+   "Rye Walsh",
+   "Ryerson Walsh",
+   "Rye"
+  ],
+  "Finley McGrath": [
+   "Ensign Finley McGrath",
+   "Finley McGrath",
+   "Finley",
+   "Fin"
+  ]
+ },
+ "ambiguous": [
+  "McGrath",
+  "Walsh"
+ ],
+ "drop_if_present": [
+  "Bette McGrath",
+  "Connor McGrath",
+  "Elizabeth McGrath",
+  "Grandfather McGrath",
+  "Mr. Walsh",
+  "Melissa Walsh"
+ ],
+ "notes": "McGrath is shared by Frankie, Finley and their parents; bare McGrath and bare Walsh (Rye's father Mr. Walsh, wife Melissa) are ambiguous. Ethel's nickname for Frankie is 'Frank'; 'Lieutenant McGrath'/'Miss McGrath' are Frankie (Finley was an Ensign)."
+}

@@ -1,0 +1,8 @@
+{"principals": {
+  "Freya": ["Freya Born-in-Fire", "Freya Onehand", "Freya Axethief", "Freya Scorchedpalm", "Freya Charhand", "Born-in-Fire", "Freya"],
+  "Bjorn": ["Bjorn Firehand", "Bjorn Shitshimself", "Firehand", "Bjorn"],
+  "Snorri": ["Jarl Snorri", "King Snorri", "Snorri"]},
+ "ambiguous": [],
+ "drop_if_present": [],
+ "notes": "Freya is the first-person narrator, called Born-in-Fire (a moniker from ch6); Onehand/Axethief/Scorchedpalm/Charhand are her own joke nicknames (once each). Bare 'Jarl'/'jarl' is not aliased because it also names the draug jarl and other jarls; the goddess is spelled Freyja and does not match."
+}

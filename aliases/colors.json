@@ -1,0 +1,8 @@
+{"principals": {
+  "Joseph “Patch” Macauley": ["Joseph Henry Macauley", "Joseph Patch Macauley", "Joseph Macauley", "Patch Macauley", "Joseph", "Patch"],
+  "Saint": ["Special Agent Saint Brown", "Saint Brown", "Special Agent Brown", "Brown", "Saint"],
+  "Ivy Macauley": ["Ivy Macauley", "Mrs Macauley", "Ivy"]},
+ "ambiguous": ["Macauley"],
+ "drop_if_present": ["Saint Paul", "Saint Malo", "Saint Bernard", "Saint Barbara", "Ivy League", "Ivy Leagues"],
+ "notes": "Bare Macauley is shared by Patch and Ivy (and Joseph Henry Macauley is Patch). In the text Ivy behaves as Patch's mother (Patch: 'you're all I've got'; 'Ivy would not have her son back'), not a sibling. Saint is a first name whose surname Brown appears only 3x (Special Agent Saint Brown); Saint Paul/Malo/Bernard/Barbara are place/dog uses."
+}

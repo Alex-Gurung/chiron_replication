@@ -1,0 +1,24 @@
+{
+ "principals": {
+  "Emma": [
+   "Emma"
+  ],
+  "Justin": [
+   "Justin Dahl",
+   "JUSTIN",
+   "Justin"
+  ],
+  "Maddy": [
+   "Maddy"
+  ]
+ },
+ "ambiguous": [
+  "Dahl"
+ ],
+ "drop_if_present": [
+  "Justine Copeland",
+  "Aunt Justine",
+  "Justine"
+ ],
+ "notes": "Emma is the first-person narrator (only named as Emma; Reddit handle Emma16_dilemma is not matched). 'Dahl' can be Justin or his relatives (the Dahl kids), so it is ambiguous; Justine is a different character (Emma's aunt), excluded by whole-word matching but listed for safety."
+}

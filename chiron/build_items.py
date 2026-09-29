@@ -19,7 +19,7 @@ HEADING = re.compile(r"^\s*((CHAPTER|Chapter|PART|Part|PROLOGUE|Prologue|EPILOGU
 
 
 def alias_regex(aliases):
-    alts = sorted({nfc(a) for a in aliases}, key=len, reverse=True)
+    alts = sorted({v for a in aliases for v in (nfc(a), nfc(a).upper())}, key=len, reverse=True)   # + ALL-CAPS forms
     return re.compile(r"(?<![\w’'])(" + "|".join(re.escape(a) for a in alts) + r")(?![\w])")
 
 

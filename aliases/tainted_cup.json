@@ -1,0 +1,40 @@
+{
+ "principals": {
+  "Signum Dinios “Din” Kol": [
+   "Signum Dinios Kol",
+   "Signum Dinios",
+   "Signum Kol",
+   "Dinios Kol",
+   "Dinios",
+   "Din",
+   "DIN",
+   "Kol"
+  ],
+  "Immunis Anagosa “Ana” Dolabra": [
+   "Immunis Anagosa Dolabra",
+   "Immunis Ana Dolabra",
+   "Immunis Dolabra",
+   "Investigator Dolabra",
+   "Anagosa Dolabra",
+   "Ana Dolabra",
+   "Immunis Ana",
+   "Anagosa",
+   "Ana",
+   "ANA",
+   "Dolabra"
+  ],
+  "Fayazi Haza": [
+   "Madam Fayazi Haza",
+   "Fayazi Haza",
+   "Madam Haza",
+   "Fayazi"
+  ]
+ },
+ "ambiguous": [
+  "Haza"
+ ],
+ "drop_if_present": [
+  "Kaygi Haza"
+ ],
+ "notes": "Fayazi is first mentioned in chapter 23 and nothing earlier names her (earlier 'Haza' means the clan/family), so no pre-reveal alias. Bare 'Haza' is the clan, her father Kaygi Haza, or her, hence ambiguous; 'Madam Haza' (ch35-36) is her."
+}

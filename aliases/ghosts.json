@@ -1,0 +1,30 @@
+{
+ "principals": {
+  "Laura Iven": [
+   "Laura Iven",
+   "Miss Laura Iven",
+   "Miss Iven",
+   "Laura"
+  ],
+  "Freddie Iven": [
+   "Wilfred Charles Iven",
+   "Freddie Iven",
+   "Wilfred Iven",
+   "Freddie",
+   "Wilfred"
+  ],
+  "Faland": [
+   "Monsieur Faland",
+   "Faland"
+  ]
+ },
+ "ambiguous": [
+  "Iven",
+  "Ivens"
+ ],
+ "drop_if_present": [
+  "Charles Iven",
+  "Mrs. Charles Iven"
+ ],
+ "notes": "Iven is shared by Laura, Freddie and their father Charles Iven (Winter and Mary call Freddie/Laura bare Iven). Faland is called only Faland (self-introduced at chapters 18/19); before that he appears only as an unnamed stranger/violinist."
+}

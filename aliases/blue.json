@@ -1,0 +1,8 @@
+{"principals": {
+  "Avery": ["Avery", "Aves"],
+  "Bonnie": ["Bonnie Blue", "Bonnie", "Bon Bon", "Bon"],
+  "Lucky": ["Lucky Blue", "Lucky Lou", "Lucky"]},
+ "ambiguous": [],
+ "drop_if_present": [],
+ "notes": "The three Blue sisters share the surname Blue (also Nicky/Nicole Blue and 'blue' as a colour), so bare Blue is not aliased; it is rare (about 9 uses) and left unmasked. Avery/Bonnie/Lucky names belong to no other character; Lucky is a nickname-as-name and is always the sister (Lucky for/Lucky guessed are sentence uses of the name)."
+}
