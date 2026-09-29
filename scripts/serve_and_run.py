@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import shutil
 import signal
 import subprocess
 import time
@@ -52,10 +53,11 @@ def main():
     name, snapshot, extra = MODELS[args.model]
     port = 8200 + int(devices[0]) * 10
     base = f"http://127.0.0.1:{port}/v1"
+    scratch = Path(f"/tmp/chiron_{job}")            # per-job caches, deleted on exit: pods fail past 16 GiB of local writes
     env = dict(os.environ, HF_HOME="/home/toolkit/.cache/huggingface", HF_HUB_OFFLINE="1",
                VLLM_WORKER_MULTIPROC_METHOD="spawn", PYTHONUNBUFFERED="1",
-               VLLM_CACHE_ROOT=f"/tmp/vllm_cache_{job}", TRITON_CACHE_DIR=f"/tmp/triton_{job}",
-               TIKTOKEN_RS_CACHE_DIR=f"/tmp/harmony_{job}")
+               VLLM_CACHE_ROOT=str(scratch / "vllm"), TRITON_CACHE_DIR=str(scratch / "triton"),
+               TIKTOKEN_RS_CACHE_DIR=str(scratch / "harmony"))
     Path(env["TIKTOKEN_RS_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
     marker = uuid.uuid4().hex
     cmd = [PY, "-m", "vllm.entrypoints.openai.api_server", "--model", str(snapshot or name),
@@ -92,6 +94,7 @@ def main():
                         os.kill(int(proc.name), signal.SIGKILL)
                 except (FileNotFoundError, ProcessLookupError, PermissionError):
                     pass
+        shutil.rmtree(scratch, ignore_errors=True)
     raise SystemExit(rc)
 
 
