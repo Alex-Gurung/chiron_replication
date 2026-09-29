@@ -17,7 +17,7 @@ from common import OUT, read_jsonl, write_json
 
 
 def load(model, stems):
-    by = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0]))   # cond -> book -> [ok, n]
+    by = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0, 0]))   # cond -> book -> [ok, n, tokens]
     for stem in stems:
         root = OUT / "eval" / model / stem
         for f in glob.glob(str(root / "*.jsonl")):
@@ -29,6 +29,7 @@ def load(model, stems):
                 cell = by[cond][r["book"]]
                 cell[0] += int(max(lp, key=lp.get) == str(r["answer"]))
                 cell[1] += 1
+                cell[2] += r.get("prompt_tokens") or 0
     return by
 
 
@@ -57,6 +58,7 @@ def main():
         ok, n = sum(v[0] for v in d.values()), sum(v[1] for v in d.values())
         common = [b for b in books if b in acc[c]]
         row = {"pooled": ok / n if n else None, "n_trials": n, "books": len(common),
+               "mean_tokens": sum(v[2] for v in d.values()) / n if n else None,
                "macro": sum(acc[c][b] for b in common) / len(common) if common else None}
         for ref in ("noinfo", "v2"):
             shared = [b for b in common if b in acc.get(ref, {})]
