@@ -78,8 +78,10 @@ def main():
     ap.add_argument("--orders", type=int, default=6)
     ap.add_argument("--workers", type=int, default=64)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--items", default="", help="items file stem, default items_<split> (e.g. items_test_pron)")
     args = ap.parse_args()
-    items = read_jsonl(DATA / f"items_{args.split}.jsonl")
+    stem = args.items or f"items_{args.split}"
+    items = read_jsonl(DATA / f"{stem}.jsonl")
     principals = json.load(open(DATA / "principals.json"))
     reps = {}
     for r in read_jsonl(DATA / f"reps_{args.split}.jsonl"):
@@ -87,9 +89,9 @@ def main():
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag
     for cond in args.conditions:
-        out = OUT / "eval" / model_tag / args.split / f"{cond.replace(':', '_')}.jsonl"
+        out = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}.jsonl"
         done = {(r["item_id"], tuple(r["order"]), r["target"]) for r in read_jsonl(out)}
-        jobs = []
+        jobs, missing = [], 0
         for it in items:
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
@@ -102,7 +104,10 @@ def main():
                 swap = base.startswith("swap:")
                 base = base.replace("swap:", "")
                 src = {l: labels[(i + 1) % len(labels)] if swap else l for i, l in enumerate(labels)}
-                blocks = {l: reps.get((base, book, b, src[l]), "No information.") for l in labels}
+                blocks = {l: reps.get((base, book, b, src[l])) for l in labels}
+                if any(t is None for t in blocks.values()):     # never score a missing rep as "no information"
+                    missing += 1
+                    continue
                 if k:
                     blocks = {l: words(t, int(k)) for l, t in blocks.items()}
             orders = list(itertools.permutations(labels))[:args.orders] if blocks is not None else [tuple(labels)]
@@ -111,7 +116,10 @@ def main():
                     if (it["item_id"], order, target) not in done:
                         jobs.append((it, names, blocks, book_text, order, target))
         jobs.sort(key=lambda j: (j[0]["book"], j[0]["chapter_index"], j[0]["item_id"], j[4]))   # shared prefixes adjacent
-        print(f"{cond}: {len(done)} done, {len(jobs)} to score", flush=True)
+        print(f"{cond}: {len(done)} done, {len(jobs)} to score, {missing} items skipped for missing reps", flush=True)
+        if missing == len(items):
+            print(f"{cond}: ERROR no representations found; skipping condition", flush=True)
+            continue
         lock = threading.Lock()
 
         def one(j):

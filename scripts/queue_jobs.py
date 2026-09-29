@@ -4,7 +4,7 @@
   python3 scripts/queue_jobs.py chiron          CHIRON-style statements, all books (test books first)
   python3 scripts/queue_jobs.py summary         rolling character summaries, all books
   python3 scripts/queue_jobs.py charmem         finish the Sep 8 charmem rebuild, all books
-  python3 scripts/queue_jobs.py eval NAME MAXLEN MODEL COND...   one eval job (MODEL: qwen4b|mistral)
+  python3 scripts/queue_jobs.py eval NAME MAXLEN MODEL ITEMS COND...   one eval job (MODEL: qwen4b|mistral)
 Lower priority number is claimed first. Job names are stamped so reruns never collide.
 """
 import json
@@ -74,10 +74,12 @@ def main():
         for model in ("qwen4b", "mistral"):
             add(f"memo_{model}", 1, ["--model", model, "--max-model-len", "8192"],
                 [f"{REPO}/chiron/memo_probe.py", "--books", *TEST, "--n", "20"], -1)
+    elif what == "pronouns":
+        add("pronouns_test", 1, oss1, [f"{REPO}/chiron/pronouns.py", "--split", "test"], -1)
     elif what == "eval":
-        name, maxlen, model, conds = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:]
+        name, maxlen, model, stem, conds = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:]
         add(f"eval_{name}", 1, ["--model", model, "--max-model-len", maxlen],
-            [f"{REPO}/chiron/eval_mcp.py", "--split", "test", "--conditions", *conds, "--workers", "128"], -1)
+            [f"{REPO}/chiron/eval_mcp.py", "--split", "test", "--items", stem, "--conditions", *conds, "--workers", "128"], -1)
     else:
         raise SystemExit(__doc__)
 
