@@ -25,6 +25,7 @@ from common import COHORTS, DATA, OUT, read_jsonl
 CATEGORIES = ["Physical/Personality", "Dialogue", "Knowledge", "Goals"]
 CHARMEM = Path("/home/toolkit/ncp_charmem_gptoss120b_reviewed_20260908/sheets")
 LEGACY = DATA / "legacy"
+LEGACY_LABEL = {"Rohan": "Rohanc", "Michael Bradshaw": "Michael BradshaDavinaw"}   # the archive keeps the pre-repair names
 
 
 def dedup(statements, threshold=0.9):
@@ -98,8 +99,9 @@ def main():
     full = pickle.load(open(LEGACY / f"{args.split}_long_story_storycharchap_to_csheet.pkl", "rb"))
     comp = pickle.load(open(LEGACY / f"{args.split}_long_story_character_sheet_summaryllama70B_0.5max.pkl", "rb"))
     for book, b, l in keys:
-        add("legacy", book, b, l, comp.get(f"{book}_{l}_{b}"))
-        add("legacy_full", book, b, l, full.get(f"{book}_{l}_{b}"))
+        k = f"{book}_{LEGACY_LABEL.get(l, l)}_{b}"
+        add("legacy", book, b, l, comp.get(k))
+        add("legacy_full", book, b, l, full.get(k))
     summ = {}
     for f in glob.glob(str(OUT / "summary_v2" / "*.jsonl")):       # v1 (outputs/summary) grew past the cap; superseded
         if f.endswith(".errors.jsonl"):
