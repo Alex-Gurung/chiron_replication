@@ -1,0 +1,7 @@
+{"principals": {
+  "Dafyd Alkhor": ["Dafyd Alkhor", "Dafyd", "Alkhor"],
+  "Tonner Freis": ["Tonner Freis", "Tonner", "Freis"],
+  "Else Yannin": ["Else Annalise Yannin", "Annalise Yannin", "Else Yannin", "Else", "Yannin", "Annalise"]},
+ "ambiguous": [],
+ "drop_if_present": ["Dorinda Alkhor"],
+ "notes": "Else is matched case-sensitively (lowercase else is the English word). Dorinda Alkhor is Dafyd's aunt."}

@@ -1,0 +1,134 @@
+"""Shared paths, book loading, snippet splitting, display names and jsonl helpers.
+
+Stdlib only, so it runs under any pod python. Book text comes from the chapter file
+rebuilt from ncp_cohorts_v2 (ncp_charmem_v3/chapters.jsonl); principals are the
+book-level main_character_labels.
+"""
+import collections
+import html
+import json
+import os
+import re
+import unicodedata
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+DATA = REPO / "data"
+OUT = REPO / "outputs"
+CHAPTERS = Path("/home/toolkit/ncp_charmem_v3/chapters.jsonl")
+COHORTS = Path("/home/toolkit/ncp_cohorts_v2")
+TEST_BOOKS = ("dark", "god", "mercy", "witch")
+SNIPPET_WORDS = 300
+
+NAME_SKIP = {"The", "A", "An", "Mr", "Mr.", "Mrs", "Mrs.", "Ms", "Ms.", "Dr", "Dr.", "Miss", "Sir", "Lady",
+             "Lord", "Aunt", "Uncle", "Father", "Mother", "Sister", "Brother"}
+
+
+def nfc(text):
+    return unicodedata.normalize("NFC", text)
+
+
+def fold(text):
+    """NFC + accent-stripped, for name matching (book text is NFD, labels NFC)."""
+    return "".join(c for c in unicodedata.normalize("NFD", text) if not unicodedata.combining(c))
+
+
+def clean_text(text):
+    """Strip the HTML some books carry and unescape entities (same rules as charmem common.clean_text)."""
+    t = re.sub(r"<!--.*?-->|<!--<hr/>", "", text, flags=re.S)
+    t = re.sub(r"<img[^<>]*>", "", t)
+    t = re.sub(r"<hr\s*/?>", "\n", t)
+    t = re.sub(r"</?[A-Za-z][^<>\n]{0,200}/?>", "", t)
+    return nfc(html.unescape(t))
+
+
+def load_chapters():
+    by_book = collections.defaultdict(list)
+    for line in open(CHAPTERS):
+        r = json.loads(line)
+        by_book[r["book_id"]].append(r)
+    for v in by_book.values():
+        v.sort(key=lambda r: r["chapter_index"])
+    return dict(by_book)
+
+
+def boundaries():
+    """book -> sorted target chapter indices of the v2 cohort (2..N-1)."""
+    out = collections.defaultdict(set)
+    for split in ("train", "val", "test"):
+        for line in open(COHORTS / f"{split}_examples.jsonl"):
+            r = json.loads(line)
+            out[r["story_id"]].add(r["chapter_index"])
+    return {k: sorted(v) for k, v in out.items()}
+
+
+SENT = re.compile(r"(?<=[.!?…])[\"”’)\]]*\s+(?=[\"“‘(\[]?[A-Z0-9])")
+
+
+def split_snippets(text, target=SNIPPET_WORDS):
+    """Greedy sentence packing into ~target-word snippets; a short tail joins the previous one."""
+    sents = [s for s in SENT.split(" ".join(text.split())) if s.strip()]
+    chunks, cur, n = [], [], 0
+    for s in sents:
+        cur.append(s)
+        n += len(s.split())
+        if n >= target:
+            chunks.append(" ".join(cur))
+            cur, n = [], 0
+    if cur:
+        if chunks and n < target // 3:
+            chunks[-1] += " " + " ".join(cur)
+        else:
+            chunks.append(" ".join(cur))
+    return chunks
+
+
+def name_seen(name, text_folded):
+    toks = [t.strip(".,'’") for t in re.findall(r"[^\s\"“”]+", fold(name))]
+    toks = [t for t in toks if t and t[0].isupper() and t not in NAME_SKIP]
+    return all(re.search(r"(?<!\w)" + re.escape(t) + r"(?!\w)", text_folded) for t in toks) if toks else True
+
+
+def display_name(label, seen_folded):
+    """Label with any variant (slash part or parenthetical) not yet named in the seen text removed."""
+    kept = []
+    for part in [p.strip() for p in label.split("/") if p.strip()]:
+        base = re.sub(r"\s*\([^)]*\)", "", part).strip()
+        parens = [p.strip() for p in re.findall(r"\(([^)]*)\)", part)]
+        keep_parens = [p for p in parens if name_seen(p, seen_folded)]
+        if name_seen(base, seen_folded):
+            kept.append(base + "".join(f" ({p})" for p in keep_parens))
+        elif keep_parens:
+            kept.append(keep_parens[0])
+    if kept:
+        return " / ".join(kept)
+    first = label.split("/")[0]
+    return re.sub(r"\s*\([^)]*\)", "", first).strip()
+
+
+def read_jsonl(path):
+    out = []
+    if not Path(path).exists():
+        return out
+    for line in open(path):
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass                                    # torn final line after preemption
+    return out
+
+
+def append_jsonl(path, rec):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
+
+
+def write_json(path, obj):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + f".tmp{os.getpid()}")
+    tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1))
+    os.replace(tmp, path)

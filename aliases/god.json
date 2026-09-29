@@ -1,0 +1,6 @@
+{"principals": {
+  "Alice Ward Van Laar": ["Alice Ward Van Laar", "Alice Van Laar", "Alice Ward", "Alice"],
+  "Barbara Van Laar": ["Barbara Van Laar", "Bar-ba-rah Van Laar", "Barbara"],
+  "Louise Donnadieu": ["Louise Donnadieu", "Louise", "Lou", "Donnadieu"]},
+ "ambiguous": ["Van Laar", "Ward", "Donnadieus"],
+ "notes": "Bare Van Laar can be Alice or Barbara (or Peter/Bear); Ward alone can be Alice's family; the Van Laars (plural) is the family and stays unmasked."}

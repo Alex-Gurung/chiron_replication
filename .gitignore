@@ -2,3 +2,4 @@ data/
 outputs/
 *.pkl
 __pycache__/
+.venv/
