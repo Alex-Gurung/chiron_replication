@@ -39,11 +39,12 @@ def main():
                     lp = r["logprobs"]
                     s["char_n"] += 1
                     s["char_ok"] += int(max(lp, key=lp.get) == str(r["answer"]))
-                    s["nondigit"] += int(r["top_token"].strip() not in "012" or not r["top_token"].strip())
+                    s["nondigit"] += int(r["top_token"].strip() not in lp)
                     s["tokens"] += r["prompt_tokens"] or 0
-                if len(g) == 3:
+                digits = sorted(next(iter(g.values()))["logprobs"])
+                if len(g) == len(digits):
                     targets = sorted(g)
-                    best = max(itertools.permutations("012"), key=lambda p: sum(
+                    best = max(itertools.permutations(digits), key=lambda p: sum(
                         g[t]["logprobs"][d] if g[t]["logprobs"][d] > -math.inf else -1e9 for t, d in zip(targets, p)))
                     hits = [d == str(g[t]["answer"]) for t, d in zip(targets, best)]
                     s["assign_n"] += 3
@@ -69,7 +70,7 @@ def main():
                 for rec in per.values():
                     if not all(c in rec for c in subset):
                         continue
-                    pred = max("012", key=lambda d: sum(rec[c][d] for c in subset))
+                    pred = max(rec[subset[0]], key=lambda d: sum(rec[c][d] for c in subset))
                     for key in ("all", rec["book"]):
                         stats[key]["n"] += 1
                         stats[key]["ok"] += int(pred == str(rec["answer"]))

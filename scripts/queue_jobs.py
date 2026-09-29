@@ -93,6 +93,9 @@ def main():
         pron = ["noinfo", "v2", "legacy", "summary", "charmem", "chiron_r2000", "chiron", "book_last8000"]
         mistral = ["noinfo", "v2", "swap:v2", "legacy", "summary", "charmem", "chiron_r500", "chiron_r2000",
                    "book_last2000", "book_last8000"]
+        two_short = ["noinfo", "v2", "swap:v2", "legacy", "summary", "swap:summary", "charmem", "swap:charmem",
+                     "chiron_r500", "chiron_r2000", "book_last8000"]
+        two_long = ["chiron", "swap:chiron", "legacy_full", "book"]
         for split in sys.argv[2:]:
             ev = lambda stem, conds: [f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", stem,
                                       "--conditions", *conds, "--workers", "128"]
@@ -102,6 +105,10 @@ def main():
                 add(f"final_{split}_{c.replace(':', '_')}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}", [c]), 1)
             add(f"final_{split}_pron", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_pron", pron), 1)
             add(f"final_{split}_mistral", 1, ["--model", "mistral", "--max-model-len", "32768"], ev(f"items_{split}", mistral), 2)
+            for c in two_short:
+                add(f"final_{split}_two_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev(f"items_{split}_two", [c]), 2)
+            for c in two_long:
+                add(f"final_{split}_two_{c.replace(':', '_')}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_two", [c]), 2)
     elif what == "eval":
         name, maxlen, model, stem, conds = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:]
         add(f"eval_{name}", 1, ["--model", model, "--max-model-len", maxlen],

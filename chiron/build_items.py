@@ -60,6 +60,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="test")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--two", action="store_true", help="sections naming exactly two principals (2-way items)")
     args = ap.parse_args()
     chapters = load_chapters()
     items, table, leftovers = [], {}, []
@@ -87,18 +88,18 @@ def main():
         if protect and protect.search(text):           # another character's name contains a principal alias
             t["ambiguous"] += 1
             continue
-        if not all(rx.search(text) for rx in regs.values()):
+        labels = [l for l, rx in regs.items() if rx.search(text)]
+        if len(labels) != (2 if args.two else len(regs)):
             t["not_all_named"] += 1
             continue
-        if any(len({c for c in named_in[l] if c < b}) < MIN_PRIOR for l in regs):
+        if any(len({c for c in named_in[l] if c < b}) < MIN_PRIOR for l in labels):
             t["too_early"] += 1
             continue
-        labels = list(regs)
         ids = list(range(len(labels)))
-        item_id = f"{book}__c{b:03d}__k{rec['chunk_index']:02d}"
+        item_id = f"{book}__c{b:03d}__k{rec['chunk_index']:02d}" + ("__two" if args.two else "")
         random.Random(f"{args.seed}:{item_id}").shuffle(ids)   # per item, so dropping one never moves another's masks
         order = dict(zip(labels, ids))
-        masked, used = mask(text, regs, order)
+        masked, used = mask(text, {l: regs[l] for l in labels}, order)
         if amb and amb.search(masked):                # checked after masking: "Liska Radost" is gone, "Dobrawa Radost" is not
             t["ambiguous"] += 1
             continue
@@ -111,7 +112,7 @@ def main():
                       "chunk_index": rec["chunk_index"], "labels": labels, "answer": order,
                       "mentions": {l: used.count(l) for l in labels}, "masked": masked, "original": text})
         t["items"] += 1
-    with open(DATA / f"items_{args.split}.jsonl", "w") as f:
+    with open(DATA / f"items_{args.split}{'_two' if args.two else ''}.jsonl", "w") as f:
         for it in items:
             f.write(json.dumps(it, ensure_ascii=False) + "\n")
     for book, t in table.items():

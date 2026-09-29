@@ -27,9 +27,13 @@ from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_json
 
 API = os.environ.get("CHIRON_API_BASE", "http://127.0.0.1:8000/v1")
 MODEL = os.environ.get("CHIRON_MODEL", "Qwen/Qwen3-4B-Instruct-2507")
-INTRO = ("Below is information about three characters from a novel, followed by a passage from a later part of the "
-         "same novel. In the passage, each of these characters' names has been replaced with an ID: [CHAR 0], "
-         "[CHAR 1] or [CHAR 2]. Each ID stands for exactly one of the three characters.")
+INTRO = {3: ("Below is information about three characters from a novel, followed by a passage from a later part of the "
+             "same novel. In the passage, each of these characters' names has been replaced with an ID: [CHAR 0], "
+             "[CHAR 1] or [CHAR 2]. Each ID stands for exactly one of the three characters."),
+         2: ("Below is information about two characters from a novel, followed by a passage from a later part of the "
+             "same novel. In the passage, each of these characters' names has been replaced with an ID: [CHAR 0] or "
+             "[CHAR 1]. Each ID stands for exactly one of the two characters.")}
+DIGITS = {3: "0, 1 or 2", 2: "0 or 1"}
 
 
 def words(text, k, last=False):
@@ -38,7 +42,8 @@ def words(text, k, last=False):
 
 
 def prompt(item, names, blocks, book_text, target):
-    parts = [INTRO]
+    n = len(item["order"])
+    parts = [INTRO[n]]
     if book_text is not None:
         parts.append("# The novel so far\n\n" + book_text)
     if blocks is None:
@@ -46,11 +51,11 @@ def prompt(item, names, blocks, book_text, target):
     else:
         parts.append("# Character information\n\n" + "\n\n".join(f"## {names[l]}\n\n{blocks[l].strip()}" for l in item["order"]))
     parts.append("# Passage\n\n" + item["masked"])
-    parts.append(f"# Question\n\nWhich ID in the passage is {names[target]}? Answer with only the digit 0, 1 or 2.")
+    parts.append(f"# Question\n\nWhich ID in the passage is {names[target]}? Answer with only the digit {DIGITS[n]}.")
     return "\n\n".join(parts)
 
 
-def score(text):
+def score(text, n=3):
     body = json.dumps({"model": MODEL, "messages": [{"role": "user", "content": text}], "max_tokens": 1,
                        "temperature": 0.0, "logprobs": True, "top_logprobs": 20}).encode()
     req = urlrequest.Request(API + "/chat/completions", data=body, headers={"Content-Type": "application/json"})
@@ -63,7 +68,7 @@ def score(text):
             if k == 4:
                 raise
     top = resp["choices"][0]["logprobs"]["content"][0]["top_logprobs"]
-    lp = {d: -math.inf for d in "012"}
+    lp = {str(d): -math.inf for d in range(n)}
     for t in top:
         tok = t["token"].strip()
         if tok in lp:
@@ -126,7 +131,7 @@ def main():
             it, names, blocks, book_text, order, target = j
             text = prompt({**it, "order": order}, names, blocks, book_text, target)
             try:
-                lp, top, ntok = score(text)
+                lp, top, ntok = score(text, len(order))
             except urlerror.HTTPError as e:              # 400 = prompt longer than the served context
                 with lock:
                     append_jsonl(out.with_suffix(".errors.jsonl"), {"item_id": it["item_id"], "order": list(order),

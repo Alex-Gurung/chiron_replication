@@ -77,7 +77,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="test")
     args = ap.parse_args()
-    items = read_jsonl(DATA / f"items_{args.split}.jsonl")
+    items = read_jsonl(DATA / f"items_{args.split}.jsonl") + read_jsonl(DATA / f"items_{args.split}_two.jsonl")
     keys = {(it["book"], it["chapter_index"], l) for it in items for l in it["labels"]}
     books = {k[0] for k in keys}
     recs = []
