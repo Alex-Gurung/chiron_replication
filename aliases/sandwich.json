@@ -1,0 +1,20 @@
+{
+ "principals": {
+  "Rocky": [
+   "Rachel",
+   "Rocky",
+   "Rock"
+  ],
+  "Nick": [
+   "Nicholas",
+   "Nicky",
+   "Nick"
+  ],
+  "Willa": [
+   "Willa"
+  ]
+ },
+ "ambiguous": [],
+ "drop_if_present": [],
+ "notes": "Rocky is the narrator Rachel (nickname Rocky/Rock, first name Rachel used by Nick and her mother); Nick is the husband (Nicky, Nicholas); Willa is the daughter. Lowercase 'rock' is excluded by case-sensitive matching."
+}

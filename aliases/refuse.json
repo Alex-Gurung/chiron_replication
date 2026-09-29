@@ -1,0 +1,16 @@
+{
+ "principals": {
+  "Rainy": [
+   "Rainy"
+  ],
+  "Lark": [
+   "Lark"
+  ],
+  "Sol": [
+   "Sol"
+  ]
+ },
+ "ambiguous": [],
+ "drop_if_present": [],
+ "notes": "All three are single-name characters; no surnames or nicknames occur. Sol first appears in chapter 19; capitalised uses of Lark/Sol/Rainy are all sentence-initial name uses, none as common words."
+}

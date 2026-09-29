@@ -1,0 +1,28 @@
+{
+ "principals": {
+  "Hana": [
+   "Ishikawa Hana",
+   "Hana"
+  ],
+  "Keishin": [
+   "Minatozaki Keishin",
+   "Minatozaki-san",
+   "Minatozaki",
+   "Keishin",
+   "Kei"
+  ],
+  "Toshio": [
+   "Ishikawa Toshio",
+   "Toshio"
+  ]
+ },
+ "ambiguous": [
+  "Ishikawa",
+  "Ishikawa-san",
+  "Otou-san"
+ ],
+ "drop_if_present": [
+  "Ishikawa Chiyo"
+ ],
+ "notes": "Ishikawa is the family surname (Hana, Toshio, Chiyo) so bare Ishikawa/Ishikawa-san (usually Toshio) is ambiguous. Otou-san is Hana's address for Toshio but a kinship term, so it is ambiguous rather than an alias. Kei is Keishin's nickname."
+}

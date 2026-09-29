@@ -1,0 +1,54 @@
+{
+ "principals": {
+  "Evie Porter": [
+   "Evie Porter",
+   "Evelyn Porter",
+   "Miss Porter",
+   "Evie",
+   "Evelyn",
+   "Izzy Williams",
+   "Isabelle Williams",
+   "Izzy",
+   "Isabelle",
+   "Mia Bianchi",
+   "Mia",
+   "Wendy Wallace",
+   "Wendy",
+   "Regina Hale",
+   "Mrs. Hale",
+   "Hale",
+   "Mrs. Smith",
+   "Miss Smith"
+  ],
+  "Ryan Sumner": [
+   "Ryan Sumner",
+   "Ryan"
+  ],
+  "Mr. Smith": [
+   "Mr. Christopher Smith",
+   "Christopher Smith",
+   "Mr. Smith",
+   "Christopher",
+   "Smith"
+  ]
+ },
+ "ambiguous": [
+  "Sumner",
+  "Porter",
+  "Williams",
+  "Lucca",
+  "Lucca Marino",
+  "Marino",
+  "Miss Marino"
+ ],
+ "drop_if_present": [
+  "Scott Sumner",
+  "Meredith Sumner",
+  "Ingrid Sumner",
+  "William Sumner",
+  "Officer Williams",
+  "Amy Porter",
+  "Regina West"
+ ],
+ "notes": "Narrator Evie Porter is a con artist; her real name Lucca Marino is ambiguous because a different woman (James Bernard's date) is called Lucca Marino in chapters 6-16. Bare Smith means Mr. Smith except Mrs./Miss Smith, which are aliases for the narrator; Sumner is shared by Ryan's relatives."
+}

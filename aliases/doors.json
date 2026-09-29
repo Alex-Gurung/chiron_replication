@@ -1,0 +1,32 @@
+{
+ "principals": {
+  "Cassidy Andrews": [
+   "Cassie Andrews",
+   "Ms Andrews",
+   "Cassidy",
+   "Cassie",
+   "Cass"
+  ],
+  "Isabelle Cattaneo": [
+   "Isabella Cattaneo",
+   "Ms Cattaneo",
+   "Isabella",
+   "Cattaneo",
+   "Izzy"
+  ],
+  "Drummond Fox": [
+   "Drummond Fox",
+   "Mr Fox",
+   "Drummond"
+  ]
+ },
+ "ambiguous": [
+  "Andrews"
+ ],
+ "drop_if_present": [
+  "Joseph Andrews",
+  "Edmund Fox",
+  "Sir Edmund Fox"
+ ],
+ "notes": "Label 'Isabelle' never occurs; the text uses Izzy and once Isabella Cattaneo. Cassidy (only ch19, grandfather) is Cassie's full first name; before that she is Cassie/Cass. Bare Fox is deliberately in neither list: it names Sir Edmund Fox (ch12) and 'the Fox Library' (67x), and bare-Fox uses for Drummond are ~2 (ch10-11), so 'Fox Library' sections are kept."
+}
