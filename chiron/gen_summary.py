@@ -2,8 +2,10 @@
 
 S_1 summarises chapter 0; S_{c+1} updates S_c with chapter c. The summary used at boundary b is
 S_b, built from chapters < b only. Books exceed gpt-oss's 131k context, hence rolling rather than
-whole-book prompts. Chains run in parallel; each chain is sequential. Resumable.
-Output: outputs/summary/<tag>.jsonl, one record per (book, label, boundary).
+whole-book prompts. Each update is asked to stay near LIMIT words by condensing older details; if it
+still exceeds CAP, one compression call condenses it to LIMIT (the "update, then compress" rule applies
+to every step, so chains are consistent). Chains run in parallel; each chain is sequential. Resumable.
+Output: outputs/summary_v2/<tag>.jsonl, one record per (book, label, boundary).
 """
 import argparse
 import json
@@ -16,14 +18,18 @@ import llm
 ASPECTS = ("Include aspects of the character like how they speak, what they look like, their personality, "
            "their goals, etc.")
 LIMIT = 700
-CAP = 1200                       # prompt asks for 700; accumulated summaries run ~900-1,050
+CAP = 900
 EMPTY = "No information yet."
+ROOT = OUT / "summary_v2"
+SYSTEM = {"role": "system", "content": "You are a helpful and expert writing assistant."}
 
 
-def check(text):
-    if len(text.split()) > CAP:
-        raise ValueError(f"summary is {len(text.split())} words; rewrite it to at most {LIMIT} words by compressing older details")
-    return text
+def cap(n):
+    def f(text):
+        if len(text.split()) > n:
+            raise ValueError(f"summary is {len(text.split())} words; condense it to at most {LIMIT} words")
+        return text
+    return f
 
 
 def messages(name, prev, chapter_text):
@@ -33,15 +39,22 @@ def messages(name, prev, chapter_text):
     else:
         body = (f"Summary of everything learned about {name} in the story before this chapter:\n{prev}\n\n"
                 f"Next chapter:\n{chapter_text}\n\nWrite an updated summary of everything we have learned about "
-                f"{name} in the story so far, including this chapter. {ASPECTS} Keep earlier information unless "
-                "the story has changed it. Use only the previous summary and the story text.")
+                f"{name} in the story so far, including this chapter. {ASPECTS} Use only the previous summary and "
+                f"the story text. Stay within {LIMIT} words: condense or drop older, less important details to make "
+                "room for new information.")
     if prev is None or prev.strip() == EMPTY:
         body += f" If {name} has not appeared in the story yet, reply exactly: {EMPTY}"
     else:
         body += f" If this chapter adds nothing about {name}, return the previous summary unchanged."
     body += f" Write at most {LIMIT} words of plain prose, with no headings."
-    return [{"role": "system", "content": "You are a helpful and expert writing assistant."},
-            {"role": "user", "content": body}]
+    return [SYSTEM, {"role": "user", "content": body}]
+
+
+def compress_messages(name, text):
+    return [SYSTEM, {"role": "user", "content": (
+        f"Here is a summary of everything learned about {name} in a story so far:\n{text}\n\n"
+        f"Condense it to at most {LIMIT} words of plain prose, with no headings. Keep the most important and most "
+        "distinctive information about the character; do not add anything new.")}]
 
 
 def main():
@@ -53,13 +66,12 @@ def main():
     assert llm.server_up(), "gpt-oss server not reachable"
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
-    out = OUT / "summary" / f"{args.tag}.jsonl"
+    out = ROOT / f"{args.tag}.jsonl"
     have = {}                                          # resume from every earlier run's file, not only this tag's
-    for f in sorted((OUT / "summary").glob("*.jsonl")):
-        if f.name.endswith(".errors.jsonl") or f.name.startswith("smoke"):
-            continue
-        for r in read_jsonl(f):
-            have[(r["book"], r["label"], r["boundary"])] = r
+    for f in sorted(ROOT.glob("*.jsonl")) if ROOT.exists() else []:
+        if not f.name.endswith(".errors.jsonl"):
+            for r in read_jsonl(f):
+                have[(r["book"], r["label"], r["boundary"])] = r
     fails = []
 
     def chain(book, label):
@@ -74,13 +86,18 @@ def main():
             name = principals[book]["gen_names"][label][c]
             text = clean_text(chs[c]["chapter_text_normalized"])
             try:
-                summ, meta = llm.ask(messages(name, prev, text), check, max_tokens=12000, as_json=False)
+                summ, meta = llm.ask(messages(name, prev, text), cap(4000), max_tokens=12000, as_json=False)
+                compressed = None
+                if len(summ.split()) > CAP:
+                    compressed = len(summ.split())
+                    summ, meta2 = llm.ask(compress_messages(name, summ), cap(CAP), max_tokens=8000, as_json=False)
+                    meta = {"update": meta, "compress": meta2}
             except Exception as e:
                 fails.append((book, label, b))
                 append_jsonl(out.with_suffix(".errors.jsonl"), {"book": book, "label": label, "boundary": b, "error": str(e)[:2000]})
                 return
-            append_jsonl(out, {"book": book, "label": label, "boundary": b, "name": name,
-                               "summary": summ, "words": len(summ.split()), "meta": meta})
+            append_jsonl(out, {"book": book, "label": label, "boundary": b, "name": name, "summary": summ,
+                               "words": len(summ.split()), "compressed_from": compressed, "meta": meta})
             prev = summ
         print(f"DONE {book} {label}", flush=True)
 

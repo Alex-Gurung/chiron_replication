@@ -101,8 +101,8 @@ def main():
         add("legacy", book, b, l, comp.get(f"{book}_{l}_{b}"))
         add("legacy_full", book, b, l, full.get(f"{book}_{l}_{b}"))
     summ = {}
-    for f in glob.glob(str(OUT / "summary" / "*.jsonl")):
-        if "smoke" in f or f.endswith(".errors.jsonl"):
+    for f in glob.glob(str(OUT / "summary_v2" / "*.jsonl")):       # v1 (outputs/summary) grew past the cap; superseded
+        if f.endswith(".errors.jsonl"):
             continue
         for r in read_jsonl(f):
             summ[(r["book"], r["boundary"], r["label"])] = r["summary"]
