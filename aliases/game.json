@@ -1,0 +1,31 @@
+{
+ "principals": {
+  "Lyra Kane": [
+   "Lyra Catalina Kane",
+   "Lyra Kane",
+   "Lyra Catalina",
+   "Ms. Kane",
+   "Lyra"
+  ],
+  "Rohan": [
+   "Rohan"
+  ],
+  "Gigi (Juliet) Grayson": [
+   "Gigi Grayson",
+   "Gigi",
+   "Juliet"
+  ]
+ },
+ "ambiguous": [
+  "Grayson",
+  "Graysons",
+  "Kane"
+ ],
+ "drop_if_present": [
+  "Grayson Hawthorne",
+  "Savannah Grayson",
+  "Sheffield Grayson",
+  "Keith Kane"
+ ],
+ "notes": "Bare Grayson mostly means Grayson Hawthorne (also Savannah and Sheffield Grayson), so only 'Gigi Grayson' is a Gigi alias. Bare Kane is only used in Lyra Kane, Ms. Kane, Lyra Catalina Kane and once for Keith Kane (her adoptive dad), so it is ambiguous."
+}

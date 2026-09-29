@@ -74,6 +74,11 @@ def main():
         for model in ("qwen4b", "mistral"):
             add(f"memo_{model}", 1, ["--model", model, "--max-model-len", "8192"],
                 [f"{REPO}/chiron/memo_probe.py", "--books", *TEST, "--n", "20"], -1)
+    elif what == "requeue":                        # rerun a job's exact command under a fresh name (outputs resume)
+        old = json.load(open(q._path(BASE, sys.argv[2], q._find(BASE, sys.argv[2]))))
+        name = old["name"].rsplit("_", 1)[0].replace("chiron_", "", 1)
+        ok = q.add(BASE, f"chiron_{name}_{STAMP}", old["cmd"], gpus=old["gpus"], lane="chiron", priority=old["priority"])
+        print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
     elif what == "pronouns":
         add("pronouns_test", 1, oss1, [f"{REPO}/chiron/pronouns.py", "--split", "test"], -1)
     elif what == "eval":

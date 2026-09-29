@@ -99,6 +99,50 @@ def verify_book(book, width):
         "source_ledger_sha256": {p.name: C.csha(json.loads(p.read_text())) for p in expected}})
 
 
+def strong_repair(request):
+    """Pinned last-attempt repair, then targeted fixes driven by the validator's own error, until it passes:
+    repeated ids -> dedupe; over the word cap -> drop the last item of the longest section/character;
+    invalid, duplicate, principal or note-less supporting names -> drop that entry."""
+    import re
+    base, validate = request["repair"], request["validator"]
+
+    def repair(payload, error):
+        info = base(payload, error) or {}
+        info["extra"] = []
+        for _ in range(200):
+            try:
+                validate(payload)
+                return info
+            except (KeyError, TypeError, ValueError) as e:
+                msg = str(e)
+            groups = list((payload.get("sections") or {}).values()) + [c.get("notes", []) for c in payload.get("characters") or []]
+            if "repeated source ID" in msg:
+                for items in groups:
+                    for it in items:
+                        it["source_ids"] = list(dict.fromkeys(it.get("source_ids", [])))
+            elif re.search(r"has \d+ words; maximum", msg):
+                longest = max(groups, key=len)
+                if not longest:
+                    return info
+                longest.pop()
+            elif "characters" in payload and re.search(r"name|principal|has no notes", msg):
+                bad = next((c for c in payload["characters"] if repr(c.get("character")) in msg or f"{c.get('character')} " in msg), None)
+                seen, keep = set(), []
+                for c in payload["characters"]:
+                    k = str(c.get("character", "")).casefold()
+                    if c is not bad and k not in seen and c.get("notes"):
+                        seen.add(k)
+                        keep.append(c)
+                if len(keep) == len(payload["characters"]):
+                    return info
+                payload["characters"] = keep
+            else:
+                return info
+            info["extra"].append(msg[:120])
+        return info
+    return repair
+
+
 def synthesize_book(book, width):
     import synthesize as S
     chapters, bounds, labels = C.load_chapters(), C.load_boundaries(), C.load_labels()
@@ -116,12 +160,18 @@ def synthesize_book(book, width):
 
     independent = [[requests[rid]] for items in plan.values() for rid, ids in items.values()]
     results, failures = S.run_streams(independent, width, label=f"synth {book}", on_done=done)
-    if failures:
-        raise RuntimeError(f"{book}: {len(failures)} synthesis requests failed")
-    for boundary in bounds[book]:
-        assert (REVIEW / "sheets" / f"{book}__{boundary:04d}.json").exists()
+    if failures:                                     # second round: same prompt, fresh attempts, stronger repair
+        retry = [[{**requests[rid], "repair": strong_repair(requests[rid])}] for rid in failures]
+        more, failures = S.run_streams(retry, width, label=f"synth-retry {book}")
+        results.update(more)
+        for rid in more:
+            done(rid, results)
+    missing = [b for b in bounds[book] if not (REVIEW / "sheets" / f"{book}__{b:04d}.json").exists()]
     C.write_json(REVIEW / "completed_books" / f"{book}.json", {"book": book, "boundaries": len(bounds[book]),
-                 "harness": HARNESS, "canonical_cohort_changed": False})
+                 "missing_boundaries": missing, "failed_requests": sorted(failures), "harness": HARNESS,
+                 "canonical_cohort_changed": False})
+    if missing:
+        raise RuntimeError(f"{book}: {len(missing)} boundaries without sheets: {missing}")
 
 
 def finish(book, width):

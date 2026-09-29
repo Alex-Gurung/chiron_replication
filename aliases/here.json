@@ -1,0 +1,29 @@
+{
+ "principals": {
+  "Marnie Walsh": [
+   "Marnie Walsh",
+   "Marnie",
+   "Marns",
+   "Walsh"
+  ],
+  "Michael Bradshaw": [
+   "Michael Bradshaw",
+   "Mr Bradshaw",
+   "Michael",
+   "Mikey",
+   "Mike"
+  ],
+  "Cleo Fraser": [
+   "Mrs Fraser",
+   "Fraser",
+   "Cleo"
+  ]
+ },
+ "ambiguous": [
+  "Bradshaw"
+ ],
+ "drop_if_present": [
+  "Mrs Bradshaw"
+ ],
+ "notes": "Bare Bradshaw is ambiguous: 'Mr Bradshaw' is Michael but 'Mrs Bradshaw' is his ex-wife and 'first Bradshaw in higher education' is family. Michael is Mike/Mikey only rarely. Walsh/Fraser occur only for Marnie and Cleo (Mrs Fraser)."
+}

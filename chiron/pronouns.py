@@ -46,10 +46,13 @@ def check(n, labels):
         if not isinstance(rows, list):
             raise ValueError('expected {"pronouns": [...]}')
         got = {}
+        lookup = {"other": "other", **{l.casefold(): l for l in labels},
+                  **{l.split()[0].casefold().strip("()"): l for l in labels if not l.startswith("The ")}}
         for r in rows:
-            if type(r.get("id")) is not int or r.get("ref") not in [*labels, "other"] or type(r.get("possessive")) is not bool:
-                raise ValueError("each entry needs an integer id, a ref from the list or 'other', and a boolean possessive")
-            got[r["id"]] = r
+            ref = lookup.get(str(r.get("ref", "")).casefold().strip())
+            if type(r.get("id")) is not int or ref is None or type(r.get("possessive")) is not bool:
+                raise ValueError("each entry needs an integer id, a ref copied exactly from the list or 'other', and a boolean possessive")
+            got[r["id"]] = {**r, "ref": ref}
         if set(got) != set(range(n)):
             raise ValueError(f"need exactly one entry for each id 0..{n - 1}")
         return [got[i] for i in range(n)]
@@ -85,13 +88,18 @@ def main():
         text, spans = numbered(it["original"])
         resolved = []
         if spans:
-            resolved, _ = llm.ask(messages(text, it["labels"]), check(len(spans), it["labels"]), max_tokens=12000)
+            try:
+                resolved, _ = llm.ask(messages(text, it["labels"]), check(len(spans), it["labels"]), max_tokens=12000)
+            except ValueError as e:
+                print("UNRESOLVED", it["item_id"], str(e)[:200], flush=True)
+                return None
         masked = remask(it, aliases, resolved, spans)
         return {**it, "masked": masked, "pronouns_masked": sum(r["ref"] != "other" for r in resolved),
                 "pronouns_total": len(spans)}
 
     with ThreadPoolExecutor(64) as pool:
-        out = list(pool.map(one, items))
+        out = [it for it in pool.map(one, items) if it is not None]
+    print(f"{len(items) - len(out)} items dropped: pronouns could not be resolved", flush=True)
     with open(DATA / f"items_{args.split}_pron.jsonl", "w") as f:
         for it in out:
             f.write(json.dumps(it, ensure_ascii=False) + "\n")

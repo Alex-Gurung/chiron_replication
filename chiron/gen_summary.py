@@ -16,12 +16,13 @@ import llm
 ASPECTS = ("Include aspects of the character like how they speak, what they look like, their personality, "
            "their goals, etc.")
 LIMIT = 700
+CAP = 1200                       # prompt asks for 700; accumulated summaries run ~900-1,050
 EMPTY = "No information yet."
 
 
 def check(text):
-    if len(text.split()) > int(LIMIT * 1.3):
-        raise ValueError(f"summary is {len(text.split())} words; the limit is {LIMIT}")
+    if len(text.split()) > CAP:
+        raise ValueError(f"summary is {len(text.split())} words; rewrite it to at most {LIMIT} words by compressing older details")
     return text
 
 

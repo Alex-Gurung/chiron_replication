@@ -20,7 +20,7 @@ import re
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from urllib import request as urlrequest
+from urllib import error as urlerror, request as urlrequest
 
 sys.path.insert(0, os.path.dirname(__file__))
 from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
@@ -125,7 +125,13 @@ def main():
         def one(j):
             it, names, blocks, book_text, order, target = j
             text = prompt({**it, "order": order}, names, blocks, book_text, target)
-            lp, top, ntok = score(text)
+            try:
+                lp, top, ntok = score(text)
+            except urlerror.HTTPError as e:              # 400 = prompt longer than the served context
+                with lock:
+                    append_jsonl(out.with_suffix(".errors.jsonl"), {"item_id": it["item_id"], "order": list(order),
+                                                                    "target": target, "error": f"HTTP {e.code}"})
+                return
             rec = {"item_id": it["item_id"], "book": it["book"], "boundary": it["chapter_index"], "order": list(order),
                    "target": target, "answer": it["answer"][target], "logprobs": lp, "top_token": top,
                    "prompt_tokens": ntok}

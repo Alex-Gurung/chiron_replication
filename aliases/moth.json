@@ -1,0 +1,44 @@
+{
+ "principals": {
+  "Rune Winters": [
+   "Rune Winters",
+   "MISS RUNE WINTERS",
+   "Miss Winters",
+   "Citizen Winters",
+   "Miss Rune",
+   "the Crimson Moth",
+   "The Crimson Moth",
+   "Crimson Moth",
+   "the Moth",
+   "The Moth",
+   "Moth",
+   "Rune",
+   "RUNE"
+  ],
+  "Gideon Sharpe": [
+   "Gideon Sharpe",
+   "GIDEON SHARPE",
+   "Gideon Sharp",
+   "Gideon",
+   "GIDEON"
+  ],
+  "Alexander “Alex” Sharpe": [
+   "Alexander Sharpe",
+   "Alex Sharpe",
+   "Alexander",
+   "Alex",
+   "ALEX"
+  ]
+ },
+ "ambiguous": [
+  "Sharpe",
+  "Sharpes",
+  "Winters"
+ ],
+ "drop_if_present": [
+  "Kestrel Winters",
+  "Levi Sharpe",
+  "Sun Sharpe"
+ ],
+ "notes": "Bare Sharpe is shared by Gideon, Alex, and the dead Sun/Levi Sharpe; bare Winters also names Rune's grandmother Kestrel Winters. Crimson Moth/Moth is Rune's secret identity. 'Good Commander' is Noah's father, not Gideon, so it is excluded."
+}
