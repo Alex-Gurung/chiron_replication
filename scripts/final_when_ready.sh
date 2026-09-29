@@ -30,7 +30,7 @@ for b in todo:
 print("charmem fix2 queued for", todo, flush=True)
 PY
 
-while busy "chiron_sum_\|chiron_charmem\|chiron_pronouns"; do sleep 60; done
+while busy "chiron_sum\|chiron_charmem\|chiron_pronouns"; do sleep 60; done
 ls $Q/failed | grep chiron && echo "WARNING: failed chiron jobs above"
 for s in test val train; do (cd chiron && ../.venv/bin/python build_reps.py --split $s 2>&1 | grep -v -i warn); done
 python3 scripts/queue_jobs.py final test val train | tail -3
