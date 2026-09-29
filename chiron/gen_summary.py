@@ -9,6 +9,7 @@ Output: outputs/summary_v2/<tag>.jsonl, one record per (book, label, boundary).
 """
 import argparse
 import json
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -50,11 +51,28 @@ def messages(name, prev, chapter_text):
     return [SYSTEM, {"role": "user", "content": body}]
 
 
-def compress_messages(name, text):
+def compress_messages(name, text, target=600):
     return [SYSTEM, {"role": "user", "content": (
         f"Here is a summary of everything learned about {name} in a story so far:\n{text}\n\n"
-        f"Condense it to at most {LIMIT} words of plain prose, with no headings. Keep the most important and most "
+        f"Condense it to at most {target} words of plain prose, with no headings. Keep the most important and most "
         "distinctive information about the character; do not add anything new.")}]
+
+
+def condense(name, text):
+    """gpt-oss overshoots word targets by ~30%, so ask for 600 and allow three rounds; a sentence-boundary
+    trim to CAP is the last resort and is flagged."""
+    rounds, trimmed = 0, False
+    while len(text.split()) > CAP and rounds < 3:
+        text, _ = llm.ask(compress_messages(name, text), cap(4000), max_tokens=8000, as_json=False)
+        rounds += 1
+    if len(text.split()) > CAP:
+        sents, out = re.split(r"(?<=[.!?])\s+", text), []
+        for s in sents:
+            if len(" ".join(out + [s]).split()) > CAP:
+                break
+            out.append(s)
+        text, trimmed = " ".join(out), True
+    return text, rounds, trimmed
 
 
 def main():
@@ -87,11 +105,9 @@ def main():
             text = clean_text(chs[c]["chapter_text_normalized"])
             try:
                 summ, meta = llm.ask(messages(name, prev, text), cap(4000), max_tokens=12000, as_json=False)
-                compressed = None
-                if len(summ.split()) > CAP:
-                    compressed = len(summ.split())
-                    summ, meta2 = llm.ask(compress_messages(name, summ), cap(CAP), max_tokens=8000, as_json=False)
-                    meta = {"update": meta, "compress": meta2}
+                compressed = len(summ.split()) if len(summ.split()) > CAP else None
+                summ, rounds, trimmed = condense(name, summ)
+                meta = {**meta, "compress_rounds": rounds, "trimmed": trimmed}
             except Exception as e:
                 fails.append((book, label, b))
                 append_jsonl(out.with_suffix(".errors.jsonl"), {"book": book, "label": label, "boundary": b, "error": str(e)[:2000]})
