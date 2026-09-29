@@ -26,7 +26,7 @@ def main():
     table, files = {}, collections.defaultdict(list)
     for f in sorted(glob.glob(str(root / "*.jsonl"))):
         if not f.endswith(".errors.jsonl"):
-            files[os.path.basename(f)[:-6].split(".s")[0]].append(f)          # shards: <cond>.s<k>of<n>.jsonl
+            files[os.path.basename(f).split(".")[0]].append(f)          # shards: <cond>.s<k>of<n>.jsonl
     for cond, fs in files.items():
         rows = [r for f in fs for r in read_jsonl(f)]
         groups = collections.defaultdict(dict)

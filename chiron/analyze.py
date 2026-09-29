@@ -18,13 +18,18 @@ from common import OUT, read_jsonl, write_json
 
 def load(model, stems):
     by = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0, 0]))   # cond -> book -> [ok, n, tokens]
+    seen = set()                                   # dedupe across run files
     for stem in stems:
         root = OUT / "eval" / model / stem
         for f in glob.glob(str(root / "*.jsonl")):
             if f.endswith(".errors.jsonl"):
                 continue
-            cond = os.path.basename(f)[:-6].split(".s")[0]
+            cond = os.path.basename(f).split(".")[0]
             for r in read_jsonl(f):
+                k = (cond, r["item_id"], tuple(r["order"]), r["target"])
+                if k in seen:
+                    continue
+                seen.add(k)
                 lp = r["logprobs"]
                 cell = by[cond][r["book"]]
                 cell[0] += int(max(lp, key=lp.get) == str(r["answer"]))

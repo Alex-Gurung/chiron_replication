@@ -70,6 +70,7 @@ def prompt(item, names, blocks, book_text, target):
 
 
 PREFIX = os.environ.get("CHIRON_ANSWER_PREFIX", "")   # e.g. "[CHAR " forces the next token to be the id digit
+THINKING = os.environ.get("CHIRON_THINKING")          # "0" turns a hybrid model's thinking off via its chat template
 
 
 def score(text, n=3):
@@ -78,6 +79,8 @@ def score(text, n=3):
     if PREFIX:
         msgs.append({"role": "assistant", "content": PREFIX})
         extra = {"continue_final_message": True, "add_generation_prompt": False}
+    if THINKING is not None:
+        extra["chat_template_kwargs"] = {"enable_thinking": THINKING == "1"}
     body = json.dumps({"model": MODEL, "messages": msgs, "max_tokens": 1, "temperature": 0.0,
                        "logprobs": True, "top_logprobs": 20, **extra}).encode()
     req = urlrequest.Request(API + "/chat/completions", data=body, headers={"Content-Type": "application/json"})
@@ -103,6 +106,7 @@ def main():
     ap.add_argument("--split", default="test")
     ap.add_argument("--conditions", nargs="+", required=True)
     ap.add_argument("--orders", type=int, default=6)
+    ap.add_argument("--rotations", action="store_true", help="the n cyclic rotations of the blocks instead of permutations")
     ap.add_argument("--workers", type=int, default=64)
     ap.add_argument("--tag", default="")
     ap.add_argument("--items", default="", help="items file stem, default items_<split> (e.g. items_test_pron)")
@@ -117,11 +121,13 @@ def main():
     for r in read_jsonl(DATA / f"reps_{args.split}.jsonl"):
         reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
-    model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "")
+    model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
     for cond in args.conditions:
-        out = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}{suffix}.jsonl"
-        done = {(r["item_id"], tuple(r["order"]), r["target"]) for r in read_jsonl(out)}
+        base = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}{suffix}"
+        out = base.with_name(base.name + f".r{os.environ.get('JOB_NAME', os.getpid())}.jsonl")   # one file per run: no shared appends
+        done = {(r["item_id"], tuple(r["order"]), r["target"])
+                for f in [base.with_name(base.name + ".jsonl"), *base.parent.glob(base.name + ".r*.jsonl")] for r in read_jsonl(f)}
         jobs, missing = [], 0
         for it in items:
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
@@ -145,7 +151,12 @@ def main():
                     blocks = {l: rename(t, src[l], l, names[src[l]], names[l], al) for l, t in blocks.items()}
                 if k:
                     blocks = {l: words(t, int(k)) for l, t in blocks.items()}
-            orders = list(itertools.permutations(labels))[:args.orders] if blocks is not None else [tuple(labels)]
+            if blocks is None:
+                orders = [tuple(labels)]
+            elif args.rotations:
+                orders = [tuple(labels[i:] + labels[:i]) for i in range(len(labels))]
+            else:
+                orders = list(itertools.permutations(labels))[:args.orders]
             for order in orders:
                 for target in labels:
                     if (it["item_id"], order, target) not in done:

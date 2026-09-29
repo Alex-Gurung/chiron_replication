@@ -22,6 +22,7 @@ MODELS = {
                ["--reasoning-parser", "openai_gptoss"]),
     "qwen4b": ("Qwen/Qwen3-4B-Instruct-2507", None, []),
     "mistral": ("mistralai/Mistral-7B-Instruct-v0.2", None, []),
+    "qwen27": ("Qwen/Qwen3.8-27B", None, ["--limit-mm-per-prompt", '{"image": 0, "video": 0}']),   # text only
 }
 
 
