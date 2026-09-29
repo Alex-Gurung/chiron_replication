@@ -23,7 +23,21 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib import error as urlerror, request as urlrequest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
+from common import DATA, OUT, REPO, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
+from build_items import alias_regex  # noqa: E402
+
+
+def rename(text, a, b, names_a, names_b, aliases):
+    """Swap the two characters' names inside a representation: every alias of a -> b's name and vice versa."""
+    ra, rb = alias_regex(aliases[a]), alias_regex(aliases[b])
+    spans = sorted([(m.start(), m.end(), names_b) for m in ra.finditer(text)] +
+                   [(m.start(), m.end(), names_a) for m in rb.finditer(text)], key=lambda x: (x[0], -x[1]))
+    out, pos = [], 0
+    for s, e, rep in spans:
+        if s >= pos:
+            out += [text[pos:s], rep]
+            pos = e
+    return "".join(out + [text[pos:]])
 
 API = os.environ.get("CHIRON_API_BASE", "http://127.0.0.1:8000/v1")
 MODEL = os.environ.get("CHIRON_MODEL", "Qwen/Qwen3-4B-Instruct-2507")
@@ -104,6 +118,7 @@ def main():
         reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "")
+    aliases = {}
     for cond in args.conditions:
         out = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}{suffix}.jsonl"
         done = {(r["item_id"], tuple(r["order"]), r["target"]) for r in read_jsonl(out)}
@@ -117,13 +132,17 @@ def main():
                 book_text = words(full, int(cond[9:]), last=True) if cond.startswith("book_last") else full
             elif cond != "noinfo":
                 base, k = (cond.split("@") + [None])[:2]
-                swap = base.startswith("swap:")
-                base = base.replace("swap:", "")
+                swapname = base.startswith("swapname:")
+                swap = base.startswith("swap:") or swapname
+                base = base.split(":")[-1]
                 src = {l: labels[(i + 1) % len(labels)] if swap else l for i, l in enumerate(labels)}
                 blocks = {l: reps.get((base, book, b, src[l])) for l in labels}
                 if any(t is None for t in blocks.values()):     # never score a missing rep as "no information"
                     missing += 1
                     continue
+                if swapname:
+                    al = aliases.setdefault(book, json.load(open(REPO / "aliases" / f"{book}.json"))["principals"])
+                    blocks = {l: rename(t, src[l], l, names[src[l]], names[l], al) for l, t in blocks.items()}
                 if k:
                     blocks = {l: words(t, int(k)) for l, t in blocks.items()}
             orders = list(itertools.permutations(labels))[:args.orders] if blocks is not None else [tuple(labels)]
