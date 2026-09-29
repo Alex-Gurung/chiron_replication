@@ -21,7 +21,7 @@ R = Path("/home/toolkit/ncp_charmem_gptoss120b_reviewed_20260908")
 REPO = "/home/toolkit/chiron_replication"
 books = json.load(open(f"{REPO}/data/principals.json"))
 todo = [b for b in books if not (R / "completed_books" / f"{b}.json").exists()
-        or json.load(open(R / "completed_books" / f"{b}.json")).get("missing_boundaries", [None])]
+        or json.load(open(R / "completed_books" / f"{b}.json")).get("missing_boundaries", [])]
 stamp = time.strftime("%m%d%H%M", time.gmtime())
 for b in todo:
     cmd = ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072", "--",
