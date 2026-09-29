@@ -32,6 +32,11 @@ def add(name, gpus, model_args, client, priority):
     print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
 
 
+def addraw(name, gpus, cmd, priority):
+    ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane="chiron", priority=priority)
+    print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
+
+
 def gen_client(books, shard, nshards, *extra):
     return [f"{REPO}/chiron/gen_chiron.py", "--books", *books, "--shard", str(shard), "--nshards", str(nshards), *extra]
 
@@ -123,6 +128,42 @@ def main():
                 n = shards[split]
                 for k in range(n):
                     add(f"final_{split}_two_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_two", [c], k, n), 2)
+    elif what == "q27":
+        # Qwen3.8-27B: direct scoring with thinking off (main, dense-window and short sets), Qwen3-4B on the new
+        # sets, a fill job for the four repaired two-principal files, and the thinking-on run at the back.
+        short = ["noinfo", "summary", "v2", "legacy", "charmem", "chiron_r2000", "book_last8000", "swapname:v2"]
+        long = ["chiron", "legacy_full", "book_last32000", "swapname:chiron"]
+        reason = ["noinfo", "summary", "v2", "legacy", "charmem", "chiron_r2000", "chiron", "legacy_full", "book_last8000", "swapname:v2"]
+        env = lambda **kv: ["env", *[f"{k}={v}" for k, v in kv.items()]]
+        srv = lambda model, tp_long: ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", model,
+                                      "--max-model-len", "262144" if tp_long else "65536", "--"]
+        ev = lambda script, split, stem, c, k=0, n=1, extra=(): ["python3", "-u", f"{REPO}/chiron/{script}", "--split", split,
+                 "--items", stem, "--conditions", c, "--workers", "128", "--shard", str(k), "--nshards", str(n), *extra]
+        tag = lambda c: c.replace(":", "_")
+        for split in ("test", "val", "train"):
+            for stem in (f"items_{split}", f"items_{split}_window", f"items_{split}_short"):
+                kind = stem.split("_")[-1] if stem.count("_") > 1 else "main"
+                for c in short + long:
+                    if kind != "main" and c in ("book_last32000", "swapname:chiron"):
+                        continue
+                    lng = c in long
+                    n = {"train": 8 if lng else 2, "val": 2 if lng else 1, "test": 2 if lng else 1}[split] if kind != "window" else 1
+                    for k in range(n):
+                        addraw(f"q27_{kind}_{split}_{tag(c)}_s{k}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, stem, c, k, n, ["--rotations"]), 1)
+                    if kind != "main":
+                        addraw(f"q4_{kind}_{split}_{tag(c)}", 1, srv("qwen4b", True) + ev("eval_mcp.py", split, stem, c, 0, 1, ["--rotations"]), 2)
+            for c in reason:
+                lng = c in long
+                n = {"train": 8 if lng else 4, "val": 2, "test": 2}[split]
+                for k in range(n):
+                    addraw(f"q27think_{split}_{tag(c)}_s{k}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", c, k, n), 9)
+        for split in ("train", "val"):
+            for c in ("charmem", "swap:charmem"):
+                addraw(f"fill4b_{split}_two_{tag(c)}", 1, srv("qwen4b", False) + ev("eval_mcp.py", split, f"items_{split}_two", c), 0)
+    elif what == "reason_smoke":
+        addraw("q27think_smoke", 1, ["env", "CHIRON_THINKING=1", "python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "qwen27",
+            "--max-model-len", "65536", "--", "python3", "-u", f"{REPO}/chiron/eval_reason.py", "--split", "test", "--items", "items_test",
+            "--conditions", "v2", "noinfo", "--limit", "12", "--tag", "_smoke"], -10)
     elif what == "eval":
         name, maxlen, model, stem, conds = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:]
         add(f"eval_{name}", 1, ["--model", model, "--max-model-len", maxlen],

@@ -40,7 +40,7 @@ def main():
                 for r in g.values():
                     lp = r["logprobs"]
                     s["char_n"] += 1
-                    s["char_ok"] += int(max(lp, key=lp.get) == str(r["answer"]))
+                    s["char_ok"] += int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"]))
                     s["nondigit"] += int(r["top_token"].strip() not in lp)
                     s["tokens"] += r["prompt_tokens"] or 0
                 digits = sorted(next(iter(g.values()))["logprobs"])

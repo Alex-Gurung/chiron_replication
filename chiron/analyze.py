@@ -32,7 +32,7 @@ def load(model, stems):
                 seen.add(k)
                 lp = r["logprobs"]
                 cell = by[cond][r["book"]]
-                cell[0] += int(max(lp, key=lp.get) == str(r["answer"]))
+                cell[0] += int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"]))
                 cell[1] += 1
                 cell[2] += r.get("prompt_tokens") or 0
     return by
