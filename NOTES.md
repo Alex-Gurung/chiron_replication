@@ -45,3 +45,14 @@ with the entire book, reasoning on short spans and dense windows.
 - Perplexity (Qwen3-4B chat, partial). Long sheets lower the loss on the real passage a lot: legacy full -0.39
   nats/token, CHIRON-style full -0.26 (21/21 books). The ~800-word sheets and summaries barely help without story
   context (v2 +0.02, charmem 0.00, summary -0.02) and help a little with it (v2 -0.07, charmem -0.08).
+
+### 02:50 UTC
+
+- Interaction ablation (27B): legacy statements naming another principal (~2-3.6k words) = 61.8%; the rest of legacy
+  (~8.6-11k words) = 58.4% (17 books so far); CHIRON-style interaction statements (~500 words) = 49.4%, the rest
+  (~5.3k) = 53.0%. Statements about how a character acts with or relates to the other principals are worth the most per
+  word, and legacy has 4-7x more of them than CHIRON-style (whose strict entailment filter keeps self-contained claims).
+- Oracles built for all 1,087 passages: prior facts median 4 per character (1% empty; 23% of proposals dropped as not
+  verbatim); passage clues median 3. The chosen prior facts are often generic traits, so the prior oracle measures what
+  the old notes can offer, as judged by gpt-oss.
+- Queued combined representations (v2+charmem+summary; legacy without filler + v2; all four).
