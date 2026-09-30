@@ -24,7 +24,33 @@ STORY_WORDS = 4000
 REPS = ["names", "v2", "charmem", "chiron_r2000", "chiron", "summary", "legacy", "legacy_full"]
 
 
+CHAT = os.environ.get("CHIRON_CHAT") == "1"            # instruct models: writing prompt as the user turn, passage as the reply
+THINKING = os.environ.get("CHIRON_THINKING")
+
+
+def post(path, payload):
+    req = urlrequest.Request(API.rsplit("/v1", 1)[0] + path if path == "/tokenize" else API + path,
+                             data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"})
+    with urlrequest.urlopen(req, timeout=3600) as r:
+        return json.loads(r.read().decode())
+
+
+def score_chat(prefix, target):
+    """Token ids of the chat prompt (with generation prompt) + the passage; score the passage tokens."""
+    msg = {"model": MODEL, "messages": [{"role": "user", "content": prefix.rstrip()}], "add_generation_prompt": True}
+    if THINKING is not None:
+        msg["chat_template_kwargs"] = {"enable_thinking": THINKING == "1"}
+    head = post("/tokenize", msg)["tokens"]
+    tail = post("/tokenize", {"model": MODEL, "prompt": target, "add_special_tokens": False})["tokens"]
+    lp = post("/completions", {"model": MODEL, "prompt": head + tail, "max_tokens": 1, "temperature": 0.0,
+                               "echo": True, "logprobs": 1})["choices"][0]["logprobs"]["token_logprobs"]
+    vals = [v for v in lp[len(head):len(head) + len(tail)] if v is not None]
+    return -sum(vals), len(vals)
+
+
 def score(prefix, target):
+    if CHAT:
+        return score_chat(prefix.replace("\n\nThe next passage of the novel:\n\n", "\n\nWrite the next passage of the novel."), target)
     body = json.dumps({"model": MODEL, "prompt": prefix + target, "max_tokens": 1, "temperature": 0.0,
                        "echo": True, "logprobs": 1}).encode()
     req = urlrequest.Request(API + "/completions", data=body, headers={"Content-Type": "application/json"})
@@ -58,7 +84,7 @@ def main():
         for it in items:
             before = " ".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[it["book"]] if ch["chapter_index"] < it["chapter_index"])
             story[it["item_id"]] = " ".join((before + " " + prefix[(it["book"], it["chapter_index"], it["chunk_index"])]).split()[-STORY_WORDS:])
-    model_tag = MODEL.split("/")[-1]
+    model_tag = MODEL.split("/")[-1] + ("_chat" if CHAT else "")
     for rep in args.reps:
         out = OUT / "ppl" / model_tag / args.split / f"{args.context}__{rep}.jsonl"
         done = {r["item_id"] for r in read_jsonl(out)}
