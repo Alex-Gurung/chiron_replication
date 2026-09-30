@@ -30,8 +30,8 @@ def hung(name, stale):
         last = m
     if not last or int(last.group(3)) + int(last.group(4)) == 0:
         return False
-    t = datetime.datetime.strptime(f"{datetime.datetime.utcnow().year}-{last.group(1)}", "%Y-%m-%d %H:%M:%S")
-    return (datetime.datetime.utcnow() - t).total_seconds() > stale * 60
+    t = datetime.datetime.strptime(f"{datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).year}-{last.group(1)}", "%Y-%m-%d %H:%M:%S")
+    return (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - t).total_seconds() > stale * 60
 
 
 def workers():
@@ -58,7 +58,7 @@ def main():
                 time.sleep(5)
             subprocess.run(["python3", str(REPO / "scripts" / "queue_jobs.py"), "requeue", name], capture_output=True)
             (QUEUE / "failed" / f"{name}.json").rename(QUEUE / "failed_archive" / f"{name}.json")
-            print(f"{datetime.datetime.utcnow():%H:%M} hung engine: killed and requeued {name}", flush=True)
+            print(f"{datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None):%H:%M} hung engine: killed and requeued {name}", flush=True)
         if args.once:
             break
         time.sleep(120)
