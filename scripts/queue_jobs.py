@@ -9,6 +9,7 @@
   python3 scripts/queue_jobs.py reshard         re-split the slow thinking-on short/window shards wider
   python3 scripts/queue_jobs.py sections SPLIT...  sheet-section ablation on the 27B, two conditions a job
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
+  python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
   python3 scripts/queue_jobs.py gender          gender-only representation on every model and set
 Lower priority number is claimed first. Job names are stamped so reruns never collide.
 """
@@ -192,16 +193,17 @@ def main():
         for c in ("oracle_prior", "swapname:oracle_prior"):
             for k in range(8):
                 addraw(f"or_rs_train_{tag(c)}_s{k}of8", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", "train", "items_train", c, k, 8), 1)
-    elif what == "gender":
-        # "Gender: female/male." as the only character information
+    elif what in ("gender", "gender_think"):
+        # "Gender: female/male." as the only character information (gender_think: only the thinking-on shards)
         for split in ("test", "val", "train"):
-            for stem in (f"items_{split}", f"items_{split}_short", f"items_{split}_window"):
-                addraw(f"g_q27_{stem[6:]}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False) + ev("eval_mcp.py", split, stem, "gender", extra=["--rotations"]), 0)
-            addraw(f"g_q9b_{split}", 1, env(CHIRON_BASE=1) + srv("qwen9base", False) + ev("eval_mcp.py", split, f"items_{split}", "gender", extra=["--rotations"]), 0)
-            addraw(f"g_q4b_{split}", 1, srv("qwen4b", False) + ev("eval_mcp.py", split, f"items_{split}", "gender"), 0)
-            n = {"train": 8, "val": 1, "test": 2}[split]
+            if what == "gender":
+                for stem in (f"items_{split}", f"items_{split}_short", f"items_{split}_window"):
+                    addraw(f"g_q27_{stem[6:]}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False) + ev("eval_mcp.py", split, stem, "gender", extra=["--rotations"]), 0)
+                addraw(f"g_q9b_{split}", 1, env(CHIRON_BASE=1) + srv("qwen9base", False) + ev("eval_mcp.py", split, f"items_{split}", "gender", extra=["--rotations"]), 0)
+                addraw(f"g_q4b_{split}", 1, srv("qwen4b", False) + ev("eval_mcp.py", split, f"items_{split}", "gender"), 0)
+            n = {"train": 24, "val": 3, "test": 6}[split]
             for k in range(n):
-                addraw(f"g_q27think_{split}_s{k}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, f"items_{split}", "gender", k, n), 2)
+                addraw(f"g_q27think_{split}_s{k}of{n}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, f"items_{split}", "gender", k, n), 1)
     elif what == "reason_smoke":
         addraw("q27think_smoke", 1, ["env", "CHIRON_THINKING=1", "python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "qwen27",
             "--max-model-len", "65536", "--", "python3", "-u", f"{REPO}/chiron/eval_reason.py", "--split", "test", "--items", "items_test",

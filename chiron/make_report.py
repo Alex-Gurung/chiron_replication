@@ -65,8 +65,9 @@ FINDINGS = [
     "With thinking, much of every score is gender. From names alone, Qwen3.8-27B places {g_uni}% of characters whose gender "
     "is unique among the three principals and {g_same}% when all three share one (chance 33%); the representations mostly "
     "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full legacy). "
-    "Without thinking, gender does nothing by itself: told only each character's gender, Qwen3.8-27B scores {gen27}% "
-    "(names only {noinfo27}%) and Qwen3.5-9B base {gen9}% ({noinfo9}%), so the direct gains come from what the sheets say.",
+    "Stating the gender adds little because the names already carry it: gender only gives {genthink}% with thinking. Without "
+    "thinking it does nothing: Qwen3.8-27B {gen27}% (names only {noinfo27}%), Qwen3.5-9B base {gen9}% ({noinfo9}%). "
+    "The rest of each sheet's gain comes from what it says.",
     "Short spans (about 50 words) keep thinking-on accuracy below ceiling: names only {s_noinfo}%, every representation "
     "{s_lo} to {s_hi}%, name-swapped v2 {s_swap}%. Only the full legacy sheet is clearly ahead of v2 ({s_legd} "
     "points, better in {s_legpos} books), matching its lead on sections without thinking; on dense windows every representation is at {w_lo} to {w_hi}%.",
@@ -322,7 +323,7 @@ def main():
         leg_nofill=pct(macro("main", q27, "legacy_nofill")), leg_inter=pct(macro("main", q27, "legacy_inter")),
         orpass27=pct(macro("main", q27, "oracle_passage")), orpassthink=pct(macro("main", qt, "oracle_passage")),
         combo=pct(macro("main", q27, "combo_legacy_v2")),
-        gen27=pct(macro("main", q27, "gender")), gen9=pct(macro("main", "Qwen3.5-9B-Base", "gender")),
+        gen27=pct(macro("main", q27, "gender")), genthink=pct(macro("main", qt, "gender")), gen9=pct(macro("main", "Qwen3.5-9B-Base", "gender")),
         noinfo9=pct(macro("main", "Qwen3.5-9B-Base", "noinfo")),
         g_uni=f"{100 * gender[qt + '|noinfo']['unique']['acc']:.0f}", g_same=f"{100 * gender[qt + '|noinfo']['all same']['acc']:.0f}",
         same_v2=f"{100 * gender[qt + '|v2']['all same']['acc']:.0f}", same_leg=f"{100 * gender[qt + '|legacy_full']['all same']['acc']:.0f}",
@@ -498,7 +499,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="gen">
     <h2 id="gen">Gender does much of the work, with thinking</h2>
-    <p class="muted">Accuracy (%, pooled over passages) split by whether a character's gender is unique among the three principals, shared with one other, or shared by all three (gender read from the pronouns in each character's sheets and summaries). Pronouns in the passage give the unique character away once the model knows who is who by gender, which names alone often tell it; the shared pair is then a coin flip. With thinking, only same-gender characters need what the notes say about them. Without thinking the model does not make this inference: stating the gender alone ("Gender only") helps no model.</p>
+    <p class="muted">Accuracy (%, pooled over passages) split by whether a character's gender is unique among the three principals, shared with one other, or shared by all three (gender read from the pronouns in each character's sheets and summaries). Pronouns in the passage give the unique character away once the model knows who is who by gender, which names alone often tell it; the shared pair is then a coin flip. With thinking, only same-gender characters need what the notes say about them. Stating the gender ("Gender only") adds 2 points with thinking, since names already carry it, and nothing without thinking, where the model does not make this inference.</p>
     <div class="table-wrap"><table>{{GENDER_TABLE}}</table></div>
   </section>
 
@@ -567,7 +568,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       <dt>Representations</dt><dd>All built from chapters before the passage's chapter. CHIRON-style: CHIRON's 8 questions answered per 300-word snippet by gpt-oss-120b, claims kept only at rating 5 on the paper's 1–5 entailment scale, grouped by category and deduplicated. Summary: gpt-oss rolling summary condensed to about 700 words. Legacy: the Llama-3.3-70B sheets from the original NCP archive.</dd>
       <dt>Scoring</dt><dd>Without thinking: next-token probabilities of the id digits at temperature 0 (Qwen3-4B over all 6 block orders, Qwen3.8-27B over 3 rotations; Mistral's reply is pre-started with "[CHAR "). With thinking: one generation per passage and rotation (temperature 0.6, up to 32k tokens) ending in a JSON mapping; an unreadable answer counts as wrong.</dd>
       <dt>Memorization</dt><dd>Temperature-0 continuations of the four test books reproduced no 13-word sequence (longest verbatim run 5 words).</dd>
-      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. Still running when this version was made (partial rows): thinking-on name-swapped v2 on short spans, the thinking-on name-swapped oracle, and thinking-on gender only.</dd>
+      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. 46 of the 4,113 thinking-on generations for name-swapped v2 on short spans are missing (a vLLM engine hung under memory pressure). Prompts longer than the served context (131k tokens for Qwen3.8-27B) are skipped, which drops some full-legacy and combination prompts late in long books.</dd>
     </dl>
   </section>
 </main>

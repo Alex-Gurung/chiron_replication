@@ -168,3 +168,13 @@ with the entire book, reasoning on short spans and dense windows.
 - Ops: sec_qwen27_test's vLLM engine hung at 05:04 (0 tokens/s, 13 running, 98 waiting) and sat for almost 4 hours
   without failing; rerun as 7 jobs in 10 minutes. No other job was hung. scripts/final_analysis.sh regenerates every
   analysis file and the report.
+
+### 11:20 UTC: final
+
+- All runs done; every chiron worker pod released (w51/w52 at 10:20, seven more at 11:05, w45/w47 at 11:20).
+- Thinking-on gender only (27B, sections, 21 books): 65.7 (names only 63.7, v2 94.0); unique 91.4, shared 55.7, all
+  same 35.0. Names already carry gender, so stating it adds 2 points; the remaining ~28 points of a sheet are content.
+- Name-swapped controls with thinking, final: prior-facts oracle 15.8, v2 on short spans 19.3 (46 of 4,113
+  generations missing: a second vLLM engine hang, at 09:28, under 90% KV use).
+- Two hangs out of ~150 27B jobs, both with the engine stuck at 0 tokens/s and requests waiting; the job neither fails
+  nor exits. Worth a watchdog on "Avg generation throughput: 0.0" for 10+ minutes in future runs.
