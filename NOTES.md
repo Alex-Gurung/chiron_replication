@@ -74,3 +74,15 @@ with the entire book, reasoning on short spans and dense windows.
 - Both modes use the facts: the name-swapped prior oracle drops to 31.8% (direct) and 9.8% (thinking).
 - Note: 27B jobs requeued on one GPU run at 131k context; prompts longer than that (the longest legacy-full and
   combination prompts late in long books) are logged in .errors.jsonl and skipped.
+
+### 04:00 UTC: reasoning traces (27B thinking on, test+val, partial)
+
+- names only: 60% accuracy, median 5,300 words of reasoning, 17% of traces mention the notes. The model infers from
+  the names themselves ("The Leszy" = the male demon) plus pronouns and passage events, so names-only is not zero
+  information.
+- v2: 89%, median 2,350 words, 47% of traces discuss the notes, and they match specific facts to events, for example
+  "If CHAR 2 is Liska, 'Liska's aunt' matches character info: Liska mentions an aunt who lives in Ząbki";
+  "Character info: Tonner asks Jessyn to attend a confidential emergency meeting at the lab".
+- name-swapped v2: 5.6%, 90% of traces reason from the (misleading) notes.
+- Only ~2% of reasoning 4-grams are copied from the notes vs ~13% from the passage: the model paraphrases the notes
+  and quotes the passage.
