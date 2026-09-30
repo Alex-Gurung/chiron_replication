@@ -121,7 +121,12 @@ def main():
             it, names, blocks, book_text, order = j
             text = E.prompt({**it, "order": order}, names, blocks, book_text, order[0])
             text = text[:text.rindex("# Question")] + question(names, order)
-            got, usage, attempts, reasoning = ask(text, names, order)
+            try:
+                got, usage, attempts, reasoning = ask(text, names, order)
+            except Exception as e:                        # e.g. HTTP 400: prompt longer than the served context
+                with lock:
+                    append_jsonl(out.with_suffix(".errors.jsonl"), {"item_id": it["item_id"], "order": list(order), "error": str(e)[:300]})
+                return
             with lock:
                 for t in order:
                     pred = None if got is None else got[t]

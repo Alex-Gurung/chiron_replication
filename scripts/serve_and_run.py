@@ -42,6 +42,7 @@ def main():
     ap.add_argument("--model", choices=MODELS, required=True)
     ap.add_argument("--max-model-len", type=int, default=32768)
     ap.add_argument("--gpu-mem", type=float, default=0.92)
+    ap.add_argument("--vllm-extra", default="", help="extra vLLM server flags, e.g. '--max-num-batched-tokens 2048'")
     ap.add_argument("client", nargs=argparse.REMAINDER)
     args = ap.parse_args()
     if args.model != "gptoss":
@@ -64,7 +65,7 @@ def main():
     cmd = [PY, "-m", "vllm.entrypoints.openai.api_server", "--model", str(snapshot or name),
            "--served-model-name", name, "--tensor-parallel-size", str(len(devices)),
            "--max-model-len", str(args.max_model_len), "--gpu-memory-utilization", str(args.gpu_mem),
-           "--port", str(port), "--enable-prefix-caching", *extra]
+           "--port", str(port), "--enable-prefix-caching", *extra, *args.vllm_extra.split()]
     (run / "server_config.json").write_text(json.dumps({"argv": cmd, "devices": devices, "client": client}, indent=1))
     log = open(run / "vllm.log", "a")
     server = subprocess.Popen(cmd, env=dict(env, CHIRON_SERVER_OWNER=marker), stdout=log,
