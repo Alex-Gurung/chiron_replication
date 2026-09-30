@@ -45,8 +45,11 @@ FINDINGS = [
     "{v2_short}% on short spans to {v2_main}% on sections and {v2_win}% on dense windows.",
     "Among the short sheets, charmem and the summary edge out v2 for Qwen3.8-27B ({charmem27}% and {summary27}% vs "
     "{v227}%). The long full legacy sheet and recent raw text do best ({legfull27}% and {bl827}%).",
-    "With thinking on, sections are close to solved ({think_lo} to {think_hi}% with any representation), so reasoning "
-    "separates the representations only on the harder short spans.",
+    "With thinking on, sections are close to solved ({think_lo} to {think_hi}% with any representation); reasoning on the "
+    "harder short spans and dense windows is still running.",
+    "Legacy's lead is not recency, length or word overlap: without the previous chapter it scores {leg_noprev}%, cut to its "
+    "most recent 6,000 words {leg_r6000}%, against {legfull27}% in full; without its \"not mentioned\" filler it rises to "
+    "{leg_nofill}%. It mentions the other principals about twice as densely as the other sheets.",
 ]
 
 
@@ -120,6 +123,22 @@ def main():
                 rows.append(f"<tr><th scope='row'>{mname}: {LABEL[c]}</th>" + "".join(f"<td class='num'>{pct(macro(k, m, c))}</td>" for k, _ in SETS) + "</tr>")
         return f"<thead><tr><th scope='col'>Model and representation</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
 
+    ABL = [("legacy_full", "Legacy, full"), ("legacy_noprev", "Legacy without the previous chapter"),
+           ("legacy_onlyprev", "Legacy, previous chapter only"), ("legacy_r6000", "Legacy, most recent 6,000 words"),
+           ("legacy_nofill", "Legacy without \"not mentioned\" filler"), ("legacy_inter", "Legacy, only statements naming another principal"),
+           ("legacy_nointer", "Legacy, only statements not naming another principal"),
+           ("chiron", "CHIRON-style, full"), ("chiron_noprev", "CHIRON-style without the previous chapter"),
+           ("chiron_onlyprev", "CHIRON-style, previous chapter only"), ("chiron_inter", "CHIRON-style, only statements naming another principal"),
+           ("chiron_nointer", "CHIRON-style, only statements not naming another principal"),
+           ("book_last8000", "Book, last 8,000 words"), ("book_noprev8000", "Book, last 8,000 words before the previous chapter"),
+           ("book_prevonly", "Book, previous chapter only")]
+
+    def ablation_table():
+        rows = "".join(f"<tr><th scope='row'>{n}</th><td class='num'>{medw.get(c, 0):,}</td><td class='num strong'>{pct(macro('main', q27, c))}</td>"
+                       f"<td>{delta(get('main', q27, c), 'v2')}</td></tr>" for c, n in ABL if get("main", q27, c))
+        return ("<thead><tr><th scope='col'>Representation (Qwen3.8-27B, sections)</th><th scope='col' class='num'>Words per character</th>"
+                f"<th scope='col' class='num'>Accuracy</th><th scope='col'>Δ vs v2</th></tr></thead><tbody>{rows}</tbody>")
+
     def small_table(a, rows):
         if not a:
             return ""
@@ -172,14 +191,16 @@ def main():
         charmem27=pct(macro("main", q27, "charmem")), summary27=pct(macro("main", q27, "summary")), v227=pct(macro("main", q27, "v2")),
         legfull27=pct(macro("main", q27, "legacy_full")), bl827=pct(macro("main", q27, "book_last8000")),
         think_lo=f"{100 * min(macro('main', qt, c) or 1 for c in ('v2', 'charmem', 'summary', 'chiron', 'legacy', 'legacy_full')):.0f}",
-        think_hi=f"{100 * max(macro('main', qt, c) or 0 for c in ('v2', 'charmem', 'summary', 'chiron', 'legacy', 'legacy_full')):.0f}")
+        think_hi=f"{100 * max(macro('main', qt, c) or 0 for c in ('v2', 'charmem', 'summary', 'chiron', 'legacy', 'legacy_full')):.0f}",
+        leg_noprev=pct(macro("main", q27, "legacy_noprev")), leg_r6000=pct(macro("main", q27, "legacy_r6000")),
+        leg_nofill=pct(macro("main", q27, "legacy_nofill")))
     findings = "\n".join(f"<li>{f.format(**vals)}</li>" for f in FINDINGS)
 
     ex = html.escape(window)
     ex = re.sub(r"\[CHAR (\d)\]", r'<mark class="m\1">[CHAR \1]</mark>', ex)
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
-    for k, v in {"MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
+    for k, v in {"ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings,
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
@@ -313,6 +334,12 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <div class="table-wrap"><table>{{PASSAGE_TABLE}}</table></div>
   </section>
 
+  <section aria-labelledby="why">
+    <h2 id="why">Why legacy and book text do best</h2>
+    <p class="muted">Ablations with Qwen3.8-27B, thinking off. Dropping the chapter just before the passage changes nothing, and neither does cutting legacy to a third of its length, so the lead is not recency or volume. A word-overlap matcher with no model ranks legacy below the CHIRON-style sheet, so it is not shared vocabulary either. Legacy's per-chapter answers name the other two principals about twice as often per word as the other sheets (31 per 1,000 words against 13 to 20), which is the information that separates three characters appearing together.</p>
+    <div class="table-wrap"><table>{{ABLATION_TABLE}}</table></div>
+  </section>
+
   <section aria-labelledby="ctl">
     <h2 id="ctl">Controls</h2>
     <p class="muted">A plain swap gives each character another principal's representation. Sheets name their own subject in almost every line, so a model can still tell whose sheet it is. Exchanging the two characters' names inside the swapped text removes that, and accuracy falls below names only: the models believe what the sheet says.</p>
@@ -346,7 +373,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       <dt>Representations</dt><dd>All built from chapters before the passage's chapter. CHIRON-style: CHIRON's 8 questions answered per 300-word snippet by gpt-oss-120b, claims kept only at rating 5 on the paper's 1–5 entailment scale, grouped by category and deduplicated. Summary: gpt-oss rolling summary condensed to about 700 words. Legacy: the Llama-3.3-70B sheets from the original NCP archive.</dd>
       <dt>Scoring</dt><dd>Without thinking: next-token probabilities of the id digits at temperature 0 (Qwen3-4B over all 6 block orders, Qwen3.8-27B over 3 rotations; Mistral's reply is pre-started with "[CHAR "). With thinking: one generation per passage and rotation (temperature 0.6, up to 32k tokens) ending in a JSON mapping; an unreadable answer counts as wrong.</dd>
       <dt>Memorization</dt><dd>Temperature-0 continuations of the four test books reproduced no 13-word sequence (longest verbatim run 5 words).</dd>
-      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations.</dd>
+      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. Reasoning results are partial until every shard finishes.</dd>
     </dl>
   </section>
 </main>
