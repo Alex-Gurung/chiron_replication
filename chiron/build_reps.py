@@ -22,7 +22,8 @@ from pathlib import Path
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from common import COHORTS, DATA, OUT, read_jsonl
+from build_items import alias_regex
+from common import COHORTS, DATA, OUT, REPO, SENT, read_jsonl
 
 CATEGORIES = ["Physical/Personality", "Dialogue", "Knowledge", "Goals"]
 CHARMEM = Path("/home/toolkit/ncp_charmem_gptoss120b_reviewed_20260908/sheets")
@@ -88,9 +89,11 @@ def legacy_blocks(text):
     return out
 
 
-def legacy_render(text, keep, clean=False):
+def legacy_render(text, keep, clean=False, keep_sentence=None):
     parts = []
     for head, blocks in legacy_blocks(text):
+        if keep_sentence:
+            blocks = [(c, " ".join(x for x in SENT.split(" ".join(t.split())) if keep_sentence(x))) for c, t in blocks]
         body = [f"<snippet {c}>\n{FILLER.sub('', t).strip() if clean else t.strip()}" for c, t in blocks if keep(c)]
         body = [x for x in body if x.split("\n", 1)[-1].strip()]
         if body or head.startswith("## "):
@@ -133,6 +136,13 @@ def main():
             recs.append({"condition": cond, "book": book, "boundary": b, "label": label, "text": text,
                          "words": len(text.split())})
 
+    aliases = {}
+
+    def names_other(book, label, text):
+        if book not in aliases:
+            aliases[book] = {l: alias_regex(a) for l, a in json.load(open(REPO / "aliases" / f"{book}.json"))["principals"].items()}
+        return any(rx.search(text) for l, rx in aliases[book].items() if l != label)
+
     seen = set()
     for line in open(COHORTS / f"{args.split}_examples.jsonl"):
         r = json.loads(line)
@@ -152,6 +162,9 @@ def main():
             add("legacy_onlyprev", book, b, l, legacy_render(full[k], lambda c: c == b - 1))
             add("legacy_r6000", book, b, l, legacy_recent(full[k], 6000))
             add("legacy_nofill", book, b, l, legacy_render(full[k], lambda c: True, clean=True))
+            for name, want in (("legacy_inter", True), ("legacy_nointer", False)):
+                add(name, book, b, l, legacy_render(full[k], lambda c: True, clean=True,
+                                                    keep_sentence=lambda x, want=want: names_other(book, l, x) == want))
     summ = {}
     for f in glob.glob(str(OUT / "summary_v2" / "*.jsonl")):       # v1 (outputs/summary) grew past the cap; superseded
         if f.endswith(".errors.jsonl"):
@@ -162,6 +175,8 @@ def main():
         add("summary", *k, summ.get(k))
     for k, rows in chiron_sheets(keys).items():
         add("chiron", *k, render(rows))
+        add("chiron_inter", *k, render([r for r in rows if names_other(k[0], k[2], r[1])]))       # statements naming another principal
+        add("chiron_nointer", *k, render([r for r in rows if not names_other(k[0], k[2], r[1])]))
         prev = k[1] - 1
         add("chiron_noprev", *k, render([r for r in rows if r[2] != prev]))
         add("chiron_onlyprev", *k, render([r for r in rows if r[2] == prev]))
