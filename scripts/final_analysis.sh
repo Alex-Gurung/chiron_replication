@@ -18,4 +18,5 @@ python3 analyze_items.py --model Qwen3.5-9B-Base > /dev/null
 python3 analyze_gender.py > /dev/null
 python3 analyze_ppl.py > /dev/null
 python3 analyze_traces.py > /dev/null
+python3 analyze_manual.py > /dev/null
 python3 make_report.py

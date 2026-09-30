@@ -102,7 +102,8 @@ def main():
 
 
 def export():
-    """Collect oracle records into reps_item_<split>.jsonl (conditions oracle_passage, oracle_prior)."""
+    """Collect oracle records into reps_item_<split>.jsonl (conditions oracle_passage, oracle_prior), plus the
+    item-level blocks written by manual_oracle.py collect (manual_passage, manual_prior, oracle_quote)."""
     for split in ("test", "val", "train"):
         recs = [r for f in sorted((DATA / "oracle").glob(f"{split}_*.jsonl")) for r in read_jsonl(f)]
         with open(DATA / f"reps_item_{split}.jsonl", "w") as f:
@@ -111,7 +112,10 @@ def export():
                     for cond, key in (("oracle_passage", "passage_clues"), ("oracle_prior", "prior_facts")):
                         text = "\n".join(f"- {x}" for x in r[key][l]) or "- No relevant earlier information."
                         f.write(json.dumps({"condition": cond, "item_id": r["item_id"], "label": l, "text": text}, ensure_ascii=False) + "\n")
-        print(split, len(recs), "passages")
+            extra = [r for p in sorted((DATA / "manual").glob(f"reps_{split}_*.jsonl")) for r in read_jsonl(p)]   # manual_oracle.py
+            for r in extra:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        print(split, len(recs), "passages,", len(extra), "extra item-level blocks")
 
 
 if __name__ == "__main__":

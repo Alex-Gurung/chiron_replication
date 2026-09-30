@@ -7,6 +7,7 @@ data/items_*.jsonl and data/reps_*.jsonl; writes a self-contained page with two 
 Findings text lives in FINDINGS below and is written against the final numbers.
 """
 import collections
+import glob
 import html
 import json
 import re
@@ -27,7 +28,10 @@ LABEL = {
     "swap_chiron": "Swap: another principal's CHIRON-style sheet", "swapname_chiron": "Swap, names exchanged: CHIRON-style",
     "combo_legacy_v2": "Legacy without filler + v2", "combo_short": "v2 + charmem + summary", "combo_all": "All four combined",
     "oracle_passage": "Oracle: clues taken from the passage", "oracle_prior": "Oracle: prior facts chosen for the passage",
-    "swapname_oracle_prior": "Oracle prior facts, swapped with names exchanged", "legacy_nofill": "Legacy full without filler",
+    "swapname_oracle_prior": "Oracle prior facts, swapped with names exchanged",
+    "oracle_quote": "Oracle: the passage's own sentences, names left in", "manual_passage": "Hand-written: clues from the passage",
+    "manual_prior": "Hand-written: prior facts chosen for the passage",
+    "swapname_manual_prior": "Hand-written prior facts, swapped with names exchanged", "legacy_nofill": "Legacy full without filler",
 }
 SHEET_SECTIONS = [("relationships", "Relationships"), ("history", "History"), ("goals", "Goals"), ("physical", "Physical"),
                   ("dialogue", "Dialogue"), ("knowledge", "Knowledge")]
@@ -37,7 +41,9 @@ GENDER_COLS = [("Qwen3.8-27B_nothink", "27B, sections"), ("Qwen3.8-27B_think", "
                ("Qwen3.8-27B_think_short", "27B thinking, short spans")]
 MAIN_ROWS = ["noinfo", "gender", "legacy", "chiron_r2000", "v2", "chiron", "charmem", "summary", "book_last8000",
              "book_last32000", "book", "legacy_full", "legacy_nofill", "combo_short", "combo_legacy_v2"]
-ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", "swapname_oracle_prior"]
+ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", "oracle_quote", "swapname_oracle_prior"]
+MANUAL_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "manual_prior", "oracle_passage", "manual_passage", "oracle_quote",
+               "swapname_manual_prior"]
 CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapname_chiron"]
 LENGTH_FAMILIES = [("CHIRON-style", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
                    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"]),
@@ -121,11 +127,13 @@ def main():
         for r in read_jsonl(DATA / f"reps_{s}.jsonl"):
             words[r["condition"]].append(r["words"])
     medw = {k: int(st.median(v)) for k, v in words.items()}
-    passage_words, counts = {}, {}
+    passage_words, passage_q, counts = {}, {}, {}
     for key, _ in SETS:
         suf = "" if key == "main" else f"_{key}"
         its = [it for s in ("test", "val", "train") for it in read_jsonl(DATA / f"items_{s}{suf}.jsonl")]
-        passage_words[key] = st.median(len(it["original"].split()) for it in its)
+        pw = sorted(len(it["original"].split()) for it in its)
+        passage_words[key] = st.median(pw)
+        passage_q[key] = (pw[len(pw) // 4], pw[3 * len(pw) // 4])
         counts[key] = (len(its), len({it["book"] for it in its}))
     it, window = example()
     q27, q4, qt = "Qwen3.8-27B_nothink", "Qwen3-4B-Instruct-2507", "Qwen3.8-27B_think"
@@ -133,6 +141,7 @@ def main():
     items9 = json.load(open(OUT / "analysis_items_Qwen3.5-9B-Base.json"))
     gender = json.load(open(OUT / "analysis_gender.json"))["acc"]
     ppl = json.load(open(OUT / "analysis_ppl.json")) if (OUT / "analysis_ppl.json").exists() else {}
+    manual = json.load(open(OUT / "analysis_manual.json")) if (OUT / "analysis_manual.json").exists() else {"rows": {}, "passages": 0}
     traces = json.load(open(OUT / "analysis_traces.json")) if (OUT / "analysis_traces.json").exists() else {"stats": {}}
 
     def oracle_table():
@@ -140,6 +149,18 @@ def main():
         rows = "".join(f"<tr><th scope='row'>{LABEL[c]}</th>" + "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for m, _ in MODELS[:4]) + "</tr>"
                        for c in ORACLE_ROWS)
         return f"<thead><tr><th scope='col'>Representation</th>{head}</tr></thead><tbody>{rows}</tbody>"
+
+    def manual_table():
+        def cell(m, c):
+            v = manual["rows"].get(f"{m}|{c}")
+            if not v:
+                return "<td>—</td>"
+            return (f"<td class='num'><span class='strong'>{100 * v['acc']:.1f}</span> "
+                    f"<span class='sub'>{100 * v['ci'][0]:.0f}–{100 * v['ci'][1]:.0f}</span></td>")
+        head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in MODELS[:4])
+        rows = "".join(f"<tr><th scope='row'>{LABEL[c]}</th>" + "".join(cell(m, c) for m, _ in MODELS[:4]) + "</tr>" for c in MANUAL_ROWS
+                       if any(f"{m}|{c}" in manual["rows"] for m, _ in MODELS[:4]))
+        return f"<thead><tr><th scope='col'>Representation ({manual['passages']} passages)</th>{head}</tr></thead><tbody>{rows}</tbody>"
 
     def items_table():
         rows = []
@@ -179,11 +200,19 @@ def main():
         head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in MODELS)
         rows = []
         for c in MAIN_ROWS:
-            w = {"noinfo": "0", "gender": "2", "book_last8000": "8,000", "book_last32000": "32,000"}.get(c, f"{medw.get(c, 0):,}")
-            cells = "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for m, _ in MODELS)
-            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th><td class='num'>{w}</td>{cells}"
+            w = {"noinfo": "0", "gender": "2", "book": "—", "book_last8000": "8,000", "book_last32000": "32,000"}.get(c, f"{medw.get(c, 0):,}")
+            def cell(m):
+                r = get("main", m, c)
+                part = r and r["items"] < r["items_total"]
+                mark = f"<sup title='{r['items']} of {r['items_total']} passages'>†</sup>" if part else ""
+                return f"<td class='num strong'>{pct(r and r['macro'])}{mark}</td>"
+            cells = "".join(cell(m) for m, _ in MODELS)
+            q = (get("main", q27, c) or {}).get("tokens_q")
+            tk = f"{q[2] / 1000:.1f}k <span class='sub'>{q[1] / 1000:.1f}–{q[3] / 1000:.1f}k</span>" if q else "—"
+            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th><td class='num'>{w}</td><td class='num'>{tk}</td>{cells}"
                         f"<td>{delta(get('main', q27, c)) if c != 'noinfo' else ''}</td></tr>")
-        return (f"<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Words per character</th>{head}"
+        return (f"<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Words per character</th>"
+                f"<th scope='col' class='num'>Prompt tokens, median <span class='sub'>middle half</span></th>{head}"
                 f"<th scope='col'>Qwen3.8-27B Δ vs names only</th></tr></thead><tbody>{''.join(rows)}</tbody>")
 
     def control_table():
@@ -284,30 +313,46 @@ def main():
             rows.append(f"<tr><th scope='row'><code>{b}</code></th><td class='num'>{a['n_items'][b]}</td>{cells}</tr>")
         return f"<thead><tr><th scope='col'>book</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
 
+    ptok = collections.defaultdict(dict)                     # item -> prompt tokens, thinking-on 27B (complete for both)
+    for c in ("book", "legacy_full"):
+        for f in glob.glob(str(OUT / "eval" / qt / "items_*" / f"{c}.*jsonl")):
+            if not f.endswith(".errors.jsonl") and any(f"/items_{sp}/" in f for sp in ("test", "val", "train")):
+                for r in read_jsonl(f):
+                    if r.get("prompt_tokens"):
+                        ptok[c][r["item_id"]] = r["prompt_tokens"]
+    both = [i for i in ptok["book"] if i in ptok["legacy_full"]]
+    leg_ratio = f"{st.median(ptok['legacy_full'][i] / ptok['book'][i] for i in both):.2f}"
+    leg_longer = f"{100 * sum(ptok['legacy_full'][i] > ptok['book'][i] for i in both) / len(both):.0f}"
     length = {}
     for m, name in CHART_MODELS[:2]:
         a = A[("main", m)]
         if not a:
             continue
         rows = a["rows"]
-        series = [{"name": fam, "points": [{"label": c, "x": rows[c]["mean_tokens"], "y": 100 * rows[c]["macro"]}
-                                           for c in conds if c in rows and rows[c]["mean_tokens"]]} for fam, conds in LENGTH_FAMILIES]
-        singles = [{"name": n, "x": rows[c]["mean_tokens"], "y": 100 * rows[c]["macro"]}
-                   for n, c in (("charmem", "charmem"), ("legacy, full", "legacy_full")) if c in rows]
-        length[name] = {"series": series, "singles": singles, "ref": 100 * rows["noinfo"]["macro"],
-                        "xlabel": "mean prompt tokens (log scale)", "xticks": [1000, 3000, 10000, 30000, 100000]}
+        pt = lambda c: {"x": rows[c]["tokens_q"][2], "lo": rows[c]["tokens_q"][1], "hi": rows[c]["tokens_q"][3],
+                        "y": 100 * rows[c]["macro"], "cov": rows[c]["items"] / rows[c]["items_total"]}
+        series = [{"name": fam, "points": [{"label": c, **pt(c)} for c in conds if c in rows and rows[c]["tokens_q"]]}
+                  for fam, conds in LENGTH_FAMILIES]
+        singles = [{"name": n, **pt(c)} for n, c in (("charmem", "charmem"), ("legacy, full", "legacy_full")) if c in rows]
+        length[name] = {"series": series, "singles": singles, "ref": 100 * rows["noinfo"]["macro"], "unit": "tokens",
+                        "xlabel": "median prompt tokens (log scale); bars span the middle half of prompts",
+                        "xticks": [1000, 3000, 10000, 30000, 100000, 300000]}
     passage = {}
     for m, name in CHART_MODELS:
         series = [{"name": n, "points": [{"label": sname, "x": passage_words[k], "y": 100 * macro(k, m, c)}
                                          for k, sname in SETS if macro(k, m, c) is not None]} for n, c in PASSAGE_SERIES]
-        ref = [{"label": sname, "x": passage_words[k], "y": 100 * macro(k, m, "noinfo")} for k, sname in SETS if macro(k, m, "noinfo") is not None]
+        ref = [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, "noinfo")}
+               for k, sname in SETS if macro(k, m, "noinfo") is not None]
         if any(s["points"] for s in series):
-            passage[name] = {"series": series, "refline": ref, "xlabel": "median passage length in words (log scale)",
+            passage[name] = {"series": series, "refline": ref, "unit": "words",
+                             "xlabel": "median passage length in words (log scale); bars on names only span the middle half of passages",
                              "xticks": [30, 100, 300, 1000]}
 
     def table_rows(d):
         return "\n".join(f"<tr><th scope='row'>{m}: {s['name']}</th><td>" + ", ".join(
-            f"{p['label']}: {p['y']:.1f}% at {p['x']:,.0f}" for p in s["points"]) + "</td></tr>" for m, v in d.items() for s in v["series"])
+            f"{p['label']}: {p['y']:.1f}% at {p['x']:,.0f}" + (f" (middle half {p['lo']:,.0f}–{p['hi']:,.0f})" if "lo" in p else "")
+            for p in s["points"]) + "</td></tr>"
+            for m, v in d.items() for s in v["series"])
 
     vals = dict(
         g27_lo=f"{100 * min(get('main', q27, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full') if get('main', q27, c)):.0f}",
@@ -349,7 +394,7 @@ def main():
     ex = re.sub(r"\[CHAR (\d)\]", r'<mark class="m\1">[CHAR \1]</mark>', ex)
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
-    for k, v in {"ORACLE_TABLE": oracle_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
+    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
                  "REASON_TABLE": reason_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
@@ -359,7 +404,7 @@ def main():
                  "LENGTH_ROWS": table_rows(length), "PASSAGE_ROWS": table_rows(passage),
                  "EXAMPLE": ex, "EXAMPLE_KEY": names, "EXAMPLE_BOOK": html.escape(it["book"]) if it else "",
                  "N_MAIN": f"{counts['main'][0]:,}", "N_SHORT": f"{counts['short'][0]:,}", "N_WINDOW": f"{counts['window'][0]:,}",
-                 "N_BOOKS": str(len(A[("main", q27)]["books"]))}.items():
+                 "N_BOOKS": str(len(A[("main", q27)]["books"])), "LEG_RATIO": leg_ratio, "LEG_LONGER": leg_longer}.items():
         page = page.replace("{{" + k + "}}", v)
     (REPO / "reports").mkdir(exist_ok=True)
     (REPO / "reports" / "results.html").write_text(page)
@@ -458,13 +503,13 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="main">
     <h2 id="main">Sections, all three principals named</h2>
-    <p class="muted">Macro accuracy over the {{N_BOOKS}} books with at least 10 passages (each book counts once; chance is 33.3%). The last column is the mean per-book gain over names only for Qwen3.8-27B without thinking, the number of books where it is positive, and a 95% bootstrap interval over books. Mistral-7B cannot read the two longest representations (32k context).</p>
+    <p class="muted">Macro accuracy over the {{N_BOOKS}} books with at least 10 passages (each book counts once; chance is 33.3%). The last column is the mean per-book gain over names only for Qwen3.8-27B without thinking, the number of books where it is positive, and a 95% bootstrap interval over books. Words per character is the median length of one character's block (book text is shared, not per character). Prompt tokens are for the whole Qwen3.8-27B prompt: three blocks, passage and question. † marks a condition that covers only some passages (prompts longer than the served context are skipped). Mistral-7B cannot read the long representations (32k context).</p>
     <div class="table-wrap"><table>{{MAIN_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="len">
     <h2 id="len">Representation length and accuracy</h2>
-    <p class="muted">Sections. Each line is one representation cut to increasing lengths: CHIRON-style keeps its most recent statements, v2, legacy and summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only.</p>
+    <p class="muted">Sections. Each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: CHIRON-style keeps its most recent statements, v2, legacy and summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full legacy sheet (three per-chapter sheets) is shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
     <div class="chart" id="lenbox">
       <div class="bar"><div class="legend" data-legend></div><div class="seg" role="group" aria-label="Model" data-seg></div></div>
       <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against mean prompt tokens, log scale"></svg>
@@ -507,6 +552,8 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h2 id="orc">Oracles: exactly the information needed</h2>
     <p class="muted">Per passage, gpt-oss wrote (a) 2 to 4 clues per character taken from the unmasked passage itself, a ceiling, and (b) up to 5 facts per character copied word for word from the notes available before the chapter, chosen because they identify the character in this passage (facts that were not verbatim copies were dropped). Swapping (b) between characters with names exchanged tests whether the model relies on it.</p>
     <div class="table-wrap"><table>{{ORACLE_TABLE}}</table></div>
+    <p class="muted">The quote oracle gives each character up to two sentences of the unmasked passage that name it, so the task reduces to matching a sentence to its masked copy. Hand-written oracles: for 3 passages from each of the 21 books, Claude agents read the passage, the earlier notes and the book, and wrote (a) 1 to 3 sentences per character from the passage, just enough to force the mapping, and (b) 1 to 4 facts per character established before the chapter, each with a chapter source, chosen for this passage. Accuracy on those passages with a 95% interval over passages:</p>
+    <div class="table-wrap"><table>{{MANUAL_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="trc">
@@ -581,8 +628,13 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     svg.replaceChildren(); legend.replaceChildren(); tip.hidden = true;
     const W = 760, H = 380, L = 48, R = 160, T = 16, B = 42;
     const pts = spec.series.flatMap(s => s.points).concat(spec.singles || [], spec.refline || []);
+    const xs = pts.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]);
     const ys = pts.map(p => p.y).concat(spec.ref !== undefined ? [spec.ref] : []);
-    const x0 = Math.log10(spec.xticks[0] * 0.8), x1 = Math.log10(spec.xticks[spec.xticks.length - 1] * 1.1);
+    const x0 = Math.log10(Math.min(...xs) * 0.8), x1 = Math.log10(Math.max(...xs) * 1.15);
+    const ticks = spec.xticks.filter(v => Math.log10(v) >= x0 && Math.log10(v) <= x1);
+    const fmt = v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k" : Math.round(v).toString();
+    const desc = p => `${p.y.toFixed(1)}% · median ${fmt(p.x)} ${spec.unit}` + (p.lo ? ` (middle half ${fmt(p.lo)}–${fmt(p.hi)})` : "")
+      + (p.cov !== undefined && p.cov < 1 ? ` · ${Math.round(100 * p.cov)}% of passages` : "");
     let y0 = Math.floor(Math.min(...ys) / 5) * 5, y1 = Math.ceil(Math.max(...ys) / 5) * 5;
     if (y1 - y0 < 10) y1 = y0 + 10;
     const X = v => L + (Math.log10(v) - x0) / (x1 - x0) * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
@@ -592,7 +644,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       el("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "var(--rule)", "stroke-width": 1 });
       el("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end" }).textContent = v + "%";
     }
-    spec.xticks.forEach(v => { el("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }).textContent = v >= 1000 ? (v / 1000) + "k" : v; });
+    ticks.forEach(v => { el("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }).textContent = v >= 1000 ? (v / 1000) + "k" : String(v); });
     el("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle" }).textContent = spec.xlabel;
     const labels = [];
     const hover = (x, y, text) => {
@@ -602,28 +654,37 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
       hit.addEventListener("mouseleave", () => tip.hidden = true); hit.addEventListener("blur", () => tip.hidden = true);
     };
+    function whisker(p, c) {
+      if (!p.lo) return;
+      const y = Y(p.y), a = { stroke: c, "stroke-width": 1.5, opacity: 0.45 };
+      el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a });
+      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 4, y2: y + 4, ...a });
+      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 4, y2: y + 4, ...a });
+    }
     if (spec.ref !== undefined) {
       el("line", { x1: L, x2: W - R, y1: Y(spec.ref), y2: Y(spec.ref), stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 });
       labels.push({ y: Y(spec.ref), text: "names only", c: "var(--ref)" });
     }
     if (spec.refline && spec.refline.length) {
       el("polyline", { points: spec.refline.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 });
-      spec.refline.forEach(p => hover(X(p.x), Y(p.y), `Names only · ${p.label}: ${p.y.toFixed(1)}%`));
+      spec.refline.forEach(p => { whisker(p, "var(--ref)"); hover(X(p.x), Y(p.y), `Names only · ${p.label}: ${desc(p)}`); });
       const last = spec.refline[spec.refline.length - 1]; labels.push({ y: Y(last.y), text: "names only", c: "var(--ref)" });
     }
     spec.series.forEach((s, i) => {
       if (!s.points.length) return;
       const c = `var(${colors[i]})`;
       el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round" });
+      s.points.forEach(p => { whisker(p, c); });
       s.points.forEach(p => { el("circle", { cx: X(p.x), cy: Y(p.y), r: 4.5, fill: c, stroke: "var(--surface)", "stroke-width": 2 });
-        hover(X(p.x), Y(p.y), `${s.name} · ${p.label}: ${p.y.toFixed(1)}% at ${Math.round(p.x).toLocaleString()}`); });
+        hover(X(p.x), Y(p.y), `${s.name} · ${p.label}: ${desc(p)}`); });
       const last = s.points[s.points.length - 1]; labels.push({ y: Y(last.y), text: s.name, c });
       const lg = document.createElement("span"); lg.innerHTML = `<i style="background:${c}"></i>`; lg.append(s.name); legend.appendChild(lg);
     });
     (spec.singles || []).forEach(p => {
+      whisker(p, "var(--fg)");
       el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` });
-      hover(X(p.x), Y(p.y), `${p.name}: ${p.y.toFixed(1)}% at ${Math.round(p.x).toLocaleString()}`);
-      const t = el("text", { x: X(p.x) + 9, y: Y(p.y) + 4, class: "lbl" }); t.textContent = p.name; t.style.fill = "var(--fg)";
+      hover(X(p.x), Y(p.y), `${p.name}: ${desc(p)}`);
+      const t = el("text", { x: X(p.hi || p.x) + 9, y: Y(p.y) + 4, class: "lbl" }); t.textContent = p.name; t.style.fill = "var(--fg)";
     });
     labels.sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
     labels.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });

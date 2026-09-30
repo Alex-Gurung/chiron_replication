@@ -8,6 +8,8 @@
   python3 scripts/queue_jobs.py final SPLIT...  every condition for the given splits (needs items/reps built)
   python3 scripts/queue_jobs.py reshard         re-split the slow thinking-on short/window shards wider
   python3 scripts/queue_jobs.py sections SPLIT...  sheet-section ablation on the 27B, two conditions a job
+  python3 scripts/queue_jobs.py long27          27B prompts over 131k tokens, rerun at 262k on 2 GPUs
+  python3 scripts/queue_jobs.py quote|manual   item-level oracles from manual_oracle.py on every model
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
   python3 scripts/queue_jobs.py gender          gender-only representation on every model and set
@@ -188,6 +190,26 @@ def main():
                 addraw(f"sec27_{split}_{k // 2}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False) + [
                     "python3", "-u", f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", f"items_{split}",
                     "--conditions", *conds[k:k + 2], "--workers", "128", "--rotations"], 0)
+    elif what == "long27":
+        # 27B, thinking off: prompts over 131k tokens (whole book, combinations) at 262k on 2 GPUs; finished ones are skipped
+        for split in ("test", "val", "train"):
+            for c in ("book", "combo_legacy_v2", "combo_all"):
+                n = 4 if split == "train" else 1
+                for k in range(n):
+                    addraw(f"long27_{split}_{c}_s{k}of{n}", 2, env(CHIRON_THINKING=0) + srv("qwen27", True)
+                           + ev("eval_mcp.py", split, f"items_{split}", c, k, n, ["--rotations"]), 0)
+    elif what in ("quote", "manual"):
+        # item-level oracles from manual_oracle.py: the verbatim-quote oracle (every item) or the agent-written ones (63 items)
+        conds = ["oracle_quote"] if what == "quote" else ["manual_passage", "manual_prior", "swapname:manual_prior"]
+        for split in ("test", "val", "train"):
+            for c in conds:
+                t = f"{what}_{split}_{tag(c)}"
+                addraw(f"{t}_q27", 1, env(CHIRON_THINKING=0) + srv("qwen27", False) + ev("eval_mcp.py", split, f"items_{split}", c, extra=["--rotations"]), 0)
+                addraw(f"{t}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", False) + ev("eval_mcp.py", split, f"items_{split}", c, extra=["--rotations"]), 0)
+                addraw(f"{t}_q4b", 1, srv("qwen4b", False) + ev("eval_mcp.py", split, f"items_{split}", c), 0)
+                n = 4 if split == "train" and what == "quote" else 1
+                for k in range(n):
+                    addraw(f"{t}_q27think_s{k}of{n}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, f"items_{split}", c, k, n), 1)
     elif what == "oracle_shards":
         # thinking-on prior-facts oracle (and its name-swapped control) on train, 8 ways each
         for c in ("oracle_prior", "swapname:oracle_prior"):

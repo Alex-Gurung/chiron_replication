@@ -18,6 +18,7 @@ from common import OUT, read_jsonl, write_json
 
 def load(model, stems):
     by = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0, 0]))   # cond -> book -> [ok, n, tokens]
+    toks, items = collections.defaultdict(list), collections.defaultdict(set)          # cond -> prompt lengths / item ids
     seen = set()                                   # dedupe across run files
     for stem in stems:
         root = OUT / "eval" / model / stem
@@ -35,7 +36,10 @@ def load(model, stems):
                 cell[0] += int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"]))
                 cell[1] += 1
                 cell[2] += r.get("prompt_tokens") or 0
-    return by
+                items[cond].add(r["item_id"])
+                if r.get("prompt_tokens"):
+                    toks[cond].append(r["prompt_tokens"])
+    return by, toks, items
 
 
 def boot(diffs, n=2000, seed=0):
@@ -51,7 +55,7 @@ def main():
     ap.add_argument("--min-items", type=int, default=10)
     args = ap.parse_args()
     suffix = {"main": "", "two": "_two", "pron": "_pron", "window": "_window", "short": "_short"}[args.set]
-    by = load(args.model, [f"items_{s}{suffix}" for s in ("test", "val", "train")])
+    by, toks, items = load(args.model, [f"items_{s}{suffix}" for s in ("test", "val", "train")])
     n_items = collections.Counter()
     for s in ("test", "val", "train"):
         for it in read_jsonl(OUT.parent / "data" / f"items_{s}{suffix}.jsonl"):
@@ -64,6 +68,8 @@ def main():
         common = [b for b in books if b in acc[c]]
         row = {"pooled": ok / n if n else None, "n_trials": n, "books": len(common),
                "mean_tokens": sum(v[2] for v in d.values()) / n if n else None,
+               "tokens_q": [sorted(toks[c])[int(q * (len(toks[c]) - 1))] for q in (0.1, 0.25, 0.5, 0.75, 0.9)] if toks[c] else None,
+               "items": len(items[c]), "items_total": sum(n_items.values()),
                "macro": sum(acc[c][b] for b in common) / len(common) if common else None}
         for ref in ("noinfo", "v2"):
             shared = [b for b in common if b in acc.get(ref, {})]
