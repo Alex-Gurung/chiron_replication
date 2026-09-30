@@ -1,16 +1,16 @@
 """Hand-written oracles vs everything else, on the passages the agents annotated (manual_oracle.py).
 
   python3 chiron/analyze_manual.py
-For each model and condition: accuracy over (passage, character, block order) on the sampled passages, with a
-95% bootstrap interval over passages, and the paired difference against v2 on the same passages. The verbatim-quote
-oracle is also reported over every passage. Writes outputs/analysis_manual.json.
+For each model and condition: accuracy over (passage, character, block order) on the sampled passages (joint
+scoring for thinking-off runs, see analyze.py), with a 95% bootstrap interval over passages, and the paired
+difference against v2 on the same passages. The verbatim-quote oracle is also reported over every passage. Writes outputs/analysis_manual.json.
 """
 import collections
 import glob
 import json
 import random
 
-from common import DATA, OUT, read_jsonl, write_json
+from common import DATA, OUT, joint_correct, read_jsonl, write_json
 
 MODELS = ["Qwen3-4B-Instruct-2507", "Qwen3.5-9B-Base", "Qwen3.8-27B_nothink", "Qwen3.8-27B_think"]
 CONDS = ["noinfo", "v2", "legacy_full", "oracle_prior", "manual_prior", "oracle_passage", "manual_passage", "oracle_quote",
@@ -18,17 +18,18 @@ CONDS = ["noinfo", "v2", "legacy_full", "oracle_prior", "manual_prior", "oracle_
 
 
 def per_item(model, cond):
-    acc = collections.defaultdict(list)
-    seen = set()
+    acc, groups = collections.defaultdict(list), collections.defaultdict(dict)
     for f in glob.glob(str(OUT / "eval" / model / "items_*" / f"{cond}.*jsonl")) + glob.glob(str(OUT / "eval" / model / "items_*" / f"{cond}.jsonl")):
         if f.endswith(".errors.jsonl") or not any(f"/items_{s}/" in f for s in ("test", "val", "train")):
             continue
         for r in read_jsonl(f):
-            k = (r["item_id"], tuple(r["order"]), r["target"])
-            if k not in seen:
-                seen.add(k)
-                lp = r["logprobs"]
-                acc[r["item_id"]].append(int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"])))
+            groups[(r["item_id"], tuple(r["order"]))][r["target"]] = (r["logprobs"], r["answer"], r.get("invalid"))
+    for (iid, order), d in groups.items():
+        if model.endswith("_think"):                          # full mappings already; unreadable counts wrong
+            for lp, a, inv in d.values():
+                acc[iid].append(int(not inv and max(lp, key=lp.get) == str(a)))
+        elif len(d) == len(order):
+            acc[iid] += list(joint_correct({t: v[:2] for t, v in d.items()}).values())
     return {i: sum(v) / len(v) for i, v in acc.items()}
 
 

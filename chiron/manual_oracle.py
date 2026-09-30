@@ -91,7 +91,12 @@ def collect():
     tasks = {t["item_id"]: t for k in range(BATCHES) for t in json.load(open(MAN / f"tasks_{k}.json"))}
     bad = collections.Counter()
     got = set()
-    latest = {r["item_id"]: r for k in range(BATCHES) for r in read_jsonl(MAN / f"out_{k}.jsonl")}   # an agent's revision wins
+    batch = {t["item_id"]: k for k in range(BATCHES) for t in json.load(open(MAN / f"tasks_{k}.json"))}
+    latest = {}                                        # the assigned batch's last record wins; other files only fill gaps
+    for k in range(BATCHES):
+        for r in read_jsonl(MAN / f"out_{k}.jsonl"):
+            if r.get("item_id") in tasks and (batch[r["item_id"]] == k or r["item_id"] not in latest):
+                latest[r["item_id"]] = r
     for r in latest.values():
         t = tasks[r["item_id"]]
         label = t["names"]

@@ -151,3 +151,12 @@ def genders(reps):
             c[1] += len(PRONOUN_F.findall(r["text"]))
     g = {k: "M" if m > 0.65 * (m + f) else "F" if f > 0.65 * (m + f) else "?" for k, (m, f) in counts.items()}
     return {**g, **{k: v for k, v in GENDER_FIX.items() if k in g}}
+
+
+def joint_correct(d):
+    """d: target -> (logprobs over id digits, answer id) for one passage and block order. Returns target -> 1/0 under
+    the one-to-one name-to-id mapping with the highest summed log-probability (each id is used once)."""
+    import itertools
+    ts = list(d)
+    best = max(itertools.permutations(range(len(ts))), key=lambda p: sum(d[t][0].get(str(i), -1e9) for t, i in zip(ts, p)))
+    return {t: int(i == d[t][1]) for t, i in zip(ts, best)}

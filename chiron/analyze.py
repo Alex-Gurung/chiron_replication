@@ -13,12 +13,14 @@ import json
 import os
 import random
 
-from common import OUT, read_jsonl, write_json
+from common import OUT, joint_correct, read_jsonl, write_json
 
 
 def load(model, stems):
     by = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0, 0]))   # cond -> book -> [ok, n, tokens]
     toks, items = collections.defaultdict(list), collections.defaultdict(set)          # cond -> prompt lengths / item ids
+    groups = collections.defaultdict(dict)         # (cond, item, order) -> target -> (logprobs, answer, book)
+    by_answer = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0]))   # cond -> true id -> [ok, n]
     seen = set()                                   # dedupe across run files
     for stem in stems:
         root = OUT / "eval" / model / stem
@@ -37,9 +39,21 @@ def load(model, stems):
                 cell[1] += 1
                 cell[2] += r.get("prompt_tokens") or 0
                 items[cond].add(r["item_id"])
+                ba = by_answer[cond][r["answer"]]
+                ba[0] += int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"]))
+                ba[1] += 1
+                groups[(cond, r["item_id"], tuple(r["order"]))][r["target"]] = (lp, r["answer"], r["book"])
                 if r.get("prompt_tokens"):
                     toks[cond].append(r["prompt_tokens"])
-    return by, toks, items
+    joint = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0]))   # cond -> book -> [ok, n]
+    for (cond, _, order), d in groups.items():
+        if len(d) != len(order):
+            continue
+        for t, ok in joint_correct({t: v[:2] for t, v in d.items()}).items():
+            cell = joint[cond][d[t][2]]
+            cell[0] += ok
+            cell[1] += 1
+    return by, toks, items, joint, by_answer
 
 
 def boot(diffs, n=2000, seed=0):
@@ -55,13 +69,14 @@ def main():
     ap.add_argument("--min-items", type=int, default=10)
     args = ap.parse_args()
     suffix = {"main": "", "two": "_two", "pron": "_pron", "window": "_window", "short": "_short"}[args.set]
-    by, toks, items = load(args.model, [f"items_{s}{suffix}" for s in ("test", "val", "train")])
+    by, toks, items, joint, by_answer = load(args.model, [f"items_{s}{suffix}" for s in ("test", "val", "train")])
     n_items = collections.Counter()
     for s in ("test", "val", "train"):
         for it in read_jsonl(OUT.parent / "data" / f"items_{s}{suffix}.jsonl"):
             n_items[it["book"]] += 1
     books = sorted(b for b, n in n_items.items() if n >= args.min_items)
     acc = {c: {b: v[0] / v[1] for b, v in d.items() if v[1]} for c, d in by.items()}
+    accj = {c: {b: v[0] / v[1] for b, v in d.items() if v[1]} for c, d in joint.items()}
     rows = {}
     for c, d in by.items():
         ok, n = sum(v[0] for v in d.values()), sum(v[1] for v in d.values())
@@ -70,7 +85,16 @@ def main():
                "mean_tokens": sum(v[2] for v in d.values()) / n if n else None,
                "tokens_q": [sorted(toks[c])[int(q * (len(toks[c]) - 1))] for q in (0.1, 0.25, 0.5, 0.75, 0.9)] if toks[c] else None,
                "items": len(items[c]), "items_total": sum(n_items.values()),
+               "by_answer": {a: v[0] / v[1] for a, v in sorted(by_answer[c].items())},
                "macro": sum(acc[c][b] for b in common) / len(common) if common else None}
+        cj = [b for b in books if b in accj.get(c, {})]
+        row["joint"] = {"macro": sum(accj[c][b] for b in cj) / len(cj) if cj else None, "books": len(cj)}
+        for ref in ("noinfo", "v2"):
+            shared = [b for b in cj if b in accj.get(ref, {})]
+            if c != ref and len(shared) >= 3:
+                diffs = [accj[c][b] - accj[ref][b] for b in shared]
+                lo, hi = boot(diffs)
+                row["joint"][f"vs_{ref}"] = {"mean": sum(diffs) / len(diffs), "pos": sum(x > 0 for x in diffs), "n": len(diffs), "ci": [lo, hi]}
         for ref in ("noinfo", "v2"):
             shared = [b for b in common if b in acc.get(ref, {})]
             if c != ref and len(shared) >= 3:
@@ -80,13 +104,13 @@ def main():
                                     "n": len(diffs), "ci": [lo, hi]}
         rows[c] = row
     write_json(OUT / f"analysis_{args.set}_{args.model}.json", {"books": books, "n_items": n_items, "rows": rows,
-                                                                 "per_book": acc})
+                                                                 "per_book": acc, "per_book_joint": accj})
     print(f"set={args.set} model={args.model} books with >={args.min_items} items: {len(books)}")
-    print(f"{'condition':22s} {'pooled':>7s} {'macro':>7s}  {'vs noinfo (mean, +books, 95% CI)':>36s}  {'vs v2':>30s}")
+    print(f"{'condition':22s} {'pooled':>7s} {'macro':>7s} {'joint':>7s}  {'vs noinfo (mean, +books, 95% CI)':>36s}  {'vs v2':>30s}")
     for c, r in sorted(rows.items(), key=lambda kv: kv[1]["macro"] or 0):
         f = lambda k: (f"{r[k]['mean']:+.3f} {r[k]['pos']:2d}/{r[k]['n']:<2d} [{r[k]['ci'][0]:+.3f},{r[k]['ci'][1]:+.3f}]"
                        if k in r else "")
-        print(f"{c:22s} {r['pooled']:7.3f} {(r['macro'] or 0):7.3f}  {f('vs_noinfo'):>36s}  {f('vs_v2'):>30s}")
+        print(f"{c:22s} {r['pooled']:7.3f} {(r['macro'] or 0):7.3f} {(r['joint']['macro'] or 0):7.3f}  {f('vs_noinfo'):>36s}  {f('vs_v2'):>30s}")
 
 
 if __name__ == "__main__":

@@ -54,35 +54,44 @@ PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("CHIRON-style, fu
                   ("Summary", "summary"), ("Legacy, full", "legacy_full"), ("Book, last 8k", "book_last8000")]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
-    "Model strength decides whether the representations matter. Qwen3-4B gains 1 to 5 points over names only; "
-    "Qwen3.8-27B with thinking off gains {g27_lo} to {g27_hi} points, positive in every book; with thinking on it reaches "
-    "{think_lo} to {think_hi}% on sections with any representation.",
+    "Scoring changes the thinking-off results. Asked about one character at a time, Qwen3.8-27B without thinking almost "
+    "never answers 0: with names only it gets {zero27}% of the characters whose id is [CHAR 0], which caps it near two "
+    "thirds whatever it is told (the verbatim-quote oracle scores {quote27a}% that way). Taking the best one-to-one mapping "
+    "of its three answers (joint scoring; the prompt says each id is used once) removes this, and the same quote oracle "
+    "scores {quote27}%. Every thinking-off number below uses joint scoring; the per-character numbers are in Scoring.",
+    "Model strength decides how much the representations help. Over names only, Qwen3-4B gains {g4_lo} to {g4_hi} points, "
+    "and Qwen3.8-27B without thinking {g27_lo} to {g27_hi}, positive in every book. With thinking it reaches {think_lo} to "
+    "{think_hi}% on sections with any representation.",
     "The models do use the sheets. With another principal's sheet and the names inside it exchanged, Qwen3.8-27B falls "
     "to {swap27}% (names only {noinfo27}%) and to {swapthink}% with thinking; the reasoning traces cite specific sheet "
     "facts and match them to events in the passage.",
-    "Without thinking, the ceiling is matching, not information: clues copied from the passage itself give Qwen3.8-27B only "
-    "{orpass27}%, below the full legacy sheet; with thinking the same clues give {orpassthink}%.",
+    "Exactly the information needed is enough. On {man_n} passages, Claude agents wrote 1 to 4 facts per character that "
+    "were established before the chapter and identify it in the passage (median {man_words} words). They give Qwen3.8-27B "
+    "{manp27}% without thinking and {manpthink}% with it, against {manv2_27}% and {manv2_think}% for the whole v2 sheet on "
+    "the same passages, and {manleg27}% and {manlegthink}% for the full legacy sheet. Clues taken from the passage itself give "
+    "{manpas27}% and {manpasthink}%. The gpt-oss prior-facts oracle did worse ({orp27}% and {orpthink}%): it picked generic traits.",
     "The representations get different passages right. Which passage it is explains {varp}% of the variance in "
     "correctness and the representation {varr}%; choosing the best representation per passage would reach {pick}% against "
     "{best}% for the best single one. Combining legacy with v2 gives the best score, {combo}%.",
     "The full legacy sheet (Llama-3.3-70B, per-chapter CHIRON answers) wins because of what it says, not its length or "
-    "recency: cut to 6,000 words it scores {leg_r6000}%, without the previous chapter {leg_noprev}%. Its statements naming "
-    "the other principals alone score {leg_inter}%; it has 4 to 7 times more of them than the gpt-oss CHIRON-style sheet.",
+    "recency: without the previous chapter it scores {leg_noprev}% (full {legfull27}%), and cut to 6,000 words {leg_r6000}%, "
+    "still well above the gpt-oss CHIRON-style sheet at any length ({chiron27}% in full). It has 4 to 7 times more statements "
+    "naming the other principals.",
     "With thinking, much of every score is gender. From names alone, Qwen3.8-27B places {g_uni}% of characters whose gender "
     "is unique among the three principals and {g_same}% when all three share one (chance 33%); the representations mostly "
     "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full legacy). "
     "Stating the gender adds little because the names already carry it: gender only gives {genthink}% with thinking. Without "
-    "thinking it does nothing: Qwen3.8-27B {gen27}% (names only {noinfo27}%), Qwen3.5-9B base {gen9}% ({noinfo9}%). "
-    "The rest of each sheet's gain comes from what it says.",
+    "thinking it does nothing: Qwen3.8-27B {gen27}% (names only {noinfo27}%), Qwen3.5-9B base {gen9}% ({noinfo9}%).",
     "Short spans (about 50 words) keep thinking-on accuracy below ceiling: names only {s_noinfo}%, every representation "
     "{s_lo} to {s_hi}%, name-swapped v2 {s_swap}%. Only the full legacy sheet is clearly ahead of v2 ({s_legd} "
-    "points, better in {s_legpos} books), matching its lead on sections without thinking; on dense windows every representation is at {w_lo} to {w_hi}%.",
+    "points, better in {s_legpos} books), matching its lead on sections without thinking; on dense windows every "
+    "representation is at {w_lo} to {w_hi}%.",
     "Better notes shorten the reasoning. With thinking on, the median reasoning on sections is {eff_noi}k characters with "
     "names only, {eff_v2}k with v2 and {eff_leg}k with the full legacy sheet; on dense windows, where every representation "
     "is at ceiling, v2 still needs {effw_v2}k against {effw_leg}k for legacy.",
     "Which part of a sheet matters depends on the model. For Qwen3.5-9B base the ~120-word relationships section alone "
-    "({rel9}%) does about as well as the whole v2 sheet ({v29}%); for Qwen3.8-27B each section alone adds only 3 to 6 "
-    "points, and the sheet without relationships ({norel27}%) is close to the full sheet ({v227}%).",
+    "({rel9}%) does about as well as the whole v2 sheet ({v29}%); for Qwen3.8-27B each section alone adds {sec27_lo} to "
+    "{sec27_hi} points, and the sheet without relationships ({norel27}%) is close to the full sheet ({v227}%).",
     "Character notes make the real next passage more likely in every book: {ppl_lo} to {ppl_hi}% lower perplexity for "
     "Qwen3.5-9B base without story context, and 1 to 4% on top of the 4,000 words before the passage (Qwen3.5-9B base and Qwen3.8-27B).",
 ]
@@ -120,7 +129,12 @@ def main():
     def get(s, m, c):                                   # rows covering under half the set's books are still running: hidden
         a = A.get((s, m)) or {}
         r = (a.get("rows") or {}).get(c)
-        return r if r and r["books"] >= len(a["books"]) / 2 else None
+        if not r or r["books"] < len(a["books"]) / 2:
+            return None
+        if not m.endswith("_think") and (r.get("joint") or {}).get("macro") is not None:   # thinking off: joint scoring
+            j = r["joint"]
+            r = {**r, "macro_argmax": r["macro"], "macro": j["macro"], "vs_noinfo": j.get("vs_noinfo"), "vs_v2": j.get("vs_v2")}
+        return r
     macro = lambda s, m, c: (get(s, m, c) or {}).get("macro")
     words = collections.defaultdict(list)
     for s in ("test", "val", "train"):
@@ -141,6 +155,8 @@ def main():
     items9 = json.load(open(OUT / "analysis_items_Qwen3.5-9B-Base.json"))
     gender = json.load(open(OUT / "analysis_gender.json"))["acc"]
     ppl = json.load(open(OUT / "analysis_ppl.json")) if (OUT / "analysis_ppl.json").exists() else {}
+    man_words = int(st.median(len(r["text"].split()) for sp in ("test", "val", "train") for r in read_jsonl(DATA / f"reps_item_{sp}.jsonl")
+                              if r["condition"] == "manual_prior"))
     manual = json.load(open(OUT / "analysis_manual.json")) if (OUT / "analysis_manual.json").exists() else {"rows": {}, "passages": 0}
     traces = json.load(open(OUT / "analysis_traces.json")) if (OUT / "analysis_traces.json").exists() else {"stats": {}}
 
@@ -149,6 +165,22 @@ def main():
         rows = "".join(f"<tr><th scope='row'>{LABEL[c]}</th>" + "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for m, _ in MODELS[:4]) + "</tr>"
                        for c in ORACLE_ROWS)
         return f"<thead><tr><th scope='col'>Representation</th>{head}</tr></thead><tbody>{rows}</tbody>"
+
+    def scoring_table():
+        direct = [(m, n) for m, n in MODELS if not m.endswith("_think") and not m.startswith("Mistral")]
+        head1 = "".join(f"<th scope='colgroup' colspan='2' class='num'>{n}</th>" for _, n in direct) + "<th scope='colgroup' colspan='3' class='num'>Qwen3.8-27B, per character, by true id</th>"
+        head2 = "".join("<th scope='col' class='num'>per character</th><th scope='col' class='num'>joint</th>" for _ in direct) + \
+            "".join(f"<th scope='col' class='num'>[CHAR {i}]</th>" for i in range(3))
+        rows = []
+        for c in ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", "oracle_quote"]:
+            cells = ""
+            for m, _ in direct:
+                r = get("main", m, c)
+                cells += f"<td class='num'>{pct(r and r['macro_argmax'])}</td><td class='num strong'>{pct(r and r['macro'])}</td>"
+            ba = ((A[("main", q27)] or {}).get("rows", {}).get(c) or {}).get("by_answer", {})
+            cells += "".join(f"<td class='num'>{100 * ba[str(i)]:.0f}</td>" if str(i) in ba else "<td>—</td>" for i in range(3))
+            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th>{cells}</tr>")
+        return f"<thead><tr><th scope='col' rowspan='2'>Representation</th>{head1}</tr><tr>{head2}</tr></thead><tbody>{''.join(rows)}</tbody>"
 
     def manual_table():
         def cell(m, c):
@@ -308,7 +340,7 @@ def main():
                        ["passages", "names only", "summary", "v2", "CHIRON", "charmem", "legacy full", "book 8k", "swap+names"])
         rows = []
         for b in sorted(a["books"], key=lambda b: -a["n_items"][b]):
-            cells = "".join(f"<td class='num'>{100 * a['per_book'][c][b]:.0f}</td>" if b in a["per_book"].get(c, {}) else "<td>—</td>"
+            cells = "".join(f"<td class='num'>{100 * a['per_book_joint'][c][b]:.0f}</td>" if b in a["per_book_joint"].get(c, {}) else "<td>—</td>"
                             for c in cols)
             rows.append(f"<tr><th scope='row'><code>{b}</code></th><td class='num'>{a['n_items'][b]}</td>{cells}</tr>")
         return f"<thead><tr><th scope='col'>book</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
@@ -330,11 +362,11 @@ def main():
             continue
         rows = a["rows"]
         pt = lambda c: {"x": rows[c]["tokens_q"][2], "lo": rows[c]["tokens_q"][1], "hi": rows[c]["tokens_q"][3],
-                        "y": 100 * rows[c]["macro"], "cov": rows[c]["items"] / rows[c]["items_total"]}
-        series = [{"name": fam, "points": [{"label": c, **pt(c)} for c in conds if c in rows and rows[c]["tokens_q"]]}
+                        "y": 100 * get("main", m, c)["macro"], "cov": rows[c]["items"] / rows[c]["items_total"]}
+        series = [{"name": fam, "points": [{"label": c, **pt(c)} for c in conds if c in rows and rows[c]["tokens_q"] and get("main", m, c)]}
                   for fam, conds in LENGTH_FAMILIES]
         singles = [{"name": n, **pt(c)} for n, c in (("charmem", "charmem"), ("legacy, full", "legacy_full")) if c in rows]
-        length[name] = {"series": series, "singles": singles, "ref": 100 * rows["noinfo"]["macro"], "unit": "tokens",
+        length[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
                         "xlabel": "median prompt tokens (log scale); bars span the middle half of prompts",
                         "xticks": [1000, 3000, 10000, 30000, 100000, 300000]}
     passage = {}
@@ -368,6 +400,17 @@ def main():
         leg_nofill=pct(macro("main", q27, "legacy_nofill")), leg_inter=pct(macro("main", q27, "legacy_inter")),
         orpass27=pct(macro("main", q27, "oracle_passage")), orpassthink=pct(macro("main", qt, "oracle_passage")),
         combo=pct(macro("main", q27, "combo_legacy_v2")),
+        zero27=f"{100 * A[('main', q27)]['rows']['noinfo']['by_answer']['0']:.1f}",
+        quote27=pct(macro("main", q27, "oracle_quote")), quote27a=pct(get("main", q27, "oracle_quote")["macro_argmax"]),
+        g4_lo=f"{100 * min(get('main', q4, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full')):.0f}",
+        g4_hi=f"{100 * max(get('main', q4, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full')):.0f}",
+        chiron27=pct(macro("main", q27, "chiron")),
+        sec27_lo=f"{100 * min(macro('main', q27, f'v2_sec_{k}') - macro('main', q27, 'noinfo') for k, _ in SHEET_SECTIONS):.0f}",
+        sec27_hi=f"{100 * max(macro('main', q27, f'v2_sec_{k}') - macro('main', q27, 'noinfo') for k, _ in SHEET_SECTIONS):.0f}",
+        man_n=str(manual["passages"]), man_words=str(man_words),
+        **{f"{k}{sfx}": f"{100 * manual['rows'][f'{m}|{c}']['acc']:.1f}" for k, c in (("manp", "manual_prior"), ("manv2_", "v2"),
+           ("manleg", "legacy_full"), ("manpas", "manual_passage")) for sfx, m in (("27", q27), ("think", qt))},
+        orp27=pct(macro("main", q27, "oracle_prior")), orpthink=pct(macro("main", qt, "oracle_prior")),
         gen27=pct(macro("main", q27, "gender")), genthink=pct(macro("main", qt, "gender")), gen9=pct(macro("main", "Qwen3.5-9B-Base", "gender")),
         noinfo9=pct(macro("main", "Qwen3.5-9B-Base", "noinfo")),
         g_uni=f"{100 * gender[qt + '|noinfo']['unique']['acc']:.0f}", g_same=f"{100 * gender[qt + '|noinfo']['all same']['acc']:.0f}",
@@ -394,7 +437,7 @@ def main():
     ex = re.sub(r"\[CHAR (\d)\]", r'<mark class="m\1">[CHAR \1]</mark>', ex)
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
-    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
+    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
                  "REASON_TABLE": reason_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
@@ -501,9 +544,15 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <ul class="findings">{{FINDINGS}}</ul>
   </section>
 
+  <section aria-labelledby="scr">
+    <h2 id="scr">Scoring: a prior over id labels</h2>
+    <p class="muted">Without thinking, each character is asked for separately and scored from the probabilities of the id digits. Per character, the answer is the most likely digit. Joint scoring takes the one-to-one mapping of names to ids with the highest summed log-probability over the three questions (the prompt says each id stands for exactly one character). Qwen3.8-27B without thinking almost never answers 0, so per-character scoring cannot get [CHAR 0] right; joint scoring removes most of that. Accuracy (%, sections); thinking-on answers are already full mappings and are unaffected.</p>
+    <div class="table-wrap"><table>{{SCORING_TABLE}}</table></div>
+  </section>
+
   <section aria-labelledby="main">
     <h2 id="main">Sections, all three principals named</h2>
-    <p class="muted">Macro accuracy over the {{N_BOOKS}} books with at least 10 passages (each book counts once; chance is 33.3%). The last column is the mean per-book gain over names only for Qwen3.8-27B without thinking, the number of books where it is positive, and a 95% bootstrap interval over books. Words per character is the median length of one character's block (book text is shared, not per character). Prompt tokens are for the whole Qwen3.8-27B prompt: three blocks, passage and question. † marks a condition that covers only some passages (prompts longer than the served context are skipped). Mistral-7B cannot read the long representations (32k context).</p>
+    <p class="muted">Macro accuracy over the {{N_BOOKS}} books with at least 10 passages (each book counts once; chance is 33.3%); thinking-off columns use joint scoring. The last column is the mean per-book gain over names only for Qwen3.8-27B without thinking, the number of books where it is positive, and a 95% bootstrap interval over books. Words per character is the median length of one character's block (book text is shared, not per character). Prompt tokens are for the whole Qwen3.8-27B prompt: three blocks, passage and question. † marks a condition that covers only some passages (prompts longer than the served context are skipped). Mistral-7B cannot read the long representations (32k context).</p>
     <div class="table-wrap"><table>{{MAIN_TABLE}}</table></div>
   </section>
 
@@ -613,7 +662,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <dl>
       <dt>Passages</dt><dd>Every candidate principal is named in at least two earlier chapters. Names come from hand-checked alias tables (nicknames, earlier names, secret identities); passages with an ambiguous surname or any leftover name are dropped.</dd>
       <dt>Representations</dt><dd>All built from chapters before the passage's chapter. CHIRON-style: CHIRON's 8 questions answered per 300-word snippet by gpt-oss-120b, claims kept only at rating 5 on the paper's 1–5 entailment scale, grouped by category and deduplicated. Summary: gpt-oss rolling summary condensed to about 700 words. Legacy: the Llama-3.3-70B sheets from the original NCP archive.</dd>
-      <dt>Scoring</dt><dd>Without thinking: next-token probabilities of the id digits at temperature 0 (Qwen3-4B over all 6 block orders, Qwen3.8-27B over 3 rotations; Mistral's reply is pre-started with "[CHAR "). With thinking: one generation per passage and rotation (temperature 0.6, up to 32k tokens) ending in a JSON mapping; an unreadable answer counts as wrong.</dd>
+      <dt>Scoring</dt><dd>Without thinking: next-token probabilities of the id digits at temperature 0, one question per character (Qwen3-4B over all 6 block orders, the others over 3 rotations; Mistral's reply is pre-started with "[CHAR "), combined by joint scoring (the best one-to-one mapping per passage and block order). With thinking: one generation per passage and rotation (temperature 0.6, up to 32k tokens) ending in a JSON mapping; an unreadable answer counts as wrong.</dd>
       <dt>Memorization</dt><dd>Temperature-0 continuations of the four test books reproduced no 13-word sequence (longest verbatim run 5 words).</dd>
       <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. 46 of the 4,113 thinking-on generations for name-swapped v2 on short spans are missing (a vLLM engine hung under memory pressure). Prompts longer than the served context (131k tokens for Qwen3.8-27B) are skipped, which drops some full-legacy and combination prompts late in long books.</dd>
     </dl>

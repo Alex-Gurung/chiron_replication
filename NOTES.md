@@ -178,3 +178,30 @@ with the entire book, reasoning on short spans and dense windows.
   generations missing: a second vLLM engine hang, at 09:28, under 90% KV use).
 - Two hangs out of ~150 27B jobs, both with the engine stuck at 0 tokens/s and requests waiting; the job neither fails
   nor exits. Worth a watchdog on "Avg generation throughput: 0.0" for 10+ minutes in future runs.
+
+## 2026-09-30 afternoon (with the user)
+
+- Length chart: now median prompt tokens with a bar over the middle half of prompts (was the mean). Full legacy is a
+  median 0.67x the whole-book prompt and longer for 20% of passages (early in books). The 27B thinking-off whole-book
+  condition had silently skipped the 311 passages whose prompts exceed 131k tokens (no error records): rerun at 262k on
+  2 GPUs; 58.7% on 776 passages -> 58.4% on all 1,087 (per-character scoring). Combinations completed the same way.
+- Scoring artifact: asked one character at a time, Qwen3.8-27B without thinking almost never answers 0 (names only:
+  0.1% right when the answer is [CHAR 0]; quote oracle 5%). Per-character argmax therefore caps it near 2/3. Joint
+  scoring (best one-to-one mapping of the three answers per passage and block order; the prompt says ids are unique)
+  is now the primary thinking-off metric (analyze.py row["joint"]; report). 27B, per character -> joint: names only
+  40.1 -> 48.2, v2 56.2 -> 68.8, charmem 58.4 -> 71.9, summary 58.7 -> 69.6, legacy full 63.4 -> 80.3, whole book
+  58.4 -> 73.9, legacy+v2 67.1 -> 81.1, passage oracle 59.7 -> 87.9, quote oracle 60.7 -> 91.8. 4B and 9B base change
+  little (milder label priors). Thinking-on answers are full mappings already. The old "without thinking the ceiling is
+  matching, not information" finding was this artifact.
+- Quote oracle (each character's own passage sentences, names left in; all 1,087 passages): 4B 64.8, 9B base 86.4,
+  27B 91.8 (joint), 27B thinking 100.
+- Hand-written oracles (7 Claude agents, 3 passages from each of the 21 books; data/manual): prior facts (1-4 per
+  character, established before the chapter, sourced; median 45 words) and passage clues. On those 63 passages (joint
+  for thinking off): 27B prior facts 80.4 (v2 72.5, legacy full 88.0, gpt-oss prior oracle 69.0), passage clues 92.6;
+  thinking 99.5 / 100 (v2 95.2); 9B base prior facts 76.4 (v2 64.0, legacy full 70.9); 4B 46.6 (v2 43.8). Swapped with
+  names exchanged: 27B 24.2, thinking 4.7 (partial). A few dozen words of the right prior facts beat whole sheets.
+- Agent notes on the data: note files number chapters 1-based vs the 0-based book file (not a leak); v2 errors (summer
+  foster relation reversed; here Anthony is Cleo's son; dark Marysieńka is Liska's cousin); a likely hallucinated
+  charmem fact (deep: Lukas as Scarlett's half-sibling).
+- Ops: a third vLLM engine hang (27B direct, quote oracle); scripts/hang_watchdog.py now kills and requeues jobs whose
+  engine logs nothing for 10 minutes with requests pending.

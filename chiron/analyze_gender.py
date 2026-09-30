@@ -3,13 +3,14 @@
   python3 chiron/analyze_gender.py
 Each principal's gender comes from common.genders (pronouns in its v2 and charmem sheets; checked by hand).
 For each passage and character: "unique" if no other principal shares its gender, "shared" if exactly one other
-does, "all same" if all three do. Pooled accuracy per group for each model, set and representation.
+does, "all same" if all three do. Pooled accuracy per group for each model, set and representation (joint scoring
+for thinking-off runs, see analyze.py).
 Writes outputs/analysis_gender.json.
 """
 import collections
 import glob
 
-from common import DATA, OUT, genders, read_jsonl, write_json
+from common import DATA, OUT, genders, joint_correct, read_jsonl, write_json
 
 RUNS = [("Qwen3-4B-Instruct-2507", ""), ("Qwen3.5-9B-Base", ""), ("Qwen3.8-27B_nothink", ""), ("Qwen3.8-27B_think", ""),
         ("Qwen3.8-27B_nothink", "_short"), ("Qwen3.8-27B_think", "_short"), ("Qwen3.8-27B_nothink", "_window")]
@@ -31,13 +32,20 @@ def main():
                 k = gs.count(x)
                 group[(iid, l)] = {1: "unique", 2: "shared", 3: "all same"}[k]
         for c in CONDS:
-            tmp = collections.defaultdict(list)
+            tmp, groups = collections.defaultdict(list), collections.defaultdict(dict)
             for f in glob.glob(str(OUT / "eval" / model / f"items_*{suf}" / f"{c}.*jsonl")) + glob.glob(str(OUT / "eval" / model / f"items_*{suf}" / f"{c}.jsonl")):
                 if f.endswith(".errors.jsonl") or not any(f"/items_{s}{suf}/" in f for s in ("test", "val", "train")):
                     continue
                 for r in read_jsonl(f):
                     lp = r["logprobs"]
-                    tmp[(r["item_id"], r["target"])].append(int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"])))
+                    if model.endswith("_think"):                  # full mappings already; unreadable counts wrong
+                        tmp[(r["item_id"], r["target"])].append(int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"])))
+                    else:
+                        groups[(r["item_id"], tuple(r["order"]))][r["target"]] = (lp, r["answer"])
+            for (iid, order), d in groups.items():
+                if len(d) == len(order):
+                    for t, ok in joint_correct(d).items():
+                        tmp[(iid, t)].append(ok)
             by = collections.defaultdict(list)
             for k, v in tmp.items():
                 if k in group:
