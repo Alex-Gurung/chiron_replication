@@ -81,6 +81,7 @@ def main():
     reps = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")}
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = E.load_chapters() if any(c.startswith("book") for c in args.conditions) else None
+    prefixes = E.load_prefixes(args.split) if any(c == "book_prefix" or E.re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     aliases = {}
     model_tag = MODEL.split("/")[-1] + args.tag + "_think"
     for cond in args.conditions:
@@ -95,8 +96,7 @@ def main():
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
             book_text, blocks = None, None
             if cond.startswith("book"):
-                full = "\n\n".join(E.clean_text(ch["chapter_text_normalized"]) for ch in chapters[book] if ch["chapter_index"] < b)
-                book_text = E.words(full, int(cond[9:]), last=True) if cond.startswith("book_last") else full
+                book_text = E.book_context(cond, it, chapters, prefixes)
             elif cond != "noinfo":
                 basec, k = (cond.split("@") + [None])[:2]
                 swapname = basec.startswith("swapname:")

@@ -19,20 +19,31 @@ MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9
           ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking"), ("Mistral-7B-Instruct-v0.2_prefix", "Mistral-7B")]
 CHART_MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"), ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking")]
 LABEL = {
-    "noinfo": "Names only", "gender": "Gender only (\"Gender: female.\")", "v2": "v2 sheet (current dataset)", "legacy": "Legacy sheet, compressed (Llama-3.3-70B)",
-    "legacy_full": "Legacy sheet, full (Llama-3.3-70B)", "summary": "Character summary (gpt-oss)",
-    "chiron": "CHIRON-style sheet, full (gpt-oss)", "chiron_r2000": "CHIRON-style sheet, last 2,000 words",
-    "charmem": "Charmem sheet (finished rebuild)", "book_last8000": "Book text, last 8,000 words",
+    "noinfo": "Names only", "gender": "Gender only (\"Gender: female.\")", "v2": "v2 sheet (current dataset)", "legacy": "Llama CHIRON notes, summarized",
+    "legacy_full": "Llama CHIRON notes, full", "summary": "gpt-oss summary",
+    "chiron": "gpt-oss CHIRON claims, full", "chiron_r2000": "gpt-oss CHIRON claims, last 2,000 words",
+    "charmem": "Charmem sheet (gpt-oss rebuild of v2)", "book_last8000": "Book text, last 8,000 words",
     "book_last32000": "Book text, last 32,000 words", "book": "Book text, everything so far",
     "swap_v2": "Swap: another principal's v2 sheet", "swapname_v2": "Swap, names exchanged: v2",
-    "swap_chiron": "Swap: another principal's CHIRON-style sheet", "swapname_chiron": "Swap, names exchanged: CHIRON-style",
-    "combo_legacy_v2": "Legacy without filler + v2", "combo_short": "v2 + charmem + summary", "combo_all": "All four combined",
+    "swap_chiron": "Swap: another principal's gpt-oss claims", "swapname_chiron": "Swap, names exchanged: gpt-oss claims",
+    "combo_legacy_v2": "Llama notes without filler + v2", "combo_short": "v2 + charmem + summary", "combo_all": "All four combined",
     "oracle_passage": "Oracle: clues taken from the passage", "oracle_prior": "Oracle: prior facts chosen for the passage",
     "swapname_oracle_prior": "Oracle prior facts, swapped with names exchanged",
+    "book_ch1": "Book text, previous chapter", "book_ch2": "Book text, last 2 chapters", "book_ch4": "Book text, last 4 chapters",
+    "book_ch8": "Book text, last 8 chapters", "book_prefix": "Book text, this chapter up to the passage",
+    "book_ch1p": "Book text, previous chapter + this chapter up to the passage",
     "oracle_quote": "Oracle: the passage's own sentences, names left in", "manual_passage": "Hand-written: clues from the passage",
     "manual_prior": "Hand-written: prior facts chosen for the passage",
-    "swapname_manual_prior": "Hand-written prior facts, swapped with names exchanged", "legacy_nofill": "Legacy full without filler",
+    "swapname_manual_prior": "Hand-written prior facts, swapped with names exchanged", "legacy_nofill": "Llama notes, full, without filler",
 }
+REP_INFO = [
+    ("v2", "The character sheets in the current NCP dataset (ncp_cohorts_v2): six sections (physicality, dialogue, history, knowledge, goals, relationships) with chapter citations."),
+    ("charmem", "A gpt-oss-120b rebuild of the v2 sheets, updated chapter by chapter with a review pass (the September 8 rebuild, finished here for all 30 books). Same six sections."),
+    ("summary", "gpt-oss-120b rolling prose summary of the character, updated after every chapter and condensed to about 700 words."),
+    ("legacy_full", "From the original NCP archive: Llama-3.3-70B answered CHIRON's questions (appearance and personality, dialogue, knowledge, goals, and so on) for every ~300-word snippet, kept as prose, unfiltered, including \"not mentioned\" answers."),
+    ("legacy", "The same Llama notes summarized by Llama-3.3-70B to about 500 words."),
+    ("chiron", "Our gpt-oss-120b re-run of CHIRON's full pipeline: the same questions per snippet, answers split into single claims, each kept only if rated fully entailed by its snippet (5 on CHIRON's 1-5 scale), then deduplicated. No trained verifier."),
+]
 SHEET_SECTIONS = [("relationships", "Relationships"), ("history", "History"), ("goals", "Goals"), ("physical", "Physical"),
                   ("dialogue", "Dialogue"), ("knowledge", "Knowledge")]
 REASON_ROWS = ["noinfo", "v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "book_last8000", "legacy_full", "swapname_v2"]
@@ -45,13 +56,16 @@ ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", 
 MANUAL_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "manual_prior", "oracle_passage", "manual_passage", "oracle_quote",
                "swapname_manual_prior"]
 CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapname_chiron"]
-LENGTH_FAMILIES = [("CHIRON-style", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
+LENGTH_FAMILIES = [("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
                    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"]),
-                   ("Legacy, compressed", ["legacy@100", "legacy@250", "legacy"]),
+                   ("Llama notes, summarized", ["legacy@100", "legacy@250", "legacy"]),
                    ("Summary", ["summary@100", "summary@250", "summary@500", "summary"]),
-                   ("Book text", ["book_last2000", "book_last8000", "book_last32000", "book"])]
-PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("CHIRON-style, full", "chiron"),
-                  ("Summary", "summary"), ("Legacy, full", "legacy_full"), ("Book, last 8k", "book_last8000")]
+                   ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"]),
+                   ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"])]
+FAMILY_STYLE = {"Book text, last k chapters": {"color": 4, "dash": True}}      # same source as the word cuts: same hue, dashed
+BOOKCH_ROWS = ["noinfo", "book_prefix", "book_ch1", "book_ch1p", "book_ch2", "book_ch4", "book_ch8", "book", "book_last8000", "legacy_full"]
+PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("gpt-oss claims", "chiron"),
+                  ("Summary", "summary"), ("Llama notes", "legacy_full"), ("Book, last 8k", "book_last8000")]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
     "Scoring changes the thinking-off results. Asked about one character at a time, Qwen3.8-27B without thinking almost "
@@ -68,27 +82,28 @@ FINDINGS = [
     "Exactly the information needed is enough. On {man_n} passages, Claude agents wrote 1 to 4 facts per character that "
     "were established before the chapter and identify it in the passage (median {man_words} words). They give Qwen3.8-27B "
     "{manp27}% without thinking and {manpthink}% with it, against {manv2_27}% and {manv2_think}% for the whole v2 sheet on "
-    "the same passages, and {manleg27}% and {manlegthink}% for the full legacy sheet. Clues taken from the passage itself give "
+    "the same passages, and {manleg27}% and {manlegthink}% for the full Llama notes. Clues taken from the passage itself give "
     "{manpas27}% and {manpasthink}%. The gpt-oss prior-facts oracle did worse ({orp27}% and {orpthink}%): it picked generic traits.",
     "The representations get different passages right. Which passage it is explains {varp}% of the variance in "
     "correctness and the representation {varr}%; choosing the best representation per passage would reach {pick}% against "
-    "{best}% for the best single one. Combining legacy with v2 gives the best score, {combo}%.",
-    "The full legacy sheet (Llama-3.3-70B, per-chapter CHIRON answers) wins because of what it says, not its length or "
-    "recency: without the previous chapter it scores {leg_noprev}% (full {legfull27}%), and cut to 6,000 words {leg_r6000}%, "
-    "still well above the gpt-oss CHIRON-style sheet at any length ({chiron27}% in full). It has 4 to 7 times more statements "
-    "naming the other principals.",
+    "{best}% for the best single one. Combining the Llama notes with v2 gives the best score, {combo}%.",
+    "The full Llama CHIRON notes win because of what they say, not their length or recency: without the previous chapter "
+    "they score {leg_noprev}% (full {legfull27}%), and cut to 6,000 words {leg_r6000}%, still well above the gpt-oss CHIRON "
+    "claims at any length ({chiron27}% in full). Both answer CHIRON's questions snippet by snippet; the Llama notes keep the "
+    "answers as prose, while CHIRON's entailment filter keeps only short self-contained claims and drops most of what "
+    "relates a character to the other principals (the Llama notes name them 4 to 7 times as often).",
     "With thinking, much of every score is gender. From names alone, Qwen3.8-27B places {g_uni}% of characters whose gender "
     "is unique among the three principals and {g_same}% when all three share one (chance 33%); the representations mostly "
-    "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full legacy). "
+    "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full Llama notes). "
     "Stating the gender adds little because the names already carry it: gender only gives {genthink}% with thinking. Without "
     "thinking it does nothing: Qwen3.8-27B {gen27}% (names only {noinfo27}%), Qwen3.5-9B base {gen9}% ({noinfo9}%).",
     "Short spans (about 50 words) keep thinking-on accuracy below ceiling: names only {s_noinfo}%, every representation "
-    "{s_lo} to {s_hi}%, name-swapped v2 {s_swap}%. Only the full legacy sheet is clearly ahead of v2 ({s_legd} "
+    "{s_lo} to {s_hi}%, name-swapped v2 {s_swap}%. Only the full Llama notes are clearly ahead of v2 ({s_legd} "
     "points, better in {s_legpos} books), matching its lead on sections without thinking; on dense windows every "
     "representation is at {w_lo} to {w_hi}%.",
     "Better notes shorten the reasoning. With thinking on, the median reasoning on sections is {eff_noi}k characters with "
-    "names only, {eff_v2}k with v2 and {eff_leg}k with the full legacy sheet; on dense windows, where every representation "
-    "is at ceiling, v2 still needs {effw_v2}k against {effw_leg}k for legacy.",
+    "names only, {eff_v2}k with v2 and {eff_leg}k with the full Llama notes; on dense windows, where every representation "
+    "is at ceiling, v2 still needs {effw_v2}k against {effw_leg}k for the Llama notes.",
     "Which part of a sheet matters depends on the model. For Qwen3.5-9B base the ~120-word relationships section alone "
     "({rel9}%) does about as well as the whole v2 sheet ({v29}%); for Qwen3.8-27B each section alone adds {sec27_lo} to "
     "{sec27_hi} points, and the sheet without relationships ({norel27}%) is close to the full sheet ({v227}%).",
@@ -155,6 +170,9 @@ def main():
     items9 = json.load(open(OUT / "analysis_items_Qwen3.5-9B-Base.json"))
     gender = json.load(open(OUT / "analysis_gender.json"))["acc"]
     ppl = json.load(open(OUT / "analysis_ppl.json")) if (OUT / "analysis_ppl.json").exists() else {}
+    rep_book, rep_b, rep_label = "dark", 14, "Liska Radost"
+    rep_example = {r["condition"]: r["text"] for r in read_jsonl(DATA / "reps_test.jsonl")
+                   if (r["book"], r["boundary"], r["label"]) == (rep_book, rep_b, rep_label)}
     man_words = int(st.median(len(r["text"].split()) for sp in ("test", "val", "train") for r in read_jsonl(DATA / f"reps_item_{sp}.jsonl")
                               if r["condition"] == "manual_prior"))
     manual = json.load(open(OUT / "analysis_manual.json")) if (OUT / "analysis_manual.json").exists() else {"rows": {}, "passages": 0}
@@ -182,6 +200,28 @@ def main():
             rows.append(f"<tr><th scope='row'>{LABEL[c]}</th>{cells}</tr>")
         return f"<thead><tr><th scope='col' rowspan='2'>Representation</th>{head1}</tr><tr>{head2}</tr></thead><tbody>{''.join(rows)}</tbody>"
 
+    def reps_table():
+        rows = []
+        for c, how in REP_INFO:
+            t = rep_example.get(c, "")
+            lines = [l.strip() for l in t.splitlines() if l.strip() and not l.startswith(("#", "Question:", "**")) and not re.fullmatch(r"<snippet \d+>", l.strip())]
+            ex = " ".join(lines)[:260].rsplit(" ", 1)[0] + " …"
+            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th><td>{how}</td><td class='num'>{medw.get(c, 0):,}</td><td class='sub'>{html.escape(ex)}</td></tr>")
+        return ("<thead><tr><th scope='col'>Representation</th><th scope='col'>How it is made</th><th scope='col' class='num'>Words</th>"
+                f"<th scope='col'>Excerpt</th></tr></thead><tbody>{''.join(rows)}</tbody>")
+
+    def bookch_table():
+        models = [(q4, "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9B base"), (q27, "Qwen3.8-27B"), (qt, "Qwen3.8-27B, thinking")]
+        head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in models)
+        rows = []
+        for c in BOOKCH_ROWS:
+            q = (get("main", q27, c) or {}).get("tokens_q")
+            tk = f"{q[2] / 1000:.1f}k" if q else "—"
+            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th><td class='num'>{tk}</td>" +
+                        "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for m, _ in models) + "</tr>")
+        return (f"<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Prompt tokens, median</th>{head}</tr></thead>"
+                f"<tbody>{''.join(rows)}</tbody>")
+
     def manual_table():
         def cell(m, c):
             v = manual["rows"].get(f"{m}|{c}")
@@ -208,8 +248,8 @@ def main():
         cols = [("Qwen3.5-9B-Base|none", "9B base, notes only"), ("Qwen3.5-9B-Base|story", "9B base, notes + story"),
                 ("Qwen3.8-27B_chat|none", "27B chat, notes only"), ("Qwen3.8-27B_chat|story", "27B chat, notes + story")]
         reps = ["v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "legacy_full"]
-        names = {"v2": "v2 sheet", "charmem": "Charmem sheet", "summary": "Summary", "legacy": "Legacy, compressed",
-                 "chiron_r2000": "CHIRON-style, 2,000 words", "chiron": "CHIRON-style, full", "legacy_full": "Legacy, full"}
+        names = {"v2": "v2 sheet", "charmem": "Charmem sheet", "summary": "Summary", "legacy": "Llama notes, summarized",
+                 "chiron_r2000": "gpt-oss claims, 2,000 words", "chiron": "gpt-oss claims, full", "legacy_full": "Llama notes, full"}
         def cell(k, r):
             v = ppl.get(k, {}).get(r)
             if not v:
@@ -261,16 +301,16 @@ def main():
                 rows.append(f"<tr><th scope='row'>{mname}: {LABEL[c]}</th>" + "".join(f"<td class='num'>{pct(macro(k, m, c))}</td>" for k, _ in SETS) + "</tr>")
         return f"<thead><tr><th scope='col'>Model and representation</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
 
-    ABL = [("legacy_full", "Legacy, full"), ("legacy_noprev", "Legacy without the previous chapter"),
-           ("legacy_onlyprev", "Legacy, previous chapter only"), ("legacy_r6000", "Legacy, most recent 6,000 words"),
-           ("legacy_nofill", "Legacy without \"not mentioned\" filler"), ("legacy_inter", "Legacy, only statements naming another principal"),
-           ("legacy_nointer", "Legacy, only statements not naming another principal"),
-           ("chiron", "CHIRON-style, full"), ("chiron_noprev", "CHIRON-style without the previous chapter"),
-           ("chiron_onlyprev", "CHIRON-style, previous chapter only"), ("chiron_inter", "CHIRON-style, only statements naming another principal"),
-           ("chiron_nointer", "CHIRON-style, only statements not naming another principal"),
+    ABL = [("legacy_full", "Llama notes, full"), ("legacy_noprev", "Llama notes without the previous chapter"),
+           ("legacy_onlyprev", "Llama notes, previous chapter only"), ("legacy_r6000", "Llama notes, most recent 6,000 words"),
+           ("legacy_nofill", "Llama notes without \"not mentioned\" filler"), ("legacy_inter", "Llama notes, only statements naming another principal"),
+           ("legacy_nointer", "Llama notes, only statements not naming another principal"),
+           ("chiron", "gpt-oss claims, full"), ("chiron_noprev", "gpt-oss claims without the previous chapter"),
+           ("chiron_onlyprev", "gpt-oss claims, previous chapter only"), ("chiron_inter", "gpt-oss claims, only statements naming another principal"),
+           ("chiron_nointer", "gpt-oss claims, only statements not naming another principal"),
            ("book_last8000", "Book, last 8,000 words"), ("book_noprev8000", "Book, last 8,000 words before the previous chapter"),
            ("book_prevonly", "Book, previous chapter only"), ("combo_short", "v2 + charmem + summary"),
-           ("combo_legacy_v2", "Legacy without filler + v2"), ("combo_all", "All four combined")]
+           ("combo_legacy_v2", "Llama notes without filler + v2"), ("combo_all", "All four combined")]
 
     def ablation_table():
         rows = "".join(f"<tr><th scope='row'>{n}</th><td class='num'>{medw.get(c, 0):,}</td><td class='num strong'>{pct(macro('main', q27, c))}</td>"
@@ -337,7 +377,7 @@ def main():
         a = A[("main", q27)]
         cols = ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book_last8000", "swapname_v2"]
         head = "".join(f"<th scope='col' class='num'>{h}</th>" for h in
-                       ["passages", "names only", "summary", "v2", "CHIRON", "charmem", "legacy full", "book 8k", "swap+names"])
+                       ["passages", "names only", "summary", "v2", "gpt-oss claims", "charmem", "Llama notes", "book 8k", "swap+names"])
         rows = []
         for b in sorted(a["books"], key=lambda b: -a["n_items"][b]):
             cells = "".join(f"<td class='num'>{100 * a['per_book_joint'][c][b]:.0f}</td>" if b in a["per_book_joint"].get(c, {}) else "<td>—</td>"
@@ -361,30 +401,39 @@ def main():
         if not a:
             continue
         rows = a["rows"]
-        pt = lambda c: {"x": rows[c]["tokens_q"][2], "lo": rows[c]["tokens_q"][1], "hi": rows[c]["tokens_q"][3],
-                        "y": 100 * get("main", m, c)["macro"], "cov": rows[c]["items"] / rows[c]["items_total"]}
-        series = [{"name": fam, "points": [{"label": c, **pt(c)} for c in conds if c in rows and rows[c]["tokens_q"] and get("main", m, c)]}
+        def pt(c):
+            r = rows[c]
+            xs = {"all": {"med": r["tokens_q"][2], "mean": r["mean_tokens"], "lo": r["tokens_q"][1], "hi": r["tokens_q"][3]}}
+            if r.get("rep_tokens_q"):
+                q = r["rep_tokens_q"]
+                xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3]}
+            return {"xs": xs, "y": 100 * get("main", m, c)["macro"], "cov": r["items"] / r["items_total"]}
+        series = [{"name": fam, **FAMILY_STYLE.get(fam, {}),
+                   "points": [{"label": c, **pt(c)} for c in conds if c in rows and rows[c]["tokens_q"] and get("main", m, c)]}
                   for fam, conds in LENGTH_FAMILIES]
-        singles = [{"name": n, **pt(c)} for n, c in (("charmem", "charmem"), ("legacy, full", "legacy_full")) if c in rows]
+        singles = [{"name": n, **pt(c)} for n, c in (("charmem", "charmem"), ("Llama notes, full", "legacy_full")) if c in rows]
         length[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
-                        "xlabel": "median prompt tokens (log scale); bars span the middle half of prompts",
-                        "xticks": [1000, 3000, 10000, 30000, 100000, 300000]}
+                        "xticks": [100, 300, 1000, 3000, 10000, 30000, 100000, 300000]}
     passage = {}
     for m, name in CHART_MODELS:
-        series = [{"name": n, "points": [{"label": sname, "x": passage_words[k], "y": 100 * macro(k, m, c)}
+        series = [{"name": n, "points": [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, c)}
                                          for k, sname in SETS if macro(k, m, c) is not None]} for n, c in PASSAGE_SERIES]
         ref = [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, "noinfo")}
                for k, sname in SETS if macro(k, m, "noinfo") is not None]
         if any(s["points"] for s in series):
             passage[name] = {"series": series, "refline": ref, "unit": "words",
-                             "xlabel": "median passage length in words (log scale); bars on names only span the middle half of passages",
+                             "xlabel": "median passage length in words (log scale); bars span the middle half of passages",
                              "xticks": [30, 100, 300, 1000]}
 
     def table_rows(d):
-        return "\n".join(f"<tr><th scope='row'>{m}: {s['name']}</th><td>" + ", ".join(
-            f"{p['label']}: {p['y']:.1f}% at {p['x']:,.0f}" + (f" (middle half {p['lo']:,.0f}–{p['hi']:,.0f})" if "lo" in p else "")
-            for p in s["points"]) + "</td></tr>"
-            for m, v in d.items() for s in v["series"])
+        def one(p):
+            if "xs" not in p:
+                return f"{p['label']}: {p['y']:.1f}% at {p['x']:,.0f}" + (f" (middle half {p['lo']:,.0f}–{p['hi']:,.0f})" if "lo" in p else "")
+            a, r = p["xs"]["all"], p["xs"].get("rep")
+            return (f"{p['label']}: {p['y']:.1f}%, prompt median {a['med']:,.0f} / mean {a['mean']:,.0f}"
+                    + (f", representation median {r['med']:,.0f} / mean {r['mean']:,.0f}" if r else ""))
+        return "\n".join(f"<tr><th scope='row'>{m}: {s['name']}</th><td>" + "; ".join(one(p) for p in s["points"]) + "</td></tr>"
+                          for m, v in d.items() for s in v["series"])
 
     vals = dict(
         g27_lo=f"{100 * min(get('main', q27, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full') if get('main', q27, c)):.0f}",
@@ -440,14 +489,14 @@ def main():
     for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
-                 "REASON_TABLE": reason_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
+                 "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
                  "LENGTH_DATA": json.dumps(length), "PASSAGE_DATA": json.dumps(passage),
                  "LENGTH_ROWS": table_rows(length), "PASSAGE_ROWS": table_rows(passage),
                  "EXAMPLE": ex, "EXAMPLE_KEY": names, "EXAMPLE_BOOK": html.escape(it["book"]) if it else "",
                  "N_MAIN": f"{counts['main'][0]:,}", "N_SHORT": f"{counts['short'][0]:,}", "N_WINDOW": f"{counts['window'][0]:,}",
-                 "N_BOOKS": str(len(A[("main", q27)]["books"])), "LEG_RATIO": leg_ratio, "LEG_LONGER": leg_longer}.items():
+                 "N_BOOKS": str(len(A[("main", q27)]["books"])), "LEG_RATIO": leg_ratio, "REPS_TABLE": reps_table(), "REP_WHO": f"{rep_label} in {rep_book} before chapter {rep_b}", "LEG_LONGER": leg_longer}.items():
         page = page.replace("{{" + k + "}}", v)
     (REPO / "reports").mkdir(exist_ok=True)
     (REPO / "reports" / "results.html").write_text(page)
@@ -462,7 +511,7 @@ TEMPLATE = r"""<title>CHIRON Book Replication</title>
 /* Layout: one reading column; tables and charts sit in their own scroll containers. */
 :root {
   --bg: #f6f7f7; --surface: #ffffff; --fg: #16191d; --muted: #5a6068; --rule: #dde1e4; --accent: #245fa8;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --ref: #8a9097;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #7b5fd1; --ref: #8a9097;
   --m0bg: #dbe8f9; --m1bg: #fbe1d5; --m2bg: #d4f0e5;
   --display: "Newsreader", "Iowan Old Style", Georgia, serif;
   --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
@@ -470,11 +519,11 @@ TEMPLATE = r"""<title>CHIRON Book Replication</title>
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #141618; --surface: #1b1e21; --fg: #eceef0; --muted: #a2a8b0; --rule: #2d3237; --accent: #7fb0ee;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --ref: #7d848c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #8a6fe0; --ref: #7d848c;
   --m0bg: #1f3350; --m1bg: #4a2a1c; --m2bg: #173c30; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #141618; --surface: #1b1e21; --fg: #eceef0; --muted: #a2a8b0; --rule: #2d3237; --accent: #7fb0ee;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --ref: #7d848c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #8a6fe0; --ref: #7d848c;
   --m0bg: #1f3350; --m1bg: #4a2a1c; --m2bg: #173c30; color-scheme: dark }
 body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
 main { max-width: 64rem; margin: 0 auto; padding-inline: 1.25rem; padding-block: 2.5rem 4rem; display: grid; gap: 2.25rem; }
@@ -510,6 +559,7 @@ code { font: 0.85em var(--mono); }
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.controls { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
 .seg button { font: 500 0.8rem var(--body); color: var(--muted); background: transparent; border: 0; padding: 0.35rem 0.7rem; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--rule); }
@@ -539,6 +589,12 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     </div>
   </section>
 
+  <section aria-labelledby="reps">
+    <h2 id="reps">The representations</h2>
+    <p class="muted">Everything is built only from the chapters before the passage's chapter. Words are the median per character. The excerpts are the start of each representation for {{REP_WHO}}.</p>
+    <div class="table-wrap"><table>{{REPS_TABLE}}</table></div>
+  </section>
+
   <section aria-labelledby="find">
     <h2 id="find">Findings</h2>
     <ul class="findings">{{FINDINGS}}</ul>
@@ -558,20 +614,26 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="len">
     <h2 id="len">Representation length and accuracy</h2>
-    <p class="muted">Sections. Each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: CHIRON-style keeps its most recent statements, v2, legacy and summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full legacy sheet (three per-chapter sheets) is shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
+    <p class="muted">Sections. By default each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; the switches show the mean instead, or only the representation's own tokens (the prompt minus the names-only prompt for the same passage and character); lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: the gpt-oss claims keep their most recent statements, v2, the summarized Llama notes and the summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full Llama notes (for the three characters together) are shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
     <div class="chart" id="lenbox">
-      <div class="bar"><div class="legend" data-legend></div><div class="seg" role="group" aria-label="Model" data-seg></div></div>
+      <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
       <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against mean prompt tokens, log scale"></svg>
       <div class="tip" hidden></div>
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{LENGTH_ROWS}}</tbody></table></div></details>
   </section>
 
+  <section aria-labelledby="bch">
+    <h2 id="bch">Book text: how much, and the chapter so far</h2>
+    <p class="muted">Sections. Whole chapters before the passage's chapter, and the passage's own chapter up to the passage (which no other representation sees: everything else stops at the chapter boundary). Thinking-off columns use joint scoring.</p>
+    <div class="table-wrap"><table>{{BOOKCH_TABLE}}</table></div>
+  </section>
+
   <section aria-labelledby="pas">
     <h2 id="pas">Passage length and accuracy</h2>
     <p class="muted">The same representations on three passage sets: short spans (the tightest run of sentences naming all three principals, 20 to 150 words), NCP sections, and dense windows (up to three consecutive sections, about 900 words, each principal named at least three times). Each set averages over its own books, so the points are not paired. The dashed line is names only.</p>
     <div class="chart" id="pasbox">
-      <div class="bar"><div class="legend" data-legend></div><div class="seg" role="group" aria-label="Model" data-seg></div></div>
+      <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
       <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against median passage length, log scale"></svg>
       <div class="tip" hidden></div>
     </div>
@@ -581,7 +643,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="rsn">
     <h2 id="rsn">Reasoning on short spans and dense windows</h2>
-    <p class="muted">Qwen3.8-27B with thinking on. Sections are near ceiling with any representation; about 50 words are not, and there the full legacy sheet leads again, with the others within about two points of v2. Dense windows (about 900 words) are at ceiling. Short spans: {{N_SHORT}} passages, macro over the 19 books with at least 10; windows: 13 books with at least 5.</p>
+    <p class="muted">Qwen3.8-27B with thinking on. Sections are near ceiling with any representation; about 50 words are not, and there the full Llama notes lead again, with the others within about two points of v2. Dense windows (about 900 words) are at ceiling. Short spans: {{N_SHORT}} passages, macro over the 19 books with at least 10; windows: 13 books with at least 5.</p>
     <div class="table-wrap"><table>{{REASON_TABLE}}</table></div>
   </section>
 
@@ -620,8 +682,8 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   </section>
 
   <section aria-labelledby="why">
-    <h2 id="why">Why legacy and book text do best</h2>
-    <p class="muted">Ablations with Qwen3.8-27B, thinking off. Dropping the chapter just before the passage changes nothing, and neither does cutting legacy to a third of its length, so the lead is not recency or volume. A word-overlap matcher with no model ranks legacy below the CHIRON-style sheet, so it is not shared vocabulary either. Legacy's per-chapter answers name the other two principals about twice as often per word as the other sheets (31 per 1,000 words against 13 to 20), which is the information that separates three characters appearing together.</p>
+    <h2 id="why">Why the Llama notes and book text do best</h2>
+    <p class="muted">Ablations with Qwen3.8-27B, thinking off. Dropping the chapter just before the passage changes nothing, and cutting the Llama notes to their most recent 6,000 words (about 40%) costs little, so the lead is not recency or volume. A word-overlap matcher with no model ranks the Llama notes below the gpt-oss claims, so it is not shared vocabulary either. The Llama notes name the other two principals about twice as often per word as the other sheets (31 per 1,000 words against 13 to 20), which is the information that separates three characters appearing together.</p>
     <div class="table-wrap"><table>{{ABLATION_TABLE}}</table></div>
   </section>
 
@@ -661,10 +723,10 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h2 id="setup">Setup</h2>
     <dl>
       <dt>Passages</dt><dd>Every candidate principal is named in at least two earlier chapters. Names come from hand-checked alias tables (nicknames, earlier names, secret identities); passages with an ambiguous surname or any leftover name are dropped.</dd>
-      <dt>Representations</dt><dd>All built from chapters before the passage's chapter. CHIRON-style: CHIRON's 8 questions answered per 300-word snippet by gpt-oss-120b, claims kept only at rating 5 on the paper's 1–5 entailment scale, grouped by category and deduplicated. Summary: gpt-oss rolling summary condensed to about 700 words. Legacy: the Llama-3.3-70B sheets from the original NCP archive.</dd>
+      <dt>Representations</dt><dd>All built from chapters before the passage's chapter. See "The representations" above.</dd>
       <dt>Scoring</dt><dd>Without thinking: next-token probabilities of the id digits at temperature 0, one question per character (Qwen3-4B over all 6 block orders, the others over 3 rotations; Mistral's reply is pre-started with "[CHAR "), combined by joint scoring (the best one-to-one mapping per passage and block order). With thinking: one generation per passage and rotation (temperature 0.6, up to 32k tokens) ending in a JSON mapping; an unreadable answer counts as wrong.</dd>
       <dt>Memorization</dt><dd>Temperature-0 continuations of the four test books reproduced no 13-word sequence (longest verbatim run 5 words).</dd>
-      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. 46 of the 4,113 thinking-on generations for name-swapped v2 on short spans are missing (a vLLM engine hung under memory pressure). Prompts longer than the served context (131k tokens for Qwen3.8-27B) are skipped, which drops some full-legacy and combination prompts late in long books.</dd>
+      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. 46 of the 4,113 thinking-on generations for name-swapped v2 on short spans are missing (a vLLM engine hung under memory pressure). Prompts longer than the served context (131k tokens for Qwen3.8-27B) are skipped, which drops a few combination prompts late in long books.</dd>
     </dl>
   </section>
 </main>
@@ -675,7 +737,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   function draw(box, spec) {
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), legend = box.querySelector("[data-legend]");
     svg.replaceChildren(); legend.replaceChildren(); tip.hidden = true;
-    const W = 760, H = 380, L = 48, R = 160, T = 16, B = 42;
+    const W = 760, H = 380, L = 48, R = 178, T = 16, B = 42;
     const pts = spec.series.flatMap(s => s.points).concat(spec.singles || [], spec.refline || []);
     const xs = pts.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]);
     const ys = pts.map(p => p.y).concat(spec.ref !== undefined ? [spec.ref] : []);
@@ -705,7 +767,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     };
     function whisker(p, c) {
       if (!p.lo) return;
-      const y = Y(p.y), a = { stroke: c, "stroke-width": 1.5, opacity: 0.45 };
+      const y = Y(p.y), a = { stroke: c, "stroke-width": 2, opacity: 0.7 };
       el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a });
       el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 4, y2: y + 4, ...a });
       el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 4, y2: y + 4, ...a });
@@ -721,13 +783,16 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     }
     spec.series.forEach((s, i) => {
       if (!s.points.length) return;
-      const c = `var(${colors[i]})`;
-      el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round" });
+      const c = `var(${colors[s.color !== undefined ? s.color : i]})`;
+      el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round",
+                       ...(s.dash ? { "stroke-dasharray": "6 4" } : {}) });
       s.points.forEach(p => { whisker(p, c); });
       s.points.forEach(p => { el("circle", { cx: X(p.x), cy: Y(p.y), r: 4.5, fill: c, stroke: "var(--surface)", "stroke-width": 2 });
         hover(X(p.x), Y(p.y), `${s.name} · ${p.label}: ${desc(p)}`); });
       const last = s.points[s.points.length - 1]; labels.push({ y: Y(last.y), text: s.name, c });
-      const lg = document.createElement("span"); lg.innerHTML = `<i style="background:${c}"></i>`; lg.append(s.name); legend.appendChild(lg);
+      const lg = document.createElement("span");
+      lg.innerHTML = s.dash ? `<i style="background:repeating-linear-gradient(90deg,${c} 0 5px,transparent 5px 8px)"></i>` : `<i style="background:${c}"></i>`;
+      lg.append(s.name); legend.appendChild(lg);
     });
     (spec.singles || []).forEach(p => {
       whisker(p, "var(--fg)");
@@ -738,18 +803,37 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     labels.sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
     labels.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });
   }
-  function mount(id, data) {
-    const box = document.getElementById(id), seg = box.querySelector("[data-seg]"), names = Object.keys(data);
-    if (!names.length) { box.hidden = true; return; }
-    let current = names[names.length > 1 ? 1 : 0];
-    names.forEach(n => {
-      const b = document.createElement("button"); b.type = "button"; b.textContent = n;
-      b.addEventListener("click", () => { current = n; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); draw(box, data[n]); });
-      b.setAttribute("aria-pressed", n === current); seg.appendChild(b);
-    });
-    draw(box, data[current]);
+  const XLABEL = { all: "prompt tokens (whole prompt)", rep: "representation tokens (the three characters' blocks)" };
+  function view(spec, st) {
+    if (!st.basis) return spec;
+    const pick = p => {
+      const v = p.xs[st.basis];
+      return v ? { ...p, x: v[st.stat], lo: v.lo, hi: v.hi } : null;
+    };
+    return { ...spec, series: spec.series.map(s => ({ ...s, points: s.points.map(pick).filter(Boolean) })),
+             singles: (spec.singles || []).map(pick).filter(Boolean),
+             xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}, log scale; bars span the middle half` };
   }
-  mount("lenbox", {{LENGTH_DATA}});
+  function segment(box, label, choices, current, onPick) {
+    const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", label);
+    choices.forEach(([value, text]) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = text; b.setAttribute("aria-pressed", value === current);
+      b.addEventListener("click", () => { seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); onPick(value); });
+      seg.appendChild(b);
+    });
+    box.querySelector("[data-controls]").appendChild(seg);
+  }
+  function mount(id, data, options) {
+    const box = document.getElementById(id), names = Object.keys(data);
+    if (!names.length) { box.hidden = true; return; }
+    const st = { model: names[names.length > 1 ? 1 : 0] };
+    const redraw = () => draw(box, view(data[st.model], st));
+    segment(box, "Model", names.map(n => [n, n]), st.model, v => { st.model = v; redraw(); });
+    (options || []).forEach(o => { st[o.key] = o.choices[0][0]; segment(box, o.label, o.choices, st[o.key], v => { st[o.key] = v; redraw(); }); });
+    redraw();
+  }
+  mount("lenbox", {{LENGTH_DATA}}, [{ key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
+                                    { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
 })();
 </script>

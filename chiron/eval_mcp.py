@@ -6,7 +6,7 @@ order = order of the representation blocks in the prompt; all 6 orders by defaul
 Conditions come from data/reps_<split>.jsonl (condition, book, boundary, label, text) plus:
   noinfo         names only
   book           the novel's chapters before the section's chapter (no per-character blocks)
-  book_last<k>   the last k words of that text
+  book_last<k>   the last k words of that text; more variants (last k chapters, the chapter so far) in book_context
   <cond>@<k>     representation truncated to its first k words
   swap:<cond>    each character gets the next principal's representation (cyclic)
 Output: outputs/eval/<model>/<split>/<condition>.jsonl, resumable.
@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib import error as urlerror, request as urlrequest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import DATA, OUT, REPO, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
+from common import COHORTS, DATA, OUT, REPO, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
 from build_items import alias_regex  # noqa: E402
 
 
@@ -53,6 +53,34 @@ DIGITS = {3: "0, 1 or 2", 2: "0 or 1"}
 def words(text, k, last=False):
     w = text.split()
     return " ".join(w[-k:] if last else w[:k]) if len(w) > k else text
+
+
+BOOK = re.compile(r"book(?:_(last|noprev)(\d+)|_prevonly|_ch(\d+)(p?)|_prefix)?$")
+
+
+def load_prefixes(split):
+    """(book, chapter, chunk) -> the passage's own chapter up to the passage (ncp_cohorts_v2 chapter_prefix)."""
+    return {(r["story_id"], r["chapter_index"], r["chunk_index"]): clean_text(r.get("chapter_prefix") or "")
+            for r in map(json.loads, open(COHORTS / f"{split}_examples.jsonl"))}
+
+
+def book_context(cond, it, chapters, prefixes):
+    """Book text for the book conditions (shown instead of per-character blocks). b = the passage's chapter.
+    book: chapters < b; book_last<k>: its last k words; book_noprev<k>: last k words of chapters < b-1;
+    book_prevonly: chapter b-1; book_ch<k>: chapters b-k .. b-1; book_prefix: chapter b up to the passage;
+    book_ch<k>p: chapters b-k .. b-1 plus chapter b up to the passage."""
+    b = it["chapter_index"]
+    m = BOOK.match(cond)
+    text = lambda lo, hi: "\n\n".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[it["book"]] if lo <= ch["chapter_index"] < hi)
+    prefix = lambda: prefixes[(it["book"], b, it["chunk_index"])]
+    if cond == "book_prefix":
+        return prefix()
+    if cond == "book_prevonly":
+        return text(b - 1, b)
+    if m.group(3):
+        return "\n\n".join(x for x in (text(b - int(m.group(3)), b), prefix() if m.group(4) else "") if x)
+    full = text(0, b - 1 if m.group(1) == "noprev" else b)
+    return words(full, int(m.group(2)), last=True) if m.group(1) else full
 
 
 def prompt(item, names, blocks, book_text, target):
@@ -137,6 +165,7 @@ def main():
         reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
+    prefixes = load_prefixes(args.split) if any(c == "book_prefix" or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
     for cond in args.conditions:
@@ -152,11 +181,7 @@ def main():
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
             book_text, blocks = None, None
             if cond.startswith("book"):
-                upto = b - 1 if cond.startswith("book_noprev") else b                 # book_noprev<k>: stop before chapter b-1
-                lo = b - 1 if cond == "book_prevonly" else 0                          # book_prevonly: chapter b-1 alone
-                full = "\n\n".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[book] if lo <= ch["chapter_index"] < upto)
-                k = re.match(r"book_(?:last|noprev)(\d+)$", cond)
-                book_text = words(full, int(k.group(1)), last=True) if k else full
+                book_text = book_context(cond, it, chapters, prefixes)
             elif cond != "noinfo":
                 base, k = (cond.split("@") + [None])[:2]
                 swapname = base.startswith("swapname:")

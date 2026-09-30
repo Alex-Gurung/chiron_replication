@@ -44,7 +44,7 @@ def load(model, stems):
                 ba[1] += 1
                 groups[(cond, r["item_id"], tuple(r["order"]))][r["target"]] = (lp, r["answer"], r["book"])
                 if r.get("prompt_tokens"):
-                    toks[cond].append(r["prompt_tokens"])
+                    toks[cond].append((r["item_id"], r["target"], r["prompt_tokens"]))
     joint = collections.defaultdict(lambda: collections.defaultdict(lambda: [0, 0]))   # cond -> book -> [ok, n]
     for (cond, _, order), d in groups.items():
         if len(d) != len(order):
@@ -76,6 +76,11 @@ def main():
             n_items[it["book"]] += 1
     books = sorted(b for b, n in n_items.items() if n >= args.min_items)
     acc = {c: {b: v[0] / v[1] for b, v in d.items() if v[1]} for c, d in by.items()}
+    base = collections.defaultdict(list)             # names-only prompt length per (passage, character)
+    for i, t, n in toks.get("noinfo", []):
+        base[(i, t)].append(n)
+    base = {k: sum(v) / len(v) for k, v in base.items()}
+    quant = lambda xs: [sorted(xs)[int(q * (len(xs) - 1))] for q in (0.1, 0.25, 0.5, 0.75, 0.9)] if xs else None
     accj = {c: {b: v[0] / v[1] for b, v in d.items() if v[1]} for c, d in joint.items()}
     rows = {}
     for c, d in by.items():
@@ -83,10 +88,14 @@ def main():
         common = [b for b in books if b in acc[c]]
         row = {"pooled": ok / n if n else None, "n_trials": n, "books": len(common),
                "mean_tokens": sum(v[2] for v in d.values()) / n if n else None,
-               "tokens_q": [sorted(toks[c])[int(q * (len(toks[c]) - 1))] for q in (0.1, 0.25, 0.5, 0.75, 0.9)] if toks[c] else None,
+               "tokens_q": quant([n for _, _, n in toks[c]]),
+               "rep_tokens_mean": None, "rep_tokens_q": None,
                "items": len(items[c]), "items_total": sum(n_items.values()),
                "by_answer": {a: v[0] / v[1] for a, v in sorted(by_answer[c].items())},
                "macro": sum(acc[c][b] for b in common) / len(common) if common else None}
+        rep = [n - base[(i, t)] for i, t, n in toks[c] if (i, t) in base]      # the representation's own tokens (3 blocks)
+        if rep and c != "noinfo":
+            row["rep_tokens_mean"], row["rep_tokens_q"] = sum(rep) / len(rep), quant(rep)
         cj = [b for b in books if b in accj.get(c, {})]
         row["joint"] = {"macro": sum(accj[c][b] for b in cj) / len(cj) if cj else None, "books": len(cj)}
         for ref in ("noinfo", "v2"):
