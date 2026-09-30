@@ -152,3 +152,6 @@ with the entire book, reasoning on short spans and dense windows.
 - 27B chat perplexity complete: without story, legacy full / CHIRON-style -12.7%, summary -9.7%, charmem -9.2%, v2
   -8.2%; with the 4k words before the passage, CHIRON-style -3.4%, legacy full -3.3% (partial, over-length prompts
   skipped), charmem -2.2%, v2 -1.7%.
+- Oracle prior facts by source: 11,859 of the verbatim facts gpt-oss chose come from legacy (last 6k words), 516 from
+  charmem (806 words). Weak evidence only: legacy was listed first, is 7x longer, and charmem's compound bullets are
+  harder to quote verbatim.
