@@ -103,6 +103,12 @@ FINDINGS = [
     "claims at any length ({chiron27}% in full). The Llama notes answer CHIRON's questions once per chapter, seeing the "
     "whole chapter; the gpt-oss claims answer them per 300-word snippet as in the paper, as single claims, and keep "
     "little of what relates a character to the other principals (the Llama notes name them 4 to 7 times as often).",
+    "Was the gpt-oss CHIRON run done wrong? Redoing the Llama notes with gpt-oss, with the same questions once per chapter "
+    "and the same layout, gives {chap27}% on Qwen3.8-27B without thinking ({chap9}% on Qwen3.5-9B base): above the gpt-oss "
+    "claims ({chiron27}%), below the Llama notes ({legfull27}%). Answering per 300-word snippet is the bigger loss. It also "
+    "drops first-person narrators: gpt-oss is rarely told who \"I\" is, so it marks narrators absent from most of their own "
+    "snippets, and the claims trail the Llama notes most in first-person books. gpt-oss's chapter notes are also 4 to 5 "
+    "times shorter than Llama's.",
     "With thinking, much of every score is gender. From names alone, Qwen3.8-27B places {g_uni}% of characters whose gender "
     "is unique among the three principals and {g_same}% when all three share one (chance 33%); the representations mostly "
     "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full Llama notes). "
@@ -483,7 +489,8 @@ def main():
         quote27=pct(macro("main", q27, "oracle_quote")), quote27a=pct(get("main", q27, "oracle_quote")["macro_argmax"]),
         g4_lo=f"{100 * min(get('main', q4, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full')):.0f}",
         g4_hi=f"{100 * max(get('main', q4, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full')):.0f}",
-        chiron27=pct(macro("main", q27, "chiron")),
+        chiron27=pct(macro("main", q27, "chiron")), chap27=pct(macro("main", q27, "chapnotes")),
+        chap9=pct(macro("main", "Qwen3.5-9B-Base", "chapnotes")),
         sec27_lo=f"{100 * min(macro('main', q27, f'v2_sec_{k}') - macro('main', q27, 'noinfo') for k, _ in SHEET_SECTIONS):.0f}",
         sec27_hi=f"{100 * max(macro('main', q27, f'v2_sec_{k}') - macro('main', q27, 'noinfo') for k, _ in SHEET_SECTIONS):.0f}",
         man_n=str(manual["passages"]), man_words=str(man_words),

@@ -30,8 +30,11 @@ def messages(chapter, name):
 
 
 def check(p):
-    if set(p) != set(QUESTIONS) or not all(isinstance(v, str) for v in p.values()):
+    if set(p) != set(QUESTIONS):
         raise ValueError(f"expected a JSON object with exactly the keys {sorted(QUESTIONS)} and string values")
+    p = {k: " ".join(v) if isinstance(v, list) and all(isinstance(x, str) for x in v) else v for k, v in p.items()}   # lists of sentences are fine
+    if not all(isinstance(v, str) for v in p.values()):
+        raise ValueError("every answer must be a string")
     return {k: v.strip() for k, v in p.items()}
 
 

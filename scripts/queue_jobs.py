@@ -270,6 +270,13 @@ def main():
                                            "--", "python3", "-u", f"{REPO}/chiron/gen_plot.py", "global", "--books", *g, "--workers", str(len(g))], 0)
             addraw(f"plot_hier_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
                                          "--", "python3", "-u", f"{REPO}/chiron/gen_plot.py", "hier", "--books", *g, "--workers", str(len(g))], 0)
+    elif what == "bookch_think_rs":
+        # thinking-on short book-text conditions, one condition per job and split wider (finished work is skipped)
+        for split in ("test", "val", "train"):
+            n = {"train": 6, "val": 1, "test": 2}[split]
+            for c in ("book_ch1", "book_ch2", "book_prefix", "book_ch1p"):
+                for k in range(n):
+                    addraw(f"bookchrs_{split}_{c}_s{k}of{n}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, f"items_{split}", c, k, n), 1)
     elif what == "oracle_shards":
         # thinking-on prior-facts oracle (and its name-swapped control) on train, 8 ways each
         for c in ("oracle_prior", "swapname:oracle_prior"):

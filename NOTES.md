@@ -205,3 +205,21 @@ with the entire book, reasoning on short spans and dense windows.
   charmem fact (deep: Lukas as Scarlett's half-sibling).
 - Ops: a third vLLM engine hang (27B direct, quote oracle); scripts/hang_watchdog.py now kills and requeues jobs whose
   engine logs nothing for 10 minutes with requests pending.
+
+### 17:00-19:00 UTC: data audit, gpt-oss chapter notes
+
+- Audit clean: no alias leaks in masked passages; [CHAR i] counts match alias mentions; answer ids balanced; no v2 or
+  charmem citation beyond the passage's chapter; chapter-so-far text ends right before the passage.
+- Issues: (1) gpt-oss claims lose first-person narrators (16/30 books mostly first person): per 300-word snippet the
+  model is not told who "I" is, so narrators are marked absent from most of their snippets (sandwich Rocky 7%,
+  first_lie Evie 15%, refuse Rainy 15%, funny Daphne 30%; third-person principals median 50%) and other characters'
+  claims say "the narrator" (10-17 per 1k words in first-person books; v2/charmem ~0). (2) Relational claims are
+  garbled or rated down and dropped. (3) Alias identities missed even when named (Isabelle 61%, Evie 69%, Raeve 71%).
+  (4) Thinking-on unreadable answers are mostly the 32k token cap (names only up to 9%), counted wrong.
+- The Llama notes are per CHAPTER (one <snippet k> per earlier chapter), not per snippet; gpt-oss claims are per
+  300-word snippet. gpt-oss redo of the Llama notes (same 8 questions per chapter, same layout; gen_chapnotes.py,
+  median 3.2k words vs Llama 14k): 4B 49.0 (Llama 49.1, claims 45.3), 9B base 62.3 (67.8, 57.3), 27B 75.4 (80.3,
+  71.5), 27B thinking 95.6 (96.7, 95.5). Per-chapter answering recovers 3-6 points; the remaining gap to Llama is
+  larger in first-person books (27B -7.2 vs -2.4) and coincides with Llama's 4-5x more text.
+- Book text by chapters (27B, joint): chapter so far 70.1, last 1 chapter 64.7, 1 chapter + chapter so far 74.8, last
+  2 70.3, last 4 73.3, last 8 72.2, whole 73.9. 9B base: chapter so far 65.8 beats any amount of earlier book text.
