@@ -8,6 +8,7 @@ Conditions come from data/reps_<split>.jsonl (condition, book, boundary, label, 
   book           the novel's chapters before the section's chapter (no per-character blocks)
   book_last<k>   the last k words of that text; more variants (last k chapters, the chapter so far) in book_context
   plot_<kind>_<n>[@last<k>]  a gpt-oss plot summary of the story so far (gen_plot.py), optionally its last k words
+  <cond>+pre     <cond> plus the passage's own chapter up to the passage, in a section before the passage
   <cond>@<k>     representation truncated to its first k words
   swap:<cond>    each character gets the next principal's representation (cyclic)
 Output: outputs/eval/<model>/<split>/<condition>.jsonl, resumable.
@@ -103,6 +104,8 @@ def prompt(item, names, blocks, book_text, target):
         parts.append("# Characters\n\n" + "\n".join(f"- {names[l]}" for l in item["order"]))
     else:
         parts.append("# Character information\n\n" + "\n\n".join(f"## {names[l]}\n\n{blocks[l].strip()}" for l in item["order"]))
+    if "chapter_so_far" in item:                          # +pre conditions
+        parts.append("# This chapter up to the passage\n\n" + (item["chapter_so_far"] or "(The passage starts the chapter.)"))
     parts.append("# Passage\n\n" + item["masked"])
     parts.append(f"# Question\n\nWhich ID in the passage is {names[target]}? Answer with only the digit {DIGITS[n]}.")
     return "\n\n".join(parts)
@@ -177,7 +180,7 @@ def main():
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     plots = load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None
-    prefixes = load_prefixes(args.split) if any(c == "book_prefix" or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
+    prefixes = load_prefixes(args.split) if any(c == "book_prefix" or c.endswith("+pre") or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
     for cond in args.conditions:
@@ -188,6 +191,8 @@ def main():
                 for f in [base.parent / f"{name}.jsonl", *base.parent.glob(f"{name}.*jsonl")] if not f.name.endswith(".errors.jsonl")
                 for r in read_jsonl(f)}
         jobs, missing = [], 0
+        pre = cond.endswith("+pre")                           # <cond>+pre: also show the passage's chapter up to the passage
+        cond = cond[:-4] if pre else cond
         for it in items:
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
@@ -212,6 +217,8 @@ def main():
                     blocks = {l: rename(t, src[l], l, names[src[l]], names[l], al) for l, t in blocks.items()}
                 if k:
                     blocks = {l: words(t, int(k)) for l, t in blocks.items()}
+            if pre:
+                it = {**it, "chapter_so_far": prefixes[(book, b, it["chunk_index"])]}
             if blocks is None:
                 orders = [tuple(labels)]
             elif args.rotations:

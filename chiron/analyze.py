@@ -76,10 +76,12 @@ def main():
             n_items[it["book"]] += 1
     books = sorted(b for b, n in n_items.items() if n >= args.min_items)
     acc = {c: {b: v[0] / v[1] for b, v in d.items() if v[1]} for c, d in by.items()}
-    base = collections.defaultdict(list)             # names-only prompt length per (passage, character)
-    for i, t, n in toks.get("noinfo", []):
-        base[(i, t)].append(n)
-    base = {k: sum(v) / len(v) for k, v in base.items()}
+    bases = {}                                       # names-only prompt length per (passage, character); +pre: with the prefix
+    for bc in ("noinfo", "noinfo+pre"):
+        acc_ = collections.defaultdict(list)
+        for i, t, n in toks.get(bc, []):
+            acc_[(i, t)].append(n)
+        bases[bc] = {k: sum(v) / len(v) for k, v in acc_.items()}
     quant = lambda xs: [sorted(xs)[int(q * (len(xs) - 1))] for q in (0.1, 0.25, 0.5, 0.75, 0.9)] if xs else None
     accj = {c: {b: v[0] / v[1] for b, v in d.items() if v[1]} for c, d in joint.items()}
     rows = {}
@@ -93,8 +95,9 @@ def main():
                "items": len(items[c]), "items_total": sum(n_items.values()),
                "by_answer": {a: v[0] / v[1] for a, v in sorted(by_answer[c].items())},
                "macro": sum(acc[c][b] for b in common) / len(common) if common else None}
+        base = bases["noinfo+pre" if c.endswith("+pre") else "noinfo"]
         rep = [n - base[(i, t)] for i, t, n in toks[c] if (i, t) in base]      # the representation's own tokens (3 blocks)
-        if rep and c != "noinfo":
+        if rep and c not in ("noinfo", "noinfo+pre"):
             row["rep_tokens_mean"], row["rep_tokens_q"] = sum(rep) / len(rep), quant(rep)
         cj = [b for b in books if b in accj.get(c, {})]
         row["joint"] = {"macro": sum(accj[c][b] for b in cj) / len(cj) if cj else None, "books": len(cj)}

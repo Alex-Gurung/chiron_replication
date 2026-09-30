@@ -85,7 +85,6 @@ LENGTH_SINGLES = [   # (name, condition, colour index or None for ink, shape)
     ("charmem", "charmem", 0, "diamond"), ("Llama notes, full", "legacy_full", 2, "diamond"),
     ("Llama notes, no filler", "legacy_nofill", 2, "diamond"), ("gpt-oss chapter notes", "chapnotes", 1, "diamond"),
     ("gpt-oss chapter notes, headings", "chapnotes_h", 1, "square"), ("Character summaries, headings", "summary_h", 3, "square"),
-    ("This chapter so far", "book_prefix", 5, "diamond"), ("Previous + this chapter so far", "book_ch1p", 5, "square"),
     ("Llama notes + v2", "combo_legacy_v2", None, "diamond"), ("v2 + charmem + summaries", "combo_short", None, "diamond"),
     ("All four combined", "combo_all", None, "diamond"), ("Gender only", "gender", None, "square"),
     ("Oracle: prior facts", "oracle_prior", None, "square"), ("Oracle: passage clues", "oracle_passage", None, "square"),
@@ -332,10 +331,13 @@ def main():
             cells = "".join(cell(m) for m, _ in MODELS)
             q = (get("main", q27, c) or {}).get("tokens_q")
             tk = f"{q[2] / 1000:.1f}k <span class='sub'>{q[1] / 1000:.1f}–{q[3] / 1000:.1f}k</span>" if q else "—"
+            rp = get("main", q27, c + "+pre")
+            cells += f"<td class='num'>{pct(rp and rp['macro'])}</td>"
             rows.append(f"<tr><th scope='row'>{LABEL[c]}</th><td class='num'>{w}</td><td class='num'>{tk}</td>{cells}"
                         f"<td>{delta(get('main', q27, c)) if c != 'noinfo' else ''}</td></tr>")
         return (f"<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Words per character</th>"
                 f"<th scope='col' class='num'>Prompt tokens, median <span class='sub'>middle half</span></th>{head}"
+                f"<th scope='col' class='num'>Qwen3.8-27B + this chapter so far</th>"
                 f"<th scope='col'>Qwen3.8-27B Δ vs names only</th></tr></thead><tbody>{''.join(rows)}</tbody>")
 
     def control_table():
@@ -454,7 +456,7 @@ def main():
                 continue
             rows = a["rows"]
 
-            def pt(c):
+            def one(c):
                 r = rows[c]
                 xs = {"all": {"med": r["tokens_q"][2], "mean": r["mean_tokens"], "lo": r["tokens_q"][1], "hi": r["tokens_q"][3]}}
                 if r.get("rep_tokens_q"):
@@ -462,11 +464,16 @@ def main():
                     xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3]}
                 return {"xs": xs, "y": 100 * get("main", m, c)["macro"], "cov": r["items"] / r["items_total"]}
             ok = lambda c: c in rows and rows[c]["tokens_q"] and get("main", m, c)
+
+            def pt(c):                                        # both states of the "this chapter so far" switch
+                return {**one(c), **({"pre": one(c + "+pre")} if ok(c + "+pre") else {})}
             series = [{"name": fam, "color": col, "dash": dash, "points": [{"label": c, **pt(c)} for c in conds if ok(c)]}
                       for fam, conds, col, dash in families]
             singles = [{"name": n, "color": col, "shape": shape, **pt(c)} for n, c, col, shape in singles_spec if ok(c)]
             if any(s_["points"] for s_ in series) and get("main", m, "noinfo"):
+                refpre = get("main", m, "noinfo+pre")
                 out[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
+                             **({"ref_pre": 100 * refpre["macro"]} if refpre else {}),
                              "xticks": [100, 300, 1000, 3000, 10000, 30000, 100000, 300000]}
         return out
 
@@ -685,7 +692,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="len">
     <h2 id="len">Representation length and accuracy</h2>
-    <p class="muted">Sections. By default each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; the switches show the mean instead, or only the representation's own tokens (the prompt minus the names-only prompt for the same passage and character); lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: the gpt-oss claims keep their most recent statements, v2, the summarized Llama notes and the summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full Llama notes (for the three characters together) are shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
+    <p class="muted">Sections. By default each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; the switches show the mean instead, or only the representation's own tokens (the prompt minus the names-only prompt for the same passage and character), or every representation with the passage's own chapter up to the passage added before the passage (which no representation otherwise sees); lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: the gpt-oss claims keep their most recent statements, v2, the summarized Llama notes and the summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full Llama notes (for the three characters together) are shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
     <div class="chart" id="lenbox">
       <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
       <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against prompt length"></svg>
@@ -831,6 +838,11 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     const W = 760, H = 380, L = 48, R = 185, T = 16, B = 42, lin = spec.scale === "linear";
     const on = name => !st.hidden.has(name);
     const series = spec.series.map((s, i) => ({ ...s, c: `var(${colors[s.color != null ? s.color : i % colors.length]})` })).filter(s => s.points.length);
+    if (!series.length && !(spec.singles || []).length && spec.ref === undefined) {   // nothing for this setting (yet)
+      const t = document.createElementNS(ns, "text"); t.setAttribute("x", W / 2); t.setAttribute("y", H / 2); t.setAttribute("text-anchor", "middle");
+      t.textContent = "No results yet for this setting"; svg.appendChild(t);
+      return { x0: 100, x1: 100000, y0: 0, y1: 100 };
+    }
     const refName = "names only", refOn = on(refName) && (spec.ref !== undefined || (spec.refline || []).length);
     const vis = series.filter(s => on(s.name)).flatMap(s => s.points).concat((spec.singles || []).filter(p => on(p.name)),
                 refOn ? spec.refline || [] : []);
@@ -952,6 +964,11 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   }
   const XLABEL = { all: "prompt tokens (whole prompt)", rep: "representation tokens (the three characters' blocks)" };
   function view(spec, st) {
+    if (st.pre === "on") {                                     // every point swapped for its "+ this chapter so far" twin
+      const sw = p => (p.pre ? { ...p, ...p.pre } : null);
+      spec = { ...spec, ref: spec.ref_pre, series: spec.series.map(s => ({ ...s, points: s.points.map(sw).filter(Boolean) })),
+               singles: (spec.singles || []).map(sw).filter(Boolean) };
+    }
     if (!st.basis) return { ...spec, scale: st.scale };
     const pick = p => {
       const v = p.xs[st.basis];
@@ -998,7 +1015,8 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     (options || []).forEach(o => { st[o.key] = o.choices[0][0]; segment(box, o.label, o.choices, st[o.key], v => { st[o.key] = v; redraw(); }); });
     redraw();
   }
-  mount("lenbox", {{LENGTH_DATA}}, [{ key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
+  mount("lenbox", {{LENGTH_DATA}}, [{ key: "pre", label: "This chapter so far", choices: [["off", "without this chapter so far"], ["on", "with this chapter so far"]] },
+                                    { key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
 })();

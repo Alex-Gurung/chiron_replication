@@ -82,7 +82,7 @@ def main():
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = E.load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     plots = E.load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None
-    prefixes = E.load_prefixes(args.split) if any(c == "book_prefix" or E.re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
+    prefixes = E.load_prefixes(args.split) if any(c == "book_prefix" or c.endswith("+pre") or E.re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     aliases = {}
     model_tag = MODEL.split("/")[-1] + args.tag + "_think"
     for cond in args.conditions:
@@ -92,6 +92,8 @@ def main():
         done = {(r["item_id"], tuple(r["order"])) for f in base.parent.glob(f"{name}.*jsonl") if not f.name.endswith(".errors.jsonl")
                 for r in read_jsonl(f)}
         jobs, missing = [], 0
+        pre = cond.endswith("+pre")                           # <cond>+pre: also show the passage's chapter up to the passage
+        cond = cond[:-4] if pre else cond
         for it in items:
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
@@ -116,6 +118,8 @@ def main():
                     blocks = {l: E.rename(t, src[l], l, names[src[l]], names[l], al) for l, t in blocks.items()}
                 if k:
                     blocks = {l: E.words(t, int(k)) for l, t in blocks.items()}
+            if pre:
+                it = {**it, "chapter_so_far": prefixes[(book, b, it["chunk_index"])]}
             orders = [tuple(labels)] if blocks is None else [tuple(labels[i:] + labels[:i]) for i in range(len(labels))][:args.rotations]
             for order in orders:
                 if (it["item_id"], order) not in done:

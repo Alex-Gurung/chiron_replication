@@ -17,6 +17,7 @@
   python3 scripts/queue_jobs.py narrator        who narrates each chapter in the first person (gpt-oss)
   python3 scripts/queue_jobs.py headings_gen    every gpt-oss representation again, with chapter headings and narrators
   python3 scripts/queue_jobs.py headings_eval   evaluate the with-headings representations on every model
+  python3 scripts/queue_jobs.py pre             every representation + the passage's chapter so far (<cond>+pre)
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
@@ -302,6 +303,31 @@ def main():
                     addraw(f"{t}_q27think_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 1)
                 addraw(f"{t}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), 0)
                 addraw(f"{t}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), 0)
+    elif what == "pre":
+        # every representation again with the passage's chapter up to the passage (<cond>+pre); thinking on a core subset
+        short = ["noinfo", "gender", "v2@100", "v2@250", "v2@500", "v2", "charmem", "legacy@100", "legacy@250", "legacy",
+                 "summary@100", "summary@250", "summary@500", "summary", "chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000",
+                 "book_last2000", "book_last8000", "book_ch1", "book_ch2", "oracle_prior", "oracle_passage", "oracle_quote"] + \
+                [f"plot_{k}_{n}" for k in ("global", "hier") for n in (500, 1000, 2000, 4000)] + \
+                [f"plot_{k}_4000@last{n}" for k in ("global", "hier") for n in (500, 1000, 2000)]
+        long = ["chiron_r4000", "chiron", "legacy_full", "legacy_nofill", "chapnotes", "combo_short", "combo_legacy_v2", "combo_all",
+                "book_last32000", "book_ch4", "book_ch8", "book"]
+        think = ["noinfo", "v2", "charmem", "summary", "chiron_r2000", "book_last8000", "book_ch1", "plot_global_500", "plot_hier_4000"]
+        think_long = ["legacy_full", "chiron", "chapnotes"]
+        P = lambda cs: [c + "+pre" for c in cs]
+        for split in ("test", "val", "train"):
+            n = 2 if split == "train" else 1
+            groups = [(short[i::5], False) for i in range(5)] + [(long[i::3], True) for i in range(3)]
+            for g, (conds, lng) in enumerate(groups):
+                for k in range(n):
+                    addraw(f"pre_{split}_g{g}_q27_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", P(conds), k, n, ["--rotations"]), 1)
+                addraw(f"pre_{split}_g{g}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", P(conds), extra=["--rotations"]), 1)
+                addraw(f"pre_{split}_g{g}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", P(conds)), 1)
+            nt = {"train": 6, "val": 1, "test": 2}[split]
+            for c in think + think_long:
+                for k in range(nt):
+                    lng = c in think_long
+                    addraw(f"prethink_{split}_{c}_s{k}of{nt}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", c + "+pre", k, nt), 3)
     elif what == "plot":
         # plot summaries with gpt-oss (one pass at 131k context on 2 GPUs; chapter-by-chapter at 65k on 1 GPU)
         books = sorted({b for s in ("test", "val", "train") for b in (json.loads(l)["book"] for l in open(f"{REPO}/data/items_{s}.jsonl"))})
