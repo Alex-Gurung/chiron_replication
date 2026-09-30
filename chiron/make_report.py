@@ -940,7 +940,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: c, stroke: "var(--surface)", "stroke-width": 1.5,
                    ...(sq ? {} : { transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` }) }, g);
       hover(p, `${p.name}: ${desc(p)}`);
-      if (inside(p)) {                                        // label to the right, or to the left near the right edge
+      if (spec.labels === "on" && inside(p)) {                // label to the right, or to the left near the right edge
         const w = 6.2 * p.name.length, right = X(p.hi || p.x) + 9;
         tags.push(right + w <= W - R ? { x: right, y: Y(p.y) + 4, text: p.name, w, anchor: "start" }
                                      : { x: X(p.lo || p.x) - 9 - w, y: Y(p.y) + 4, text: p.name, w, anchor: "end" });
@@ -958,8 +958,9 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       const e = el("text", { x: t.anchor === "end" ? t.x + t.w : t.x, y, class: "lbl", "text-anchor": t.anchor }, g);
       e.textContent = t.text; e.style.fill = "var(--fg)";
     });
-    labels.sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
-    labels.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });
+    const kept = [];                                            // a line label only where it fits next to its line's end
+    labels.forEach(l => { if (!kept.some(k => Math.abs(k.y - l.y) < 12)) kept.push(l); });
+    kept.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });
     return auto;
   }
   const XLABEL = { all: "prompt tokens (whole prompt)", rep: "representation tokens (the three characters' blocks)" };
@@ -969,14 +970,14 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       spec = { ...spec, ref: spec.ref_pre, series: spec.series.map(s => ({ ...s, points: s.points.map(sw).filter(Boolean) })),
                singles: (spec.singles || []).map(sw).filter(Boolean) };
     }
-    if (!st.basis) return { ...spec, scale: st.scale };
+    if (!st.basis) return { ...spec, scale: st.scale, labels: st.labels };
     const pick = p => {
       const v = p.xs[st.basis];
       return v ? { ...p, x: v[st.stat], lo: v.lo, hi: v.hi } : null;
     };
     return { ...spec, series: spec.series.map(s => ({ ...s, points: s.points.map(pick).filter(Boolean) })),
              singles: (spec.singles || []).map(pick).filter(Boolean),
-             scale: st.scale, xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}; bars span the middle half` };
+             scale: st.scale, labels: st.labels, xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}; bars span the middle half` };
   }
   function segment(box, label, choices, current, onPick) {
     const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", label);
@@ -1015,7 +1016,8 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     (options || []).forEach(o => { st[o.key] = o.choices[0][0]; segment(box, o.label, o.choices, st[o.key], v => { st[o.key] = v; redraw(); }); });
     redraw();
   }
-  mount("lenbox", {{LENGTH_DATA}}, [{ key: "pre", label: "This chapter so far", choices: [["off", "without this chapter so far"], ["on", "with this chapter so far"]] },
+  mount("lenbox", {{LENGTH_DATA}}, [{ key: "labels", label: "Point labels", choices: [["off", "point labels off"], ["on", "point labels on"]] },
+                                    { key: "pre", label: "This chapter so far", choices: [["off", "without this chapter so far"], ["on", "with this chapter so far"]] },
                                     { key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
