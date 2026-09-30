@@ -105,10 +105,10 @@ FINDINGS = [
     "little of what relates a character to the other principals (the Llama notes name them 4 to 7 times as often).",
     "Was the gpt-oss CHIRON run done wrong? Redoing the Llama notes with gpt-oss, with the same questions once per chapter "
     "and the same layout, gives {chap27}% on Qwen3.8-27B without thinking ({chap9}% on Qwen3.5-9B base): above the gpt-oss "
-    "claims ({chiron27}%), below the Llama notes ({legfull27}%). Answering per 300-word snippet is the bigger loss. It also "
-    "drops first-person narrators: gpt-oss is rarely told who \"I\" is, so it marks narrators absent from most of their own "
-    "snippets, and the claims trail the Llama notes most in first-person books. gpt-oss's chapter notes are also 4 to 5 "
-    "times shorter than Llama's.",
+    "claims ({chiron27}%), below the Llama notes ({legfull27}%). So about half the gap comes from answering per 300-word "
+    "snippet, which also loses first-person narrators: gpt-oss is rarely told who \"I\" is and marks narrators absent from "
+    "most of their own snippets. The other half sits between the two sets of chapter notes; gpt-oss's are 4 to 5 times "
+    "shorter than Llama's.",
     "With thinking, much of every score is gender. From names alone, Qwen3.8-27B places {g_uni}% of characters whose gender "
     "is unique among the three principals and {g_same}% when all three share one (chance 33%); the representations mostly "
     "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full Llama notes). "
