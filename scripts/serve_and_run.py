@@ -23,6 +23,7 @@ MODELS = {
                ["--reasoning-parser", "openai_gptoss"]),
     "qwen4b": ("Qwen/Qwen3-4B-Instruct-2507", None, []),
     "mistral": ("mistralai/Mistral-7B-Instruct-v0.2", None, []),
+    "qwen9base": ("Qwen/Qwen3.5-9B-Base", None, ["--limit-mm-per-prompt", '{"image": 0, "video": 0}', "--max-num-seqs", "256"]),
     "qwen27": ("Qwen/Qwen3.8-27B", None, ["--limit-mm-per-prompt", '{"image": 0, "video": 0}', "--reasoning-parser", "qwen3",
                                           "--max-num-seqs", "256"]),   # text only; hybrid model: one recurrent-state slot per sequence
 }

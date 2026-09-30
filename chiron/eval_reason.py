@@ -52,11 +52,11 @@ def ask(text, names, order):
             got = {want[k]: v for k, v in raw.items() if k in want}
             if set(got) != set(order) or sorted(got.values()) != list(range(len(order))):
                 raise ValueError(f"need each of {list(want)} mapped to a distinct id in {DIGITS[len(order)]}")
-            return got, usage, attempt + 1, len(msg.get("reasoning_content") or msg.get("reasoning") or "")
+            return got, usage, attempt + 1, (msg.get("reasoning_content") or msg.get("reasoning") or "")
         except (ValueError, json.JSONDecodeError, TypeError) as e:
             msgs = [*msgs, {"role": "assistant", "content": content[-4000:]},
                     {"role": "user", "content": f"Your answer could not be read: {e}. Reply with only the JSON object."}]
-    return None, usage, 2, 0
+    return None, usage, 2, ""
 
 
 def main():
@@ -69,6 +69,8 @@ def main():
     ap.add_argument("--nshards", type=int, default=1)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--save-reasoning", action="store_true")
+    ap.add_argument("--rotations", type=int, default=3, help="how many of the cyclic rotations to run")
     args = ap.parse_args()
     stem = args.items or f"items_{args.split}"
     items = read_jsonl(DATA / f"{stem}.jsonl")[args.shard::args.nshards]
@@ -77,6 +79,7 @@ def main():
     suffix = f".s{args.shard}of{args.nshards}" if args.nshards > 1 else ""
     principals = json.load(open(DATA / "principals.json"))
     reps = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")}
+    item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = E.load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     aliases = {}
     model_tag = MODEL.split("/")[-1] + args.tag + "_think"
@@ -98,7 +101,7 @@ def main():
                 swap = basec.startswith("swap:") or swapname
                 basec = basec.split(":")[-1]
                 src = {l: labels[(i + 1) % len(labels)] if swap else l for i, l in enumerate(labels)}
-                blocks = {l: reps.get((basec, book, b, src[l])) for l in labels}
+                blocks = {l: item_reps.get((basec, it["item_id"], src[l]), reps.get((basec, book, b, src[l]))) for l in labels}
                 if any(t is None for t in blocks.values()):
                     missing += 1
                     continue
@@ -107,7 +110,7 @@ def main():
                     blocks = {l: E.rename(t, src[l], l, names[src[l]], names[l], al) for l, t in blocks.items()}
                 if k:
                     blocks = {l: E.words(t, int(k)) for l, t in blocks.items()}
-            orders = [tuple(labels)] if blocks is None else [tuple(labels[i:] + labels[:i]) for i in range(len(labels))]
+            orders = [tuple(labels)] if blocks is None else [tuple(labels[i:] + labels[:i]) for i in range(len(labels))][:args.rotations]
             for order in orders:
                 if (it["item_id"], order) not in done:
                     jobs.append((it, names, blocks, book_text, order))
@@ -118,7 +121,7 @@ def main():
             it, names, blocks, book_text, order = j
             text = E.prompt({**it, "order": order}, names, blocks, book_text, order[0])
             text = text[:text.rindex("# Question")] + question(names, order)
-            got, usage, attempts, rlen = ask(text, names, order)
+            got, usage, attempts, reasoning = ask(text, names, order)
             with lock:
                 for t in order:
                     pred = None if got is None else got[t]
@@ -127,7 +130,8 @@ def main():
                                        "order": list(order), "target": t, "answer": it["answer"][t], "logprobs": lp,
                                        "top_token": "" if pred is None else str(pred), "invalid": got is None,
                                        "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
-                                       "attempts": attempts, "reasoning_chars": rlen})
+                                       "attempts": attempts, "reasoning_chars": len(reasoning),
+                                       **({"reasoning": reasoning[:30000], "content_tail": ""} if args.save_reasoning and t == order[0] else {})})
 
         with ThreadPoolExecutor(args.workers) as pool:
             list(pool.map(one, jobs))

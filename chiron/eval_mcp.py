@@ -73,7 +73,22 @@ PREFIX = os.environ.get("CHIRON_ANSWER_PREFIX", "")   # e.g. "[CHAR " forces the
 THINKING = os.environ.get("CHIRON_THINKING")          # "0" turns a hybrid model's thinking off via its chat template
 
 
+BASE = os.environ.get("CHIRON_BASE") == "1"            # base model: raw completion ending in "Answer: [CHAR "
+
+
 def score(text, n=3):
+    if BASE:
+        body = json.dumps({"model": MODEL, "prompt": text + "\n\nAnswer: [CHAR ", "max_tokens": 1, "temperature": 0.0,
+                           "logprobs": 20}).encode()
+        req = urlrequest.Request(API + "/completions", data=body, headers={"Content-Type": "application/json"})
+        with urlrequest.urlopen(req, timeout=3600) as r:
+            resp = json.loads(r.read().decode())
+        top = resp["choices"][0]["logprobs"]["top_logprobs"][0]
+        lp = {str(d): -math.inf for d in range(n)}
+        for tok, v in top.items():
+            if tok.strip() in lp:
+                lp[tok.strip()] = max(lp[tok.strip()], v)
+        return lp, max(top, key=top.get), resp.get("usage", {}).get("prompt_tokens")
     msgs = [{"role": "user", "content": text}]
     extra = {}
     if PREFIX:
@@ -120,6 +135,7 @@ def main():
     reps = {}
     for r in read_jsonl(DATA / f"reps_{args.split}.jsonl"):
         reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
+    item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
@@ -145,7 +161,7 @@ def main():
                 swap = base.startswith("swap:") or swapname
                 base = base.split(":")[-1]
                 src = {l: labels[(i + 1) % len(labels)] if swap else l for i, l in enumerate(labels)}
-                blocks = {l: reps.get((base, book, b, src[l])) for l in labels}
+                blocks = {l: item_reps.get((base, it["item_id"], src[l]), reps.get((base, book, b, src[l]))) for l in labels}
                 if any(t is None for t in blocks.values()):     # never score a missing rep as "no information"
                     missing += 1
                     continue
