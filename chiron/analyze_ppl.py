@@ -27,6 +27,8 @@ def main():
         model = os.path.basename(mdir)
         rows = collections.defaultdict(dict)                # (ctx, rep) -> item -> (book, nll, tokens)
         for f in glob.glob(f"{mdir}/*/*.jsonl"):
+            if f.endswith(".errors.jsonl"):
+                continue
             ctx, rep = os.path.basename(f)[:-6].split("__")
             for r in read_jsonl(f):
                 rows[(ctx, rep)][r["item_id"]] = (r["book"], r["nll"], r["tokens"])

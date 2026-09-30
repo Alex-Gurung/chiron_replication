@@ -3,7 +3,9 @@
   python3 chiron/analyze_traces.py
 For each saved trace: the share of the reasoning's word 4-grams that also occur in the representations shown,
 and the share that occur in the (masked) passage; whether the trace talks about the notes; and accuracy by
-how much it drew on the notes. Prints a few short excerpts. Writes outputs/analysis_traces.json.
+how much it drew on the notes. Prints a few short excerpts. Also the median reasoning length of every thinking-on
+run, per passage set and condition (a proxy for how much work the notes leave to the model).
+Writes outputs/analysis_traces.json.
 """
 import collections
 import glob
@@ -73,7 +75,20 @@ def main():
         print(c, json.dumps({k: (round(x, 3) if isinstance(x, float) else x) for k, x in v.items()}))
     for c, e in examples.items():
         print(f"\n--- example ({c}) ---\n{e}")
-    write_json(OUT / "analysis_traces.json", {"stats": out, "examples": examples})
+    length = {}
+    for kind, suf in (("short", "_short"), ("main", ""), ("window", "_window")):
+        for f in glob.glob(str(OUT / "eval" / "Qwen3.8-27B_think" / f"items_*{suf}" / "*.jsonl")):
+            if f.endswith(".errors.jsonl") or not any(f"/items_{s}{suf}/" in f for s in ("test", "val", "train")):
+                continue
+            cond = os.path.basename(f).split(".")[0]
+            seen = length.setdefault(kind, {}).setdefault(cond, {})
+            for r in read_jsonl(f):
+                seen[(r["item_id"], tuple(r["order"]))] = r.get("reasoning_chars", 0)
+    length = {k: {c: {"median_chars": st.median(v.values()), "generations": len(v)} for c, v in d.items() if len(v) >= 50}
+              for k, d in length.items()}
+    for k, d in length.items():
+        print(k, {c: v["median_chars"] for c, v in sorted(d.items(), key=lambda kv: kv[1]["median_chars"])})
+    write_json(OUT / "analysis_traces.json", {"stats": out, "examples": examples, "length": length})
 
 
 if __name__ == "__main__":

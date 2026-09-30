@@ -136,3 +136,19 @@ with the entire book, reasoning on short spans and dense windows.
   gender's pronouns (when_moon 19, refuse 12, husbands 2); v2 0%, charmem 0.1%.
 - Ops: the 4-way thinking-on short/window shards were running at ~1,350 records/hour. They were re-split 12-16 ways; the
   eval scripts now treat any earlier output file of a condition as done, whatever its sharding.
+
+### 07:35 UTC: gender only
+
+- "Gender: female." / "Gender: male." as the only information, thinking off (macro, sections): Qwen3-4B 39.3 (names
+  only 40.4), Qwen3.5-9B base 46.1 (47.6), Qwen3.8-27B 40.2 (40.1); 27B short spans 34.6 (35.1), dense windows 44.6
+  (42.3). Even for characters whose gender is unique among the three principals, the 27B only goes 41 -> 46%. Direct
+  answering does not make the pronoun inference ("she" -> the only woman); with thinking, names alone already get 89% of
+  those characters. So the direct-scoring gains of the sheets come from their content, while with thinking much of the
+  names-only score and of every sheet's score is gender. Thinking-on gender-only is queued behind the reasoning shards.
+- Reasoning length (27B thinking, median characters per generation) orders the representations like accuracy and
+  still separates them at ceiling. Sections: names only 76k, v2 17.6k, charmem 14.1k, summary 12.7k, CHIRON-style
+  12.3k, book 8k 10.4k, legacy full 8.3k, whole book 5.9k, passage oracle 4.3k. Dense windows (all 97-99% accurate):
+  v2 12.6k vs legacy full 7.8k.
+- 27B chat perplexity complete: without story, legacy full / CHIRON-style -12.7%, summary -9.7%, charmem -9.2%, v2
+  -8.2%; with the 4k words before the passage, CHIRON-style -3.4%, legacy full -3.3% (partial, over-length prompts
+  skipped), charmem -2.2%, v2 -1.7%.
