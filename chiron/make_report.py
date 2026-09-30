@@ -17,7 +17,8 @@ from common import DATA, OUT, REPO, read_jsonl
 
 MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9B base"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"),
           ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking"), ("Mistral-7B-Instruct-v0.2_prefix", "Mistral-7B")]
-CHART_MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"), ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking")]
+CHART_MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9B base"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"),
+                ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking")]
 LABEL = {
     "noinfo": "Names only", "gender": "Gender only (\"Gender: female.\")", "v2": "v2 sheet (current dataset)", "legacy": "Llama CHIRON notes, summarized",
     "legacy_full": "Llama CHIRON notes, full", "chapnotes": "gpt-oss chapter notes (the Llama notes redone)", "summary": "Character summaries (gpt-oss, one per character)",
@@ -62,24 +63,42 @@ ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", 
 MANUAL_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "manual_prior", "oracle_passage", "manual_passage", "oracle_quote",
                "swapname_manual_prior"]
 CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapname_chiron"]
-LENGTH_FAMILIES = [("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
-                   ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"]),
-                   ("Llama notes, summarized", ["legacy@100", "legacy@250", "legacy"]),
-                   ("Character summaries", ["summary@100", "summary@250", "summary@500", "summary"]),
-                   ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"]),
-                   ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"])]
-FAMILY_STYLE = {}
-SUMMARY_FAMILIES = [("Character summaries, first k words", ["summary@100", "summary@250", "summary@500", "summary"]),
-                    ("Plot summary, one pass", ["plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000"]),
-                    ("Plot summary, chapter by chapter", ["plot_hier_500", "plot_hier_1000", "plot_hier_2000", "plot_hier_4000"]),
-                    ("One pass, last k words", ["plot_global_4000@last500", "plot_global_4000@last1000", "plot_global_4000@last2000", "plot_global_4000"]),
-                    ("Chapter by chapter, last k words", ["plot_hier_4000@last500", "plot_hier_4000@last1000", "plot_hier_4000@last2000", "plot_hier_4000"])]
-SUMMARY_STYLE = {}
+# Colour follows the source in every chart (v2 0, gpt-oss CHIRON 1, Llama notes 2, character summaries 3, book text by
+# words 4, by chapters 5, plot summary one pass 6, chapter by chapter 7); dashes mark variants of the same source.
+DASH, DOT = "6 4", "2 3"
+LENGTH_FAMILIES = [
+    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"], 0, None),
+    ("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"], 1, None),
+    ("gpt-oss claims, headings", ["chiron_h_r2000", "chiron_h"], 1, DASH),
+    ("Llama notes, summarized", ["legacy@100", "legacy@250", "legacy"], 2, None),
+    ("Character summaries", ["summary@100", "summary@250", "summary@500", "summary"], 3, None),
+    ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"], 4, None),
+    ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"], 5, None),
+    ("Plot, one pass", ["plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000"], 6, None),
+    ("Plot, one pass, last k", ["plot_global_4000@last500", "plot_global_4000@last1000", "plot_global_4000@last2000", "plot_global_4000"], 6, DASH),
+    ("Plot, one pass, headings", ["plot_h_global_500", "plot_h_global_1000", "plot_h_global_2000", "plot_h_global_4000"], 6, DOT),
+    ("Plot, by chapter", ["plot_hier_500", "plot_hier_1000", "plot_hier_2000", "plot_hier_4000"], 7, None),
+    ("Plot, by chapter, last k", ["plot_hier_4000@last500", "plot_hier_4000@last1000", "plot_hier_4000@last2000", "plot_hier_4000"], 7, DASH),
+    ("Plot, by chapter, headings", ["plot_h_hier_500", "plot_h_hier_1000", "plot_h_hier_2000", "plot_h_hier_4000"], 7, DOT),
+]
+LENGTH_SINGLES = [   # (name, condition, colour index or None for ink, shape)
+    ("charmem", "charmem", 0, "diamond"), ("Llama notes, full", "legacy_full", 2, "diamond"),
+    ("Llama notes, no filler", "legacy_nofill", 2, "diamond"), ("gpt-oss chapter notes", "chapnotes", 1, "diamond"),
+    ("gpt-oss chapter notes, headings", "chapnotes_h", 1, "square"), ("Character summaries, headings", "summary_h", 3, "square"),
+    ("This chapter so far", "book_prefix", 5, "diamond"), ("Previous + this chapter so far", "book_ch1p", 5, "square"),
+    ("Llama notes + v2", "combo_legacy_v2", None, "diamond"), ("v2 + charmem + summaries", "combo_short", None, "diamond"),
+    ("All four combined", "combo_all", None, "diamond"), ("Gender only", "gender", None, "square"),
+    ("Oracle: prior facts", "oracle_prior", None, "square"), ("Oracle: passage clues", "oracle_passage", None, "square"),
+    ("Oracle: the passage's sentences", "oracle_quote", None, "square"),
+]
 PLOT_ROWS = ["noinfo", "summary", "plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000", "plot_hier_500",
              "plot_hier_1000", "plot_hier_2000", "plot_hier_4000", "plot_global_4000@last1000", "plot_hier_4000@last1000", "book_last8000"]
 BOOKCH_ROWS = ["noinfo", "book_prefix", "book_ch1", "book_ch1p", "book_ch2", "book_ch4", "book_ch8", "book", "book_last8000", "legacy_full"]
-PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("gpt-oss claims", "chiron"),
-                  ("Character summaries", "summary"), ("Llama notes", "legacy_full"), ("Book, last 8k", "book_last8000")]
+PASSAGE_SERIES = [("v2 sheet", "v2", 0, None), ("Charmem", "charmem", 0, DASH), ("v2, name-swapped", "swapname_v2", 0, DOT),
+                  ("gpt-oss claims", "chiron", 1, None), ("gpt-oss claims, last 2,000 words", "chiron_r2000", 1, DASH),
+                  ("Llama notes", "legacy_full", 2, None), ("Llama notes, summarized", "legacy", 2, DASH),
+                  ("Character summaries", "summary", 3, None), ("Book, last 8k words", "book_last8000", 4, None),
+                  ("Gender only", "gender", 6, None)]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
     "Scoring changes the thinking-off results. Asked about one character at a time, Qwen3.8-27B without thinking almost "
@@ -427,7 +446,7 @@ def main():
     both = [i for i in ptok["book"] if i in ptok["legacy_full"]]
     leg_ratio = f"{st.median(ptok['legacy_full'][i] / ptok['book'][i] for i in both):.2f}"
     leg_longer = f"{100 * sum(ptok['legacy_full'][i] > ptok['book'][i] for i in both) / len(both):.0f}"
-    def length_data(families, singles_spec, styles):
+    def length_data(families, singles_spec):
         out = {}
         for m, name in CHART_MODELS:
             a = A[("main", m)]
@@ -443,20 +462,20 @@ def main():
                     xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3]}
                 return {"xs": xs, "y": 100 * get("main", m, c)["macro"], "cov": r["items"] / r["items_total"]}
             ok = lambda c: c in rows and rows[c]["tokens_q"] and get("main", m, c)
-            series = [{"name": fam, **styles.get(fam, {}), "points": [{"label": c, **pt(c)} for c in conds if ok(c)]}
-                      for fam, conds in families]
-            singles = [{"name": n, **pt(c)} for n, c in singles_spec if ok(c)]
+            series = [{"name": fam, "color": col, "dash": dash, "points": [{"label": c, **pt(c)} for c in conds if ok(c)]}
+                      for fam, conds, col, dash in families]
+            singles = [{"name": n, "color": col, "shape": shape, **pt(c)} for n, c, col, shape in singles_spec if ok(c)]
             if any(s_["points"] for s_ in series) and get("main", m, "noinfo"):
                 out[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
                              "xticks": [100, 300, 1000, 3000, 10000, 30000, 100000, 300000]}
         return out
 
-    length = length_data(LENGTH_FAMILIES, (("charmem", "charmem"), ("Llama notes, full", "legacy_full"), ("gpt-oss chapter notes", "chapnotes")), FAMILY_STYLE)
-    summaries = length_data(SUMMARY_FAMILIES, (), SUMMARY_STYLE)
+    length = length_data(LENGTH_FAMILIES, LENGTH_SINGLES)
     passage = {}
     for m, name in CHART_MODELS:
-        series = [{"name": n, "points": [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, c)}
-                                         for k, sname in SETS if macro(k, m, c) is not None]} for n, c in PASSAGE_SERIES]
+        series = [{"name": n, "color": col, "dash": dash,
+                   "points": [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, c)}
+                              for k, sname in SETS if macro(k, m, c) is not None]} for n, c, col, dash in PASSAGE_SERIES]
         ref = [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, "noinfo")}
                for k, sname in SETS if macro(k, m, "noinfo") is not None]
         if any(s["points"] for s in series):
@@ -529,7 +548,7 @@ def main():
     for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
-                 "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "SUMMARY_DATA": json.dumps(summaries), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
+                 "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
                  "LENGTH_DATA": json.dumps(length), "PASSAGE_DATA": json.dumps(passage),
@@ -551,7 +570,7 @@ TEMPLATE = r"""<title>CHIRON Book Replication</title>
 /* Layout: one reading column; tables and charts sit in their own scroll containers. */
 :root {
   --bg: #f6f7f7; --surface: #ffffff; --fg: #16191d; --muted: #5a6068; --rule: #dde1e4; --accent: #245fa8;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #7b5fd1; --ref: #8a9097;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #7b5fd1; --s7: #a83a3a; --s8: #6f8f12; --ref: #8a9097;
   --m0bg: #dbe8f9; --m1bg: #fbe1d5; --m2bg: #d4f0e5;
   --display: "Newsreader", "Iowan Old Style", Georgia, serif;
   --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
@@ -559,11 +578,11 @@ TEMPLATE = r"""<title>CHIRON Book Replication</title>
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #141618; --surface: #1b1e21; --fg: #eceef0; --muted: #a2a8b0; --rule: #2d3237; --accent: #7fb0ee;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #8a6fe0; --ref: #7d848c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #8a6fe0; --s7: #bf4a4a; --s8: #7f9f22; --ref: #7d848c;
   --m0bg: #1f3350; --m1bg: #4a2a1c; --m2bg: #173c30; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #141618; --surface: #1b1e21; --fg: #eceef0; --muted: #a2a8b0; --rule: #2d3237; --accent: #7fb0ee;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #8a6fe0; --ref: #7d848c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #8a6fe0; --s7: #bf4a4a; --s8: #7f9f22; --ref: #7d848c;
   --m0bg: #1f3350; --m1bg: #4a2a1c; --m2bg: #173c30; color-scheme: dark }
 body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
 main { max-width: 64rem; margin: 0 auto; padding-inline: 1.25rem; padding-block: 2.5rem 4rem; display: grid; gap: 2.25rem; }
@@ -602,7 +621,10 @@ code { font: 0.85em var(--mono); }
 .legend span { display: inline-flex; }
 .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 .legend i.dash { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 8px); }
-.legend i.diamond { width: 8px; height: 8px; border-radius: 1px; background: var(--fg); transform: rotate(45deg); }
+.legend button.mini { font: 500 0.75rem var(--body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 5px; padding: 0.1rem 0.45rem; cursor: pointer; }
+.legend i.dot { background: repeating-linear-gradient(90deg, var(--c) 0 2px, transparent 2px 5px); }
+.legend i.diamond, .legend i.square { width: 8px; height: 8px; border-radius: 1px; background: var(--c, var(--fg)); }
+.legend i.diamond { transform: rotate(45deg); }
 .bounds { display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
 .bounds label { display: inline-flex; align-items: center; gap: 0.35rem; }
 .bounds input { width: 6.5rem; font: 0.8rem var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0.2rem 0.4rem; }
@@ -674,12 +696,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="plt">
     <h2 id="plt">Plot summaries vs character summaries</h2>
-    <p class="muted">One gpt-oss summary of the story so far, shared by the three characters and shown in place of their blocks. One pass: the whole text of the chapters before the passage's chapter (the most recent 85,000 words for the longest books), summarized to a target length. Chapter by chapter: each chapter summarized to about 250 words, then those summaries combined to the target length. "Last k words" cuts the 4,000-word summary to its most recent part. Character summaries are cut to their first k words (they are organized by topic, not time).</p>
-    <div class="chart" id="sumbox">
-      <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
-      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy of plot and character summaries against their length"></svg>
-      <div class="tip" hidden></div>
-    </div>
+    <p class="muted">One gpt-oss summary of the story so far, shared by the three characters and shown in place of their blocks. One pass: the whole text of the chapters before the passage's chapter (the most recent 85,000 words for the longest books), summarized to a target length. Chapter by chapter: each chapter summarized to about 250 words, then those summaries combined to the target length. "Last k words" cuts the 4,000-word summary to its most recent part. Character summaries are cut to their first k words (they are organized by topic, not time). All of these are also lines in the representation-length chart.</p>
     <div class="table-wrap"><table>{{PLOT_TABLE}}</table></div>
   </section>
 
@@ -793,7 +810,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
 <script>
 (function () {
-  const ns = "http://www.w3.org/2000/svg", colors = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
+  const ns = "http://www.w3.org/2000/svg", colors = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6", "--s7", "--s8"];
   const niceStep = raw => { const m = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 5, 10].map(k => k * m).find(v => v >= raw); };
   const num = v => (Math.abs(v) >= 1000 ? +(v / 1000).toFixed(2) + "k" : String(+v.toFixed(2)));
   function logTicks(a, b) {
@@ -811,9 +828,9 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   function draw(box, spec, st) {
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), legend = box.querySelector("[data-legend]");
     svg.replaceChildren(); legend.replaceChildren(); tip.hidden = true;
-    const W = 760, H = 380, L = 48, R = 178, T = 16, B = 42, lin = spec.scale === "linear";
+    const W = 760, H = 380, L = 48, R = 185, T = 16, B = 42, lin = spec.scale === "linear";
     const on = name => !st.hidden.has(name);
-    const series = spec.series.map((s, i) => ({ ...s, c: `var(${colors[s.color !== undefined ? s.color : i]})` })).filter(s => s.points.length);
+    const series = spec.series.map((s, i) => ({ ...s, c: `var(${colors[s.color != null ? s.color : i % colors.length]})` })).filter(s => s.points.length);
     const refName = "names only", refOn = on(refName) && (spec.ref !== undefined || (spec.refline || []).length);
     const vis = series.filter(s => on(s.name)).flatMap(s => s.points).concat((spec.singles || []).filter(p => on(p.name)),
                 refOn ? spec.refline || [] : []);
@@ -875,6 +892,11 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       box_.addEventListener("change", () => { if (box_.checked) st.hidden.delete(name); else st.hidden.add(name); st.redraw(); });
       lab.appendChild(box_); const sw = document.createElement("span"); sw.innerHTML = swatch; lab.appendChild(sw); lab.append(name); legend.appendChild(lab);
     };
+    const allNames = [refName, ...series.map(s => s.name), ...(spec.singles || []).map(p => p.name)];
+    [["Show all", () => st.hidden.clear()], ["Hide all", () => allNames.forEach(n => st.hidden.add(n))]].forEach(([text, act]) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "mini"; b.textContent = text;
+      b.addEventListener("click", () => { act(); st.redraw(); }); legend.appendChild(b);
+    });
     if (spec.ref !== undefined || (spec.refline || []).length) {
       legendItem(refName, `<i class="dash" style="--c:var(--ref)"></i>`);
       if (refOn && spec.ref !== undefined && spec.ref >= y0 && spec.ref <= y1) {
@@ -888,21 +910,41 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       }
     }
     series.forEach(s => {
-      legendItem(s.name, `<i style="background:${s.c}"></i>`);
+      legendItem(s.name, s.dash ? `<i class="${s.dash === "2 3" ? "dot" : "dash"}" style="--c:${s.c}"></i>` : `<i style="background:${s.c}"></i>`);
       if (!on(s.name)) return;
-      el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: s.c, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+      el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: s.c, "stroke-width": 2, "stroke-linejoin": "round",
+                       ...(s.dash ? { "stroke-dasharray": s.dash } : {}) }, g);
       s.points.forEach(p => whisker(p, s.c));
       s.points.forEach(p => { el("circle", { cx: X(p.x), cy: Y(p.y), r: 4.5, fill: s.c, stroke: "var(--surface)", "stroke-width": 2 }, g);
         hover(p, `${s.name} · ${p.label}: ${desc(p)}`); });
       endLabel(s.points, s.name, s.c);
     });
+    const tags = [];
     (spec.singles || []).forEach(p => {
-      legendItem(p.name, `<i class="diamond"></i>`);
+      const c = p.color != null ? `var(${colors[p.color]})` : "var(--fg)", sq = p.shape === "square";
+      legendItem(p.name, `<i class="${sq ? "square" : "diamond"}" style="--c:${c}"></i>`);
       if (!on(p.name)) return;
-      whisker(p, "var(--fg)");
-      el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` }, g);
+      whisker(p, c);
+      el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: c, stroke: "var(--surface)", "stroke-width": 1.5,
+                   ...(sq ? {} : { transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` }) }, g);
       hover(p, `${p.name}: ${desc(p)}`);
-      const t = el("text", { x: X(p.hi || p.x) + 9, y: Y(p.y) + 4, class: "lbl" }, g); t.textContent = p.name; t.style.fill = "var(--fg)";
+      if (inside(p)) {                                        // label to the right, or to the left near the right edge
+        const w = 6.2 * p.name.length, right = X(p.hi || p.x) + 9;
+        tags.push(right + w <= W - R ? { x: right, y: Y(p.y) + 4, text: p.name, w, anchor: "start" }
+                                     : { x: X(p.lo || p.x) - 9 - w, y: Y(p.y) + 4, text: p.name, w, anchor: "end" });
+      }
+    });
+    const placed = [];                                          // nudge single-point labels apart vertically
+    tags.sort((a, b) => a.y - b.y).forEach(t => {
+      let y = t.y;
+      for (let k = 0; k < 40 && placed.some(q => Math.abs(q.y - y) < 12 && t.x < q.x + q.w && q.x < t.x + t.w); k++) y += 12;
+      placed.push({ ...t, y });
+      if (y - t.y > 6) {                                        // moved: a leader line back to the marker's row
+        const lx = t.anchor === "end" ? t.x + t.w + 2 : t.x - 2;
+        el("line", { x1: lx, y1: y - 4, x2: t.anchor === "end" ? lx + 5 : lx - 5, y2: t.y - 4, stroke: "var(--muted)", "stroke-width": 1 }, g);
+      }
+      const e = el("text", { x: t.anchor === "end" ? t.x + t.w : t.x, y, class: "lbl", "text-anchor": t.anchor }, g);
+      e.textContent = t.text; e.style.fill = "var(--fg)";
     });
     labels.sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
     labels.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });
@@ -946,7 +988,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   function mount(id, data, options) {
     const box = document.getElementById(id), names = Object.keys(data);
     if (!names.length) { box.hidden = true; return; }
-    const st = { model: names[names.length > 1 ? 1 : 0], hidden: new Set(), bounds: {} };
+    const st = { model: names.includes("Qwen3.8-27B") ? "Qwen3.8-27B" : names[0], hidden: new Set(), bounds: {} };
     const setPlaceholders = boundsRow(box, st);
     const redraw = () => setPlaceholders(draw(box, view(data[st.model], st), st));
     st.redraw = redraw;
@@ -959,8 +1001,6 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   mount("lenbox", {{LENGTH_DATA}}, [{ key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
-  mount("sumbox", {{SUMMARY_DATA}}, [{ key: "basis", label: "Length of", choices: [["rep", "representation only"], ["all", "whole prompt"]] },
-                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
 })();
 </script>
 """
