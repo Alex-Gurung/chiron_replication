@@ -107,7 +107,12 @@ def main():
             if args.context == "story":
                 parts.append("The story so far (most recent part):\n\n" + story[it["item_id"]])
             prefix = "\n\n".join(parts) + "\n\nThe next passage of the novel:\n\n"
-            nll, n = score(prefix, it["original"])
+            try:
+                nll, n = score(prefix, it["original"])
+            except Exception as e:                        # e.g. HTTP 400: prompt longer than the served context
+                with lock:
+                    append_jsonl(out.with_suffix(".errors.jsonl"), {"item_id": it["item_id"], "error": str(e)[:300]})
+                return
             with lock:
                 append_jsonl(out, {"item_id": it["item_id"], "book": book, "nll": nll, "tokens": n})
 
