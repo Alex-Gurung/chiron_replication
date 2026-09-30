@@ -188,6 +188,16 @@ def main():
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():
             add("charmem", book, b, l, json.load(open(p))["character_sheets"].get(l))
+    sections = {"physical": "Physicality And Personality", "dialogue": "Dialogue And Voice", "history": "History And Circumstances",
+                "knowledge": "Knowledge And Beliefs", "goals": "Goals And Motivations", "relationships": "Relationships"}
+    # one sheet section at a time, and everything but relationships
+    sheet = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs if r["condition"] in ("v2", "charmem")}
+    for (src, *k), t in sheet.items():
+        parts = {h.strip(): body for h, body in re.findall(r"^## (.+?)\n(.*?)(?=^## |\Z)", t, re.M | re.S)}
+        for short, head in sections.items():
+            if head in parts:
+                add(f"{src}_sec_{short}", *k, f"## {head}\n{parts[head].strip()}")
+        add(f"{src}_norel", *k, "\n\n".join(f"## {h}\n{b.strip()}" for h, b in parts.items() if h != "Relationships"))
     combos = {"combo_short": ["v2", "charmem", "summary"], "combo_legacy_v2": ["legacy_nofill", "v2"],
               "combo_all": ["v2", "charmem", "summary", "legacy_nofill"]}       # complementary sources, concatenated
     have = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs}
