@@ -188,6 +188,15 @@ def main():
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():
             add("charmem", book, b, l, json.load(open(p))["character_sheets"].get(l))
+    combos = {"combo_short": ["v2", "charmem", "summary"], "combo_legacy_v2": ["legacy_nofill", "v2"],
+              "combo_all": ["v2", "charmem", "summary", "legacy_nofill"]}       # complementary sources, concatenated
+    have = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs}
+    titles = {"v2": "Sheet", "charmem": "Second sheet", "summary": "Summary", "legacy_nofill": "Chapter-by-chapter notes"}
+    for name, parts in combos.items():
+        for k in keys:
+            texts = [have.get((c, *k)) for c in parts]
+            if all(texts):
+                add(name, *k, "\n\n".join(f"#### {titles[c]}\n{t}" for c, t in zip(parts, texts)))
     tmp = DATA / f"reps_{args.split}.jsonl.tmp"               # atomic swap: running jobs never read a half-written file
     with open(tmp, "w") as f:
         for r in recs:
