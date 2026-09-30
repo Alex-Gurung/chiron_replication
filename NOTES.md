@@ -31,3 +31,17 @@ Queued: Qwen3.5-9B-Base (base-model completion scoring), per-passage oracles (cl
 prior facts chosen for the passage) on all models, perplexity of the real passage with each representation under
 9B base (raw text) and Qwen3-4B / 27B (chat: writing prompt as the user turn), saved reasoning traces, thinking-on
 with the entire book, reasoning on short spans and dense windows.
+
+### 01:00-02:00 UTC
+
+- Ops: all 12 pods had died at 23:01 (more than 16 GiB of per-job /tmp compile caches); fixed in serve_and_run, relaunched.
+  Jobs needing 2 GPUs starved behind 1-GPU jobs, so they were requeued on 1 GPU (27B at 131k context, gpt-oss at 65k).
+  Short-span and dense-window reasoning (49 jobs) parked in state/queue/parked_chiron to let the rest through.
+  9B-base perplexity OOMed (full-vocabulary prompt logprobs on 60k-token prompts), so it was requeued with
+  --max-num-batched-tokens 2048 and --gpu-mem 0.85.
+- Interaction ablation (partial): legacy statements naming another principal alone (~2-3.6k words) = 61.8% vs legacy
+  full 63.4% and v2 56.2%; CHIRON-style interaction statements alone (~500 words) = 49.4%. The no-interaction halves
+  are pending.
+- Perplexity (Qwen3-4B chat, partial). Long sheets lower the loss on the real passage a lot: legacy full -0.39
+  nats/token, CHIRON-style full -0.26 (21/21 books). The ~800-word sheets and summaries barely help without story
+  context (v2 +0.02, charmem 0.00, summary -0.02) and help a little with it (v2 -0.07, charmem -0.08).
