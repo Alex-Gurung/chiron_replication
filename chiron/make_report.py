@@ -66,38 +66,49 @@ CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapna
 # Colour follows the source in every chart (v2 0, gpt-oss CHIRON 1, Llama notes 2, character summaries 3, book text by
 # words 4, by chapters 5, plot summary one pass 6, chapter by chapter 7); dashes mark variants of the same source.
 DASH, DOT = "6 4", "2 3"
+# Each entry: name, conditions, colour (index into --s1..--s8, None = ink), dash, marker shape, hollow marker, key group.
+# Colour follows the source; the shape and a hollow marker separate variants of the same source.
+NOTES, SUMM, BOOK, OTHER = "Character notes and sheets", "Summaries", "Book text", "Reference, combinations and oracles"
 LENGTH_FAMILIES = [
-    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"], 0, None),
-    ("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"], 1, None),
-    ("gpt-oss claims, headings", ["chiron_h_r2000", "chiron_h"], 1, DASH),
-    ("Llama notes, summarized", ["legacy@100", "legacy@250", "legacy"], 2, None),
-    ("Character summaries", ["summary@100", "summary@250", "summary@500", "summary"], 3, None),
-    ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"], 4, None),
-    ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"], 5, None),
-    ("Plot, one pass", ["plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000"], 6, None),
-    ("Plot, one pass, last k", ["plot_global_4000@last500", "plot_global_4000@last1000", "plot_global_4000@last2000", "plot_global_4000"], 6, DASH),
-    ("Plot, one pass, headings", ["plot_h_global_500", "plot_h_global_1000", "plot_h_global_2000", "plot_h_global_4000"], 6, DOT),
-    ("Plot, by chapter", ["plot_hier_500", "plot_hier_1000", "plot_hier_2000", "plot_hier_4000"], 7, None),
-    ("Plot, by chapter, last k", ["plot_hier_4000@last500", "plot_hier_4000@last1000", "plot_hier_4000@last2000", "plot_hier_4000"], 7, DASH),
-    ("Plot, by chapter, headings", ["plot_h_hier_500", "plot_h_hier_1000", "plot_h_hier_2000", "plot_h_hier_4000"], 7, DOT),
+    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"], 0, None, "circle", False, NOTES),
+    ("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"], 1, None, "circle", False, NOTES),
+    ("gpt-oss claims, headings", ["chiron_h_r2000", "chiron_h"], 1, DASH, "circle", True, NOTES),
+    ("Llama notes, summarized", ["legacy@100", "legacy@250", "legacy"], 2, None, "circle", False, NOTES),
+    ("Character summaries", ["summary@100", "summary@250", "summary@500", "summary"], 3, None, "circle", False, SUMM),
+    ("Plot, one pass", ["plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000"], 6, None, "triangle", False, SUMM),
+    ("Plot, one pass, last k words", ["plot_global_4000@last500", "plot_global_4000@last1000", "plot_global_4000@last2000", "plot_global_4000"], 6, DASH, "triangle", True, SUMM),
+    ("Plot, one pass, headings", ["plot_h_global_500", "plot_h_global_1000", "plot_h_global_2000", "plot_h_global_4000"], 6, DOT, "down", False, SUMM),
+    ("Plot, by chapter", ["plot_hier_500", "plot_hier_1000", "plot_hier_2000", "plot_hier_4000"], 7, None, "square", False, SUMM),
+    ("Plot, by chapter, last k words", ["plot_hier_4000@last500", "plot_hier_4000@last1000", "plot_hier_4000@last2000", "plot_hier_4000"], 7, DASH, "square", True, SUMM),
+    ("Plot, by chapter, headings", ["plot_h_hier_500", "plot_h_hier_1000", "plot_h_hier_2000", "plot_h_hier_4000"], 7, DOT, "down", True, SUMM),
+    ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"], 4, None, "circle", False, BOOK),
+    ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"], 5, None, "triangle", False, BOOK),
 ]
-LENGTH_SINGLES = [   # (name, condition, colour index or None for ink, shape)
-    ("charmem", "charmem", 0, "diamond"), ("Llama notes, full", "legacy_full", 2, "diamond"),
-    ("Llama notes, no filler", "legacy_nofill", 2, "diamond"), ("gpt-oss chapter notes", "chapnotes", 1, "diamond"),
-    ("gpt-oss chapter notes, headings", "chapnotes_h", 1, "square"), ("Character summaries, headings", "summary_h", 3, "square"),
-    ("Llama notes + v2", "combo_legacy_v2", None, "diamond"), ("v2 + charmem + summaries", "combo_short", None, "diamond"),
-    ("All four combined", "combo_all", None, "diamond"), ("Gender only", "gender", None, "square"),
-    ("Oracle: prior facts", "oracle_prior", None, "square"), ("Oracle: passage clues", "oracle_passage", None, "square"),
-    ("Oracle: the passage's sentences", "oracle_quote", None, "square"),
+LENGTH_SINGLES = [
+    ("charmem", "charmem", 0, None, "diamond", False, NOTES),
+    ("gpt-oss chapter notes", "chapnotes", 1, None, "square", False, NOTES),
+    ("gpt-oss chapter notes, headings", "chapnotes_h", 1, None, "square", True, NOTES),
+    ("Llama notes, full", "legacy_full", 2, None, "diamond", False, NOTES),
+    ("Llama notes, no filler", "legacy_nofill", 2, None, "diamond", True, NOTES),
+    ("Character summaries, headings", "summary_h", 3, None, "diamond", True, SUMM),
+    ("Llama notes + v2", "combo_legacy_v2", None, None, "star", False, OTHER),
+    ("v2 + charmem + summaries", "combo_short", None, None, "star", True, OTHER),
+    ("All four combined", "combo_all", None, None, "hexagon", False, OTHER),
+    ("Gender only", "gender", None, None, "plus", False, OTHER),
+    ("Oracle: prior facts", "oracle_prior", None, None, "pentagon", True, OTHER),
+    ("Oracle: passage clues", "oracle_passage", None, None, "pentagon", False, OTHER),
+    ("Oracle: the passage's sentences", "oracle_quote", None, None, "down", False, OTHER),
 ]
 PLOT_ROWS = ["noinfo", "summary", "plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000", "plot_hier_500",
              "plot_hier_1000", "plot_hier_2000", "plot_hier_4000", "plot_global_4000@last1000", "plot_hier_4000@last1000", "book_last8000"]
 BOOKCH_ROWS = ["noinfo", "book_prefix", "book_ch1", "book_ch1p", "book_ch2", "book_ch4", "book_ch8", "book", "book_last8000", "legacy_full"]
-PASSAGE_SERIES = [("v2 sheet", "v2", 0, None), ("Charmem", "charmem", 0, DASH), ("v2, name-swapped", "swapname_v2", 0, DOT),
-                  ("gpt-oss claims", "chiron", 1, None), ("gpt-oss claims, last 2,000 words", "chiron_r2000", 1, DASH),
-                  ("Llama notes", "legacy_full", 2, None), ("Llama notes, summarized", "legacy", 2, DASH),
-                  ("Character summaries", "summary", 3, None), ("Book, last 8k words", "book_last8000", 4, None),
-                  ("Gender only", "gender", 6, None)]
+PASSAGE_SERIES = [
+    ("v2 sheet", "v2", 0, None, "circle", False, NOTES), ("charmem", "charmem", 0, DASH, "diamond", True, NOTES),
+    ("gpt-oss claims", "chiron", 1, None, "circle", False, NOTES), ("gpt-oss claims, last 2,000 words", "chiron_r2000", 1, DASH, "circle", True, NOTES),
+    ("Llama notes, full", "legacy_full", 2, None, "diamond", False, NOTES), ("Llama notes, summarized", "legacy", 2, DASH, "circle", True, NOTES),
+    ("Character summaries", "summary", 3, None, "circle", False, SUMM), ("Book text, last 8,000 words", "book_last8000", 4, None, "circle", False, BOOK),
+    ("Gender only", "gender", None, None, "plus", False, OTHER), ("v2, name-swapped", "swapname_v2", 0, DOT, "circle", True, OTHER),
+]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
     "Scoring changes the thinking-off results. Asked about one character at a time, Qwen3.8-27B without thinking almost "
@@ -467,9 +478,11 @@ def main():
 
             def pt(c):                                        # both states of the "this chapter so far" switch
                 return {**one(c), **({"pre": one(c + "+pre")} if ok(c + "+pre") else {})}
-            series = [{"name": fam, "color": col, "dash": dash, "points": [{"label": c, **pt(c)} for c in conds if ok(c)]}
-                      for fam, conds, col, dash in families]
-            singles = [{"name": n, "color": col, "shape": shape, **pt(c)} for n, c, col, shape in singles_spec if ok(c)]
+            series = [{"name": fam, "color": col, "dash": dash, "shape": shape, "hollow": hol, "group": grp,
+                       "points": [{"label": c, **pt(c)} for c in conds if ok(c)]}
+                      for fam, conds, col, dash, shape, hol, grp in families]
+            singles = [{"name": n, "color": col, "shape": shape, "hollow": hol, "group": grp, **pt(c)}
+                       for n, c, col, dash, shape, hol, grp in singles_spec if ok(c)]
             if any(s_["points"] for s_ in series) and get("main", m, "noinfo"):
                 refpre = get("main", m, "noinfo+pre")
                 out[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
@@ -480,9 +493,9 @@ def main():
     length = length_data(LENGTH_FAMILIES, LENGTH_SINGLES)
     passage = {}
     for m, name in CHART_MODELS:
-        series = [{"name": n, "color": col, "dash": dash,
+        series = [{"name": n, "color": col, "dash": dash, "shape": shape, "hollow": hol, "group": grp,
                    "points": [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, c)}
-                              for k, sname in SETS if macro(k, m, c) is not None]} for n, c, col, dash in PASSAGE_SERIES]
+                              for k, sname in SETS if macro(k, m, c) is not None]} for n, c, col, dash, shape, hol, grp in PASSAGE_SERIES]
         ref = [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, "noinfo")}
                for k, sname in SETS if macro(k, m, "noinfo") is not None]
         if any(s["points"] for s in series):
@@ -618,26 +631,32 @@ tbody th { font-weight: 500; }
 .strong { font-weight: 600; }
 code { font: 0.85em var(--mono); }
 .chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 0.75rem; position: relative; display: grid; gap: 0.5rem; }
-.chart svg { display: block; width: 100%; height: auto; }
-.chart text { fill: var(--muted); font: 11px var(--body); }
-.chart .lbl { font-weight: 600; }
+.plot-scroll { overflow-x: auto; }
+.plot-scroll > svg { display: block; width: 100%; min-width: 640px; height: auto; }
+.key .sw svg { display: block; width: 36px; height: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+.ctl { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ctl-label { font: 600 0.7rem/1.2 var(--body); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.plot-scroll text { fill: var(--muted); font: 11px var(--body); }
+.plot-scroll .lbl { font-weight: 600; }
 .bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
-.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--muted); }
-.legend label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
-.legend input { margin: 0; accent-color: var(--accent); }
-.legend span { display: inline-flex; }
-.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
-.legend i.dash { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 8px); }
-.legend button.mini { font: 500 0.75rem var(--body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 5px; padding: 0.1rem 0.45rem; cursor: pointer; }
-.legend i.dot { background: repeating-linear-gradient(90deg, var(--c) 0 2px, transparent 2px 5px); }
-.legend i.diamond, .legend i.square { width: 8px; height: 8px; border-radius: 1px; background: var(--c, var(--fg)); }
-.legend i.diamond { transform: rotate(45deg); }
+.key { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 0.5rem 1.2rem; font-size: 0.8rem; color: var(--fg); align-items: start; }
+.key-bar { grid-column: 1 / -1; display: flex; gap: 0.4rem; }
+.key-group { display: grid; gap: 0.15rem; min-width: 0; }
+.key-head { font: 600 0.7rem/1.4 var(--body); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.1rem; }
+.key label { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; line-height: 1.35; border-radius: 4px; padding: 0.05rem 0.2rem; }
+.key label:hover { background: var(--bg); }
+.key label.off { color: var(--muted); }
+.key label.off .sw { opacity: 0.35; }
+.key input { margin: 0; accent-color: var(--accent); }
+.key .sw { display: inline-flex; flex: none; }
+.key button.mini { font: 500 0.75rem var(--body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 5px; padding: 0.1rem 0.45rem; cursor: pointer; }
+.key input:focus-visible, .key button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .bounds { display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
 .bounds label { display: inline-flex; align-items: center; gap: 0.35rem; }
 .bounds input { width: 6.5rem; font: 0.8rem var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0.2rem 0.4rem; }
 .bounds button { font: 500 0.8rem var(--body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 6px; padding: 0.25rem 0.6rem; cursor: pointer; }
 .bounds input:focus-visible, .bounds button:focus-visible, .legend input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.controls { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
 .seg button { font: 500 0.8rem var(--body); color: var(--muted); background: transparent; border: 0; padding: 0.35rem 0.7rem; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--rule); }
@@ -694,8 +713,9 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h2 id="len">Representation length and accuracy</h2>
     <p class="muted">Sections. By default each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; the switches show the mean instead, or only the representation's own tokens (the prompt minus the names-only prompt for the same passage and character), or every representation with the passage's own chapter up to the passage added before the passage (which no representation otherwise sees); lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: the gpt-oss claims keep their most recent statements, v2, the summarized Llama notes and the summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full Llama notes (for the three characters together) are shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
     <div class="chart" id="lenbox">
-      <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
-      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against prompt length"></svg>
+      <div class="controls" data-controls></div>
+      <div class="plot-scroll"><svg viewBox="0 0 760 440" role="img" aria-label="Accuracy against prompt length"></svg></div>
+      <div class="key" data-legend></div>
       <div class="tip" hidden></div>
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{LENGTH_ROWS}}</tbody></table></div></details>
@@ -717,8 +737,9 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h2 id="pas">Passage length and accuracy</h2>
     <p class="muted">The same representations on three passage sets: short spans (the tightest run of sentences naming all three principals, 20 to 150 words), NCP sections, and dense windows (up to three consecutive sections, about 900 words, each principal named at least three times). Each set averages over its own books, so the points are not paired. The dashed line is names only.</p>
     <div class="chart" id="pasbox">
-      <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
-      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against passage length"></svg>
+      <div class="controls" data-controls></div>
+      <div class="plot-scroll"><svg viewBox="0 0 760 440" role="img" aria-label="Accuracy against passage length"></svg></div>
+      <div class="key" data-legend></div>
       <div class="tip" hidden></div>
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{PASSAGE_ROWS}}</tbody></table></div></details>
@@ -830,23 +851,41 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   }
   const logFloor = v => { const m = Math.pow(10, Math.floor(Math.log10(v))); return [5, 2, 1].map(d => d * m).find(x => x <= v); };
   const logCeil = v => { const m = Math.pow(10, Math.floor(Math.log10(v))); return [1, 2, 5, 10].map(d => d * m).find(x => x >= v); };
-  // Draws one chart. st.hidden: names switched off in the legend; st.bounds: manual x0/x1/y0/y1 (null = automatic).
+  // Marker shapes (paths centred on 0,0; r is the circle radius they are sized against).
+  const SHAPES = {
+    circle: r => `M${-r},0a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`,
+    square: r => { const h = r * 0.9; return `M${-h},${-h}h${2 * h}v${2 * h}h${-2 * h}z`; },
+    diamond: r => `M0,${-r * 1.3}L${r * 1.15},0L0,${r * 1.3}L${-r * 1.15},0z`,
+    triangle: r => `M0,${-r * 1.2}L${r * 1.1},${r * 0.8}L${-r * 1.1},${r * 0.8}z`,
+    down: r => `M0,${r * 1.2}L${r * 1.1},${-r * 0.8}L${-r * 1.1},${-r * 0.8}z`,
+    pentagon: r => [0, 1, 2, 3, 4].map(i => { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; return `${i ? "L" : "M"}${(1.15 * r * Math.cos(a)).toFixed(2)},${(1.15 * r * Math.sin(a)).toFixed(2)}`; }).join("") + "z",
+    hexagon: r => [0, 1, 2, 3, 4, 5].map(i => { const a = i * Math.PI / 3; return `${i ? "L" : "M"}${(1.2 * r * Math.cos(a)).toFixed(2)},${(1.2 * r * Math.sin(a)).toFixed(2)}`; }).join("") + "z",
+    star: r => [...Array(10).keys()].map(i => { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? 0.75 * r : 1.7 * r; return `${i ? "L" : "M"}${(q * Math.cos(a)).toFixed(2)},${(q * Math.sin(a)).toFixed(2)}`; }).join("") + "z",
+    plus: r => { const t = r * 0.42, u = r * 1.35; return `M${-t},${-u}h${2 * t}v${u - t}h${u - t}v${2 * t}h${t - u}v${u - t}h${-2 * t}v${t - u}h${t - u}v${-2 * t}h${u - t}z`; },
+  };
+  const tone = c => (c == null ? "var(--fg)" : `var(${colors[c]})`);
+  function swatch(it) {                                          // the key's sample: line style + marker, as drawn in the chart
+    const c = tone(it.color), line = it.line ? `<line x1="1" y1="8" x2="35" y2="8" stroke="${c}" stroke-width="2"${it.dash ? ` stroke-dasharray="${it.dash}"` : ""}/>` : "";
+    const fill = it.hollow ? "var(--surface)" : c;
+    return `<svg width="36" height="16" viewBox="0 0 36 16" aria-hidden="true">${line}<path transform="translate(18,8)" d="${SHAPES[it.shape || "circle"](4.6)}" fill="${fill}" stroke="${it.hollow ? c : "var(--surface)"}" stroke-width="${it.hollow ? 1.8 : 1.2}"/></svg>`;
+  }
+  // Draws one chart. st.hidden: names switched off in the key; st.bounds: manual x0/x1/y0/y1 (null = automatic).
   // Returns the automatic bounds, shown as placeholders in the bound inputs.
   function draw(box, spec, st) {
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), legend = box.querySelector("[data-legend]");
     svg.replaceChildren(); legend.replaceChildren(); tip.hidden = true;
-    const W = 760, H = 380, L = 48, R = 185, T = 16, B = 42, lin = spec.scale === "linear";
+    const W = 760, H = 440, L = 48, R = 180, T = 16, B = 42, lin = spec.scale === "linear";
     const on = name => !st.hidden.has(name);
-    const series = spec.series.map((s, i) => ({ ...s, c: `var(${colors[s.color != null ? s.color : i % colors.length]})` })).filter(s => s.points.length);
-    if (!series.length && !(spec.singles || []).length && spec.ref === undefined) {   // nothing for this setting (yet)
+    const series = spec.series.map(s => ({ ...s, c: tone(s.color) })).filter(s => s.points.length);   // colour null = ink
+    const singles = (spec.singles || []).map(p => ({ ...p, c: tone(p.color) }));
+    if (!series.length && !singles.length && spec.ref === undefined) {           // nothing for this setting (yet)
       const t = document.createElementNS(ns, "text"); t.setAttribute("x", W / 2); t.setAttribute("y", H / 2); t.setAttribute("text-anchor", "middle");
       t.textContent = "No results yet for this setting"; svg.appendChild(t);
       return { x0: 100, x1: 100000, y0: 0, y1: 100 };
     }
-    const refName = "names only", refOn = on(refName) && (spec.ref !== undefined || (spec.refline || []).length);
-    const vis = series.filter(s => on(s.name)).flatMap(s => s.points).concat((spec.singles || []).filter(p => on(p.name)),
-                refOn ? spec.refline || [] : []);
-    const shown = vis.length ? vis : series.flatMap(s => s.points);
+    const refName = "names only", hasRef = spec.ref !== undefined || (spec.refline || []).length, refOn = on(refName) && hasRef;
+    const vis = series.filter(s => on(s.name)).flatMap(s => s.points).concat(singles.filter(p => on(p.name)), refOn ? spec.refline || [] : []);
+    const shown = vis.length ? vis : series.flatMap(s => s.points).concat(singles);
     const xs = shown.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]).filter(v => lin || v > 0);
     const ys = shown.map(p => p.y).concat(refOn && spec.ref !== undefined ? [spec.ref] : []);
     const auto = {};
@@ -867,7 +906,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     const el = (tag, a, parent) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); (parent || svg).appendChild(e); return e; };
     const clipId = "clip-" + box.id;
     const clip = el("clipPath", { id: clipId }, el("defs", {}));
-    el("rect", { x: L, y: T - 6, width: W - L - R, height: H - T - B + 12 }, clip);
+    el("rect", { x: L - 8, y: T - 8, width: W - L - R + 16, height: H - T - B + 16 }, clip);
     const ystep = niceStep((y1 - y0) / 6);
     for (let v = Math.ceil(y0 / ystep) * ystep; v <= y1 + 1e-9; v += ystep) {
       el("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "var(--rule)", "stroke-width": 1 });
@@ -876,91 +915,114 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     let ticks;
     if (lin) { const step = niceStep((x1 - x0) / 5); ticks = []; for (let v = Math.ceil(x0 / step) * step; v <= x1 + 1e-9; v += step) ticks.push(v); }
     else ticks = logTicks(x0, x1);
-    ticks.forEach(v => { el("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }).textContent = num(v); });
+    ticks.forEach(v => {
+      el("line", { x1: X(v), x2: X(v), y1: H - B, y2: H - B + 4, stroke: "var(--muted)", "stroke-width": 1 });
+      el("text", { x: X(v), y: H - B + 17, "text-anchor": "middle" }).textContent = num(v);
+    });
+    el("line", { x1: L, x2: W - R, y1: H - B, y2: H - B, stroke: "var(--muted)", "stroke-width": 1 });
     el("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle" }).textContent = `${spec.xlabel} (${lin ? "linear" : "log"} scale)`;
-    const g = el("g", { "clip-path": `url(#${clipId})` });
+    const plot = el("g", { "clip-path": `url(#${clipId})` });
+    const groups = {};                                            // name -> the <g> holding its marks (for key highlighting)
+    const gOf = name => (groups[name] = groups[name] || el("g", { "data-name": name }, plot));
     const desc = p => `${p.y.toFixed(1)}% · median ${num(p.x)} ${spec.unit}` + (p.lo ? ` (middle half ${num(p.lo)}–${num(p.hi)})` : "")
       + (p.cov !== undefined && p.cov < 1 ? ` · ${Math.round(100 * p.cov)}% of passages` : "");
-    const labels = [];
-    const hover = (p, text) => {
+    const hover = (p, text, parent) => {
       if (!inside(p)) return;
-      const x = X(p.x), y = Y(p.y), hit = el("circle", { cx: x, cy: y, r: 12, fill: "transparent", tabindex: 0 }, g);
+      const x = X(p.x), y = Y(p.y), hit = el("circle", { cx: x, cy: y, r: 11, fill: "transparent", tabindex: 0 }, parent);
       const show = () => { const r = svg.getBoundingClientRect(), k = r.width / W; tip.hidden = false; tip.textContent = text;
         tip.style.left = Math.min(x * k + 12, r.width - 250) + "px"; tip.style.top = (y * k + 30) + "px"; };
       hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
       hit.addEventListener("mouseleave", () => tip.hidden = true); hit.addEventListener("blur", () => tip.hidden = true);
     };
-    const whisker = (p, c) => {
+    const whisker = (p, c, parent) => {
       if (!p.lo) return;
-      const y = Y(p.y), a = { stroke: c, "stroke-width": 2, opacity: 0.7 };
-      el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a }, g);
-      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 4, y2: y + 4, ...a }, g);
-      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 4, y2: y + 4, ...a }, g);
+      const y = Y(p.y), a = { stroke: c, "stroke-width": 1.4, opacity: 0.45 };
+      el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a }, parent);
+      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 3.5, y2: y + 3.5, ...a }, parent);
+      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 3.5, y2: y + 3.5, ...a }, parent);
     };
-    const endLabel = (pts, text, c) => { const last = pts.filter(inside).pop(); if (last) labels.push({ y: Y(last.y), text, c }); };
-    const legendItem = (name, swatch) => {
-      const lab = document.createElement("label"), box_ = document.createElement("input");
-      box_.type = "checkbox"; box_.checked = on(name);
-      box_.addEventListener("change", () => { if (box_.checked) st.hidden.delete(name); else st.hidden.add(name); st.redraw(); });
-      lab.appendChild(box_); const sw = document.createElement("span"); sw.innerHTML = swatch; lab.appendChild(sw); lab.append(name); legend.appendChild(lab);
-    };
-    const allNames = [refName, ...series.map(s => s.name), ...(spec.singles || []).map(p => p.name)];
-    [["Show all", () => st.hidden.clear()], ["Hide all", () => allNames.forEach(n => st.hidden.add(n))]].forEach(([text, act]) => {
-      const b = document.createElement("button"); b.type = "button"; b.className = "mini"; b.textContent = text;
-      b.addEventListener("click", () => { act(); st.redraw(); }); legend.appendChild(b);
-    });
-    if (spec.ref !== undefined || (spec.refline || []).length) {
-      legendItem(refName, `<i class="dash" style="--c:var(--ref)"></i>`);
-      if (refOn && spec.ref !== undefined && spec.ref >= y0 && spec.ref <= y1) {
+    const mark = (p, it, parent, r) => el("path", { transform: `translate(${X(p.x)},${Y(p.y)})`, d: SHAPES[it.shape || "circle"](r || 4.6),
+      fill: it.hollow ? "var(--surface)" : it.c, stroke: it.hollow ? it.c : "var(--surface)", "stroke-width": it.hollow ? 2 : 1.5 }, parent);
+    const labels = [];
+    if (refOn) {
+      const g = gOf(refName);
+      if (spec.ref !== undefined && spec.ref >= y0 && spec.ref <= y1) {
         el("line", { x1: L, x2: W - R, y1: Y(spec.ref), y2: Y(spec.ref), stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 }, g);
         labels.push({ y: Y(spec.ref), text: refName, c: "var(--ref)" });
       }
-      if (refOn && (spec.refline || []).length) {
+      if ((spec.refline || []).length) {
         el("polyline", { points: spec.refline.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 }, g);
-        spec.refline.forEach(p => { whisker(p, "var(--ref)"); hover(p, `Names only · ${p.label}: ${desc(p)}`); });
-        endLabel(spec.refline, refName, "var(--ref)");
+        spec.refline.forEach(p => { whisker(p, "var(--ref)", g); mark(p, { shape: "circle", c: "var(--ref)" }, g, 3.6); hover(p, `Names only · ${p.label}: ${desc(p)}`, g); });
+        const last = spec.refline.filter(inside).pop(); if (last) labels.push({ y: Y(last.y), text: refName, c: "var(--ref)" });
       }
     }
-    series.forEach(s => {
-      legendItem(s.name, s.dash ? `<i class="${s.dash === "2 3" ? "dot" : "dash"}" style="--c:${s.c}"></i>` : `<i style="background:${s.c}"></i>`);
-      if (!on(s.name)) return;
+    series.filter(s => on(s.name)).forEach(s => {
+      const g = gOf(s.name);
+      s.points.forEach(p => whisker(p, s.c, g));
       el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: s.c, "stroke-width": 2, "stroke-linejoin": "round",
                        ...(s.dash ? { "stroke-dasharray": s.dash } : {}) }, g);
-      s.points.forEach(p => whisker(p, s.c));
-      s.points.forEach(p => { el("circle", { cx: X(p.x), cy: Y(p.y), r: 4.5, fill: s.c, stroke: "var(--surface)", "stroke-width": 2 }, g);
-        hover(p, `${s.name} · ${p.label}: ${desc(p)}`); });
-      endLabel(s.points, s.name, s.c);
+      s.points.forEach(p => { mark(p, s, g); hover(p, `${s.name} · ${p.label}: ${desc(p)}`, g); });
+      const last = s.points.filter(inside).pop(); if (last) labels.push({ y: Y(last.y), text: s.name, c: s.c });
     });
     const tags = [];
-    (spec.singles || []).forEach(p => {
-      const c = p.color != null ? `var(${colors[p.color]})` : "var(--fg)", sq = p.shape === "square";
-      legendItem(p.name, `<i class="${sq ? "square" : "diamond"}" style="--c:${c}"></i>`);
-      if (!on(p.name)) return;
-      whisker(p, c);
-      el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: c, stroke: "var(--surface)", "stroke-width": 1.5,
-                   ...(sq ? {} : { transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` }) }, g);
-      hover(p, `${p.name}: ${desc(p)}`);
-      if (spec.labels === "on" && inside(p)) {                // label to the right, or to the left near the right edge
+    singles.filter(p => on(p.name)).forEach(p => {
+      const g = gOf(p.name);
+      whisker(p, p.c, g); mark(p, p, g, 5.4); hover(p, `${p.name}: ${desc(p)}`, g);
+      if (spec.labels === "on" && inside(p)) {
         const w = 6.2 * p.name.length, right = X(p.hi || p.x) + 9;
-        tags.push(right + w <= W - R ? { x: right, y: Y(p.y) + 4, text: p.name, w, anchor: "start" }
-                                     : { x: X(p.lo || p.x) - 9 - w, y: Y(p.y) + 4, text: p.name, w, anchor: "end" });
+        const m = { mx: X(p.x), my: Y(p.y) };
+        tags.push(right + w <= W - R ? { x: right, y: Y(p.y) + 4, text: p.name, w, anchor: "start", ...m }
+                                     : { x: X(p.lo || p.x) - 9 - w, y: Y(p.y) + 4, text: p.name, w, anchor: "end", ...m });
       }
     });
-    const placed = [];                                          // nudge single-point labels apart vertically
-    tags.sort((a, b) => a.y - b.y).forEach(t => {
-      let y = t.y;
-      for (let k = 0; k < 40 && placed.some(q => Math.abs(q.y - y) < 12 && t.x < q.x + q.w && q.x < t.x + t.w); k++) y += 12;
+    const placed = [], free = (t, y) => !placed.some(q => Math.abs(q.y - y) < 12 && t.x < q.x + q.w && q.x < t.x + t.w);
+    tags.sort((a, b) => a.y - b.y).forEach(t => {                 // optional point labels: nearest free row, above or below
+      const y = [0, ...[...Array(12).keys()].flatMap(k => [-(k + 1) * 12, (k + 1) * 12])].map(d => t.y + d)
+        .find(v => v > T + 8 && v < H - B - 2 && free(t, v)) ?? t.y;
       placed.push({ ...t, y });
-      if (y - t.y > 6) {                                        // moved: a leader line back to the marker's row
-        const lx = t.anchor === "end" ? t.x + t.w + 2 : t.x - 2;
-        el("line", { x1: lx, y1: y - 4, x2: t.anchor === "end" ? lx + 5 : lx - 5, y2: t.y - 4, stroke: "var(--muted)", "stroke-width": 1 }, g);
+      if (Math.abs(y - t.y) > 3) {                                 // moved: a leader from the label to its marker
+        const lx = t.anchor === "end" ? t.x + t.w + 3 : t.x - 3;
+        el("line", { x1: lx, y1: y - 4, x2: t.mx, y2: t.my, stroke: "var(--muted)", "stroke-width": 0.9, opacity: 0.8 }, plot);
       }
-      const e = el("text", { x: t.anchor === "end" ? t.x + t.w : t.x, y, class: "lbl", "text-anchor": t.anchor }, g);
+      const e = el("text", { x: t.anchor === "end" ? t.x + t.w : t.x, y, class: "lbl", "text-anchor": t.anchor }, plot);
       e.textContent = t.text; e.style.fill = "var(--fg)";
     });
-    const kept = [];                                            // a line label only where it fits next to its line's end
+    const kept = [];                                              // a line label only where it fits next to its line's end
     labels.forEach(l => { if (!kept.some(k => Math.abs(k.y - l.y) < 12)) kept.push(l); });
     kept.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });
+    // The key: grouped, each entry drawn as in the chart; hover highlights, click toggles.
+    const highlight = name => Object.entries(groups).forEach(([n, g]) => g.setAttribute("opacity", name && n !== name ? 0.12 : 1));
+    const items = [];
+    const refItem = hasRef ? { name: refName, group: "Reference, combinations and oracles", line: true, dash: "5 4", color: null, ref: true, shape: "circle" } : null;
+    series.forEach(s => items.push({ name: s.name, group: s.group || "", line: true, dash: s.dash, color: s.color, shape: s.shape, hollow: s.hollow }));
+    singles.forEach(p => items.push({ name: p.name, group: p.group || "", line: false, color: p.color, shape: p.shape, hollow: p.hollow }));
+    if (refItem) items.push(refItem);
+    const ORDER = ["Character notes and sheets", "Summaries", "Book text", "Reference, combinations and oracles"];
+    items.sort((a, b) => ORDER.indexOf(a.group) - ORDER.indexOf(b.group) || (a.ref ? -1 : b.ref ? 1 : 0));
+    const bar = document.createElement("div"); bar.className = "key-bar";
+    [["Show all", () => st.hidden.clear()], ["Hide all", () => items.forEach(i => st.hidden.add(i.name))]].forEach(([text, act]) => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "mini"; b.textContent = text;
+      b.addEventListener("click", () => { act(); st.redraw(); }); bar.appendChild(b);
+    });
+    legend.appendChild(bar);
+    const byGroup = {};
+    items.forEach(i => (byGroup[i.group] = byGroup[i.group] || []).push(i));
+    Object.entries(byGroup).forEach(([gname, list]) => {
+      const col = document.createElement("div"); col.className = "key-group";
+      if (gname) { const h = document.createElement("div"); h.className = "key-head"; h.textContent = gname; col.appendChild(h); }
+      list.forEach(i => {
+        const lab = document.createElement("label"), cb = document.createElement("input");
+        cb.type = "checkbox"; cb.checked = on(i.name);
+        cb.addEventListener("change", () => { if (cb.checked) st.hidden.delete(i.name); else st.hidden.add(i.name); st.redraw(); });
+        const sw = document.createElement("span"); sw.className = "sw";
+        sw.innerHTML = i.ref ? `<svg width="36" height="16" viewBox="0 0 36 16" aria-hidden="true"><line x1="1" y1="8" x2="35" y2="8" stroke="var(--ref)" stroke-width="1.5" stroke-dasharray="5 4"/></svg>` : swatch(i);
+        lab.appendChild(cb); lab.appendChild(sw); lab.append(i.name);
+        lab.addEventListener("mouseenter", () => highlight(i.name)); lab.addEventListener("mouseleave", () => highlight(null));
+        if (!on(i.name)) lab.className = "off";
+        col.appendChild(lab);
+      });
+      legend.appendChild(col);
+    });
     return auto;
   }
   const XLABEL = { all: "prompt tokens (whole prompt)", rep: "representation tokens (the three characters' blocks)" };
@@ -980,13 +1042,16 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
              scale: st.scale, labels: st.labels, xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}; bars span the middle half` };
   }
   function segment(box, label, choices, current, onPick) {
+    const wrap = document.createElement("div"); wrap.className = "ctl";
+    const lab = document.createElement("span"); lab.className = "ctl-label"; lab.textContent = label; wrap.appendChild(lab);
     const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", label);
+    wrap.appendChild(seg);
     choices.forEach(([value, text]) => {
       const b = document.createElement("button"); b.type = "button"; b.textContent = text; b.setAttribute("aria-pressed", value === current);
       b.addEventListener("click", () => { seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); onPick(value); });
       seg.appendChild(b);
     });
-    box.querySelector("[data-controls]").appendChild(seg);
+    box.querySelector("[data-controls]").appendChild(wrap);
   }
   function boundsRow(box, st) {
     const row = document.createElement("div"); row.className = "bounds";
@@ -1012,14 +1077,14 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     st.redraw = redraw;
     segment(box, "Model", names.map(n => [n, n]), st.model, v => { st.model = v; redraw(); });
     st.scale = "log";
-    segment(box, "X axis", [["log", "log x"], ["linear", "linear x"]], st.scale, v => { st.scale = v; redraw(); });
+    segment(box, "X axis", [["log", "log"], ["linear", "linear"]], st.scale, v => { st.scale = v; redraw(); });
     (options || []).forEach(o => { st[o.key] = o.choices[0][0]; segment(box, o.label, o.choices, st[o.key], v => { st[o.key] = v; redraw(); }); });
     redraw();
   }
-  mount("lenbox", {{LENGTH_DATA}}, [{ key: "labels", label: "Point labels", choices: [["off", "point labels off"], ["on", "point labels on"]] },
-                                    { key: "pre", label: "This chapter so far", choices: [["off", "without this chapter so far"], ["on", "with this chapter so far"]] },
+  mount("lenbox", {{LENGTH_DATA}}, [{ key: "pre", label: "This chapter so far", choices: [["off", "off"], ["on", "on"]] },
                                     { key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
-                                    { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
+                                    { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] },
+                                    { key: "labels", label: "Point labels", choices: [["off", "off"], ["on", "on"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
 })();
 </script>
