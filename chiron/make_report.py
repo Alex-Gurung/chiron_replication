@@ -14,8 +14,9 @@ import statistics as st
 
 from common import DATA, OUT, REPO, read_jsonl
 
-MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"),
+MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9B base"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"),
           ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking"), ("Mistral-7B-Instruct-v0.2_prefix", "Mistral-7B")]
+CHART_MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"), ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking")]
 LABEL = {
     "noinfo": "Names only", "v2": "v2 sheet (current dataset)", "legacy": "Legacy sheet, compressed (Llama-3.3-70B)",
     "legacy_full": "Legacy sheet, full (Llama-3.3-70B)", "summary": "Character summary (gpt-oss)",
@@ -24,9 +25,13 @@ LABEL = {
     "book_last32000": "Book text, last 32,000 words", "book": "Book text, everything so far",
     "swap_v2": "Swap: another principal's v2 sheet", "swapname_v2": "Swap, names exchanged: v2",
     "swap_chiron": "Swap: another principal's CHIRON-style sheet", "swapname_chiron": "Swap, names exchanged: CHIRON-style",
+    "combo_legacy_v2": "Legacy without filler + v2", "combo_short": "v2 + charmem + summary", "combo_all": "All four combined",
+    "oracle_passage": "Oracle: clues taken from the passage", "oracle_prior": "Oracle: prior facts chosen for the passage",
+    "swapname_oracle_prior": "Oracle prior facts, swapped with names exchanged", "legacy_nofill": "Legacy full without filler",
 }
 MAIN_ROWS = ["noinfo", "legacy", "chiron_r2000", "v2", "chiron", "charmem", "summary", "book_last8000",
-             "book_last32000", "legacy_full"]
+             "book_last32000", "book", "legacy_full", "legacy_nofill", "combo_short", "combo_legacy_v2"]
+ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", "swapname_oracle_prior"]
 CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapname_chiron"]
 LENGTH_FAMILIES = [("CHIRON-style", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
                    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"]),
@@ -38,18 +43,21 @@ PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("CHIRON-style, fu
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
     "Model strength decides whether the representations matter. Qwen3-4B gains 1 to 5 points over names only; "
-    "Qwen3.8-27B with thinking off gains {g27_lo} to {g27_hi} points on the same passages, positive in every book.",
-    "The models use the sheets: with another principal's sheet and the names exchanged inside it, Qwen3.8-27B falls to "
-    "{swap27}%, below names only ({noinfo27}%). With thinking on the same control falls to {swapthink}%.",
-    "Denser passages make the task easier and the representations more useful: for Qwen3.8-27B the v2 sheet goes from "
-    "{v2_short}% on short spans to {v2_main}% on sections and {v2_win}% on dense windows.",
-    "Among the short sheets, charmem and the summary edge out v2 for Qwen3.8-27B ({charmem27}% and {summary27}% vs "
-    "{v227}%). The long full legacy sheet and recent raw text do best ({legfull27}% and {bl827}%).",
-    "With thinking on, sections are close to solved ({think_lo} to {think_hi}% with any representation); reasoning on the "
-    "harder short spans and dense windows is still running.",
-    "Legacy's lead is not recency, length or word overlap: without the previous chapter it scores {leg_noprev}%, cut to its "
-    "most recent 6,000 words {leg_r6000}%, against {legfull27}% in full; without its \"not mentioned\" filler it rises to "
-    "{leg_nofill}%. It mentions the other principals about twice as densely as the other sheets.",
+    "Qwen3.8-27B with thinking off gains {g27_lo} to {g27_hi} points, positive in every book; with thinking on it reaches "
+    "{think_lo} to {think_hi}% on sections with any representation.",
+    "The models do use the sheets. With another principal's sheet and the names inside it exchanged, Qwen3.8-27B falls "
+    "to {swap27}% (names only {noinfo27}%) and to {swapthink}% with thinking; the reasoning traces cite specific sheet "
+    "facts and match them to events in the passage.",
+    "Without thinking, the ceiling is matching, not information: clues copied from the passage itself give Qwen3.8-27B only "
+    "{orpass27}%, below the full legacy sheet; with thinking the same clues give {orpassthink}%.",
+    "The representations get different passages right. Which passage it is explains {varp}% of the variance in "
+    "correctness and the representation {varr}%; choosing the best representation per passage would reach {pick}% against "
+    "{best}% for the best single one. Combining legacy with v2 gives the best score, {combo}%.",
+    "The full legacy sheet (Llama-3.3-70B, per-chapter CHIRON answers) wins because of what it says, not its length or "
+    "recency: cut to 6,000 words it scores {leg_r6000}%, without the previous chapter {leg_noprev}%. Its statements naming "
+    "the other principals alone score {leg_inter}%; it has 4 to 7 times more of them than the gpt-oss CHIRON-style sheet.",
+    "Character notes make the real next passage more likely in every book: {ppl_lo} to {ppl_hi}% lower perplexity for "
+    "Qwen3.5-9B base without story context, and 1 to 4% on top of the 4,000 words before the passage (Qwen3.5-9B base and Qwen3.8-27B).",
 ]
 
 
@@ -97,6 +105,50 @@ def main():
         counts[key] = (len(its), len({it["book"] for it in its}))
     it, window = example()
     q27, q4, qt = "Qwen3.8-27B_nothink", "Qwen3-4B-Instruct-2507", "Qwen3.8-27B_think"
+    items27 = json.load(open(OUT / "analysis_items_Qwen3.8-27B_nothink.json"))
+    items9 = json.load(open(OUT / "analysis_items_Qwen3.5-9B-Base.json"))
+    ppl = json.load(open(OUT / "analysis_ppl.json")) if (OUT / "analysis_ppl.json").exists() else {}
+    traces = json.load(open(OUT / "analysis_traces.json")) if (OUT / "analysis_traces.json").exists() else {"stats": {}}
+
+    def oracle_table():
+        head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in MODELS[:4])
+        rows = "".join(f"<tr><th scope='row'>{LABEL[c]}</th>" + "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for m, _ in MODELS[:4]) + "</tr>"
+                       for c in ORACLE_ROWS)
+        return f"<thead><tr><th scope='col'>Representation</th>{head}</tr></thead><tbody>{rows}</tbody>"
+
+    def items_table():
+        rows = []
+        for name, d in (("Qwen3.8-27B", items27), ("Qwen3.5-9B base", items9)):
+            rows.append(f"<tr><th scope='row'>{name}</th><td class='num'>{100 * d['var_passage']:.0f}%</td><td class='num'>{100 * d['var_representation']:.1f}%</td>"
+                        f"<td class='num'>{100 * d['all_right']:.0f}%</td><td class='num'>{100 * d['all_wrong']:.0f}%</td>"
+                        f"<td class='num'>{100 * d['best_single']:.0f}%</td><td class='num strong'>{100 * d['oracle_pick']:.0f}%</td></tr>")
+        return ("<thead><tr><th scope='col'>Model</th><th scope='col' class='num'>Variance: passage</th><th scope='col' class='num'>Variance: representation</th>"
+                "<th scope='col' class='num'>Right with every representation</th><th scope='col' class='num'>Wrong with every one</th>"
+                f"<th scope='col' class='num'>Best single</th><th scope='col' class='num'>Best per passage</th></tr></thead><tbody>{''.join(rows)}</tbody>")
+
+    def ppl_table():
+        cols = [("Qwen3.5-9B-Base|none", "9B base, notes only"), ("Qwen3.5-9B-Base|story", "9B base, notes + story"),
+                ("Qwen3.8-27B_chat|none", "27B chat, notes only"), ("Qwen3.8-27B_chat|story", "27B chat, notes + story")]
+        reps = ["v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "legacy_full"]
+        names = {"v2": "v2 sheet", "charmem": "Charmem sheet", "summary": "Summary", "legacy": "Legacy, compressed",
+                 "chiron_r2000": "CHIRON-style, 2,000 words", "chiron": "CHIRON-style, full", "legacy_full": "Legacy, full"}
+        def cell(k, r):
+            v = ppl.get(k, {}).get(r)
+            if not v:
+                return "<td>—</td>"
+            part = "" if v["passages"] > 1000 else f" <span class='sub'>({v['passages']} passages)</span>"
+            return f"<td class='num'>{100 * (v['ppl_ratio'] - 1):+.1f}%{part}</td>"
+        head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in cols)
+        rows = "".join(f"<tr><th scope='row'>{names[r]}</th>" + "".join(cell(k, r) for k, _ in cols) + "</tr>" for r in reps)
+        return f"<thead><tr><th scope='col'>Character notes</th>{head}</tr></thead><tbody>{rows}</tbody>"
+
+    def traces_table():
+        st_ = traces.get("stats", {})
+        rows = "".join(f"<tr><th scope='row'>{LABEL.get(c, c)}</th><td class='num'>{100 * v['accuracy']:.0f}%</td><td class='num'>{v['median_words']:,.0f}</td>"
+                       f"<td class='num'>{100 * v['share_traces_that_talk_about_the_notes']:.0f}%</td><td class='num'>{v['traces']}</td></tr>"
+                       for c, v in sorted(st_.items()))
+        return ("<thead><tr><th scope='col'>Condition</th><th scope='col' class='num'>Accuracy</th><th scope='col' class='num'>Median reasoning words</th>"
+                f"<th scope='col' class='num'>Traces discussing the notes</th><th scope='col' class='num'>Traces</th></tr></thead><tbody>{rows}</tbody>")
 
     def main_table():
         head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in MODELS)
@@ -118,7 +170,7 @@ def main():
     def passage_table():
         head = "".join(f"<th scope='col' class='num'>{name}<br><span class='sub'>{passage_words[k]:.0f} words · {counts[k][0]:,} passages</span></th>" for k, name in SETS)
         rows = []
-        for m, mname in MODELS[:3]:
+        for m, mname in CHART_MODELS:
             for c in ["noinfo", "v2", "charmem", "chiron", "summary", "legacy_full", "book_last8000", "swapname_v2"]:
                 rows.append(f"<tr><th scope='row'>{mname}: {LABEL[c]}</th>" + "".join(f"<td class='num'>{pct(macro(k, m, c))}</td>" for k, _ in SETS) + "</tr>")
         return f"<thead><tr><th scope='col'>Model and representation</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
@@ -131,7 +183,8 @@ def main():
            ("chiron_onlyprev", "CHIRON-style, previous chapter only"), ("chiron_inter", "CHIRON-style, only statements naming another principal"),
            ("chiron_nointer", "CHIRON-style, only statements not naming another principal"),
            ("book_last8000", "Book, last 8,000 words"), ("book_noprev8000", "Book, last 8,000 words before the previous chapter"),
-           ("book_prevonly", "Book, previous chapter only")]
+           ("book_prevonly", "Book, previous chapter only"), ("combo_short", "v2 + charmem + summary"),
+           ("combo_legacy_v2", "Legacy without filler + v2"), ("combo_all", "All four combined")]
 
     def ablation_table():
         rows = "".join(f"<tr><th scope='row'>{n}</th><td class='num'>{medw.get(c, 0):,}</td><td class='num strong'>{pct(macro('main', q27, c))}</td>"
@@ -158,7 +211,7 @@ def main():
         return f"<thead><tr><th scope='col'>book</th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
 
     length = {}
-    for m, name in MODELS[:2]:
+    for m, name in CHART_MODELS[:2]:
         a = A[("main", m)]
         if not a:
             continue
@@ -170,7 +223,7 @@ def main():
         length[name] = {"series": series, "singles": singles, "ref": 100 * rows["noinfo"]["macro"],
                         "xlabel": "mean prompt tokens (log scale)", "xticks": [1000, 3000, 10000, 30000, 100000]}
     passage = {}
-    for m, name in MODELS[:3]:
+    for m, name in CHART_MODELS:
         series = [{"name": n, "points": [{"label": sname, "x": passage_words[k], "y": 100 * macro(k, m, c)}
                                          for k, sname in SETS if macro(k, m, c) is not None]} for n, c in PASSAGE_SERIES]
         ref = [{"label": sname, "x": passage_words[k], "y": 100 * macro(k, m, "noinfo")} for k, sname in SETS if macro(k, m, "noinfo") is not None]
@@ -193,14 +246,21 @@ def main():
         think_lo=f"{100 * min(macro('main', qt, c) or 1 for c in ('v2', 'charmem', 'summary', 'chiron', 'legacy', 'legacy_full')):.0f}",
         think_hi=f"{100 * max(macro('main', qt, c) or 0 for c in ('v2', 'charmem', 'summary', 'chiron', 'legacy', 'legacy_full')):.0f}",
         leg_noprev=pct(macro("main", q27, "legacy_noprev")), leg_r6000=pct(macro("main", q27, "legacy_r6000")),
-        leg_nofill=pct(macro("main", q27, "legacy_nofill")))
+        leg_nofill=pct(macro("main", q27, "legacy_nofill")), leg_inter=pct(macro("main", q27, "legacy_inter")),
+        orpass27=pct(macro("main", q27, "oracle_passage")), orpassthink=pct(macro("main", qt, "oracle_passage")),
+        combo=pct(macro("main", q27, "combo_legacy_v2")),
+        varp=f"{100 * items27['var_passage']:.0f}", varr=f"{100 * items27['var_representation']:.1f}",
+        pick=f"{100 * items27['oracle_pick']:.0f}", best=f"{100 * items27['best_single']:.0f}",
+        ppl_lo=f"{100 * (1 - max(v['ppl_ratio'] for k, v in ppl.get('Qwen3.5-9B-Base|none', {}).items() if k != 'names' and v['passages'] > 1000)):.0f}",
+        ppl_hi=f"{100 * (1 - min(v['ppl_ratio'] for k, v in ppl.get('Qwen3.5-9B-Base|none', {}).items() if k != 'names' and v['passages'] > 1000)):.0f}")
     findings = "\n".join(f"<li>{f.format(**vals)}</li>" for f in FINDINGS)
 
     ex = html.escape(window)
     ex = re.sub(r"\[CHAR (\d)\]", r'<mark class="m\1">[CHAR \1]</mark>', ex)
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
-    for k, v in {"ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
+    for k, v in {"ORACLE_TABLE": oracle_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
+                 "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings,
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
@@ -332,6 +392,30 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{PASSAGE_ROWS}}</tbody></table></div></details>
     <div class="table-wrap"><table>{{PASSAGE_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="sim">
+    <h2 id="sim">Why the numbers look so similar</h2>
+    <p class="muted">Per passage and character, correctness depends far more on which passage it is than on which representation the model gets. The representations are right on different passages, so their averages converge while a per-passage choice would do much better (thinking off, sections).</p>
+    <div class="table-wrap"><table>{{ITEMS_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="orc">
+    <h2 id="orc">Oracles: exactly the information needed</h2>
+    <p class="muted">Per passage, gpt-oss wrote (a) 2 to 4 clues per character taken from the unmasked passage itself, a ceiling, and (b) up to 5 facts per character copied word for word from the notes available before the chapter, chosen because they identify the character in this passage (facts that were not verbatim copies were dropped). Swapping (b) between characters with names exchanged tests whether the model relies on it.</p>
+    <div class="table-wrap"><table>{{ORACLE_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="trc">
+    <h2 id="trc">Is the reasoning using the sheets?</h2>
+    <p class="muted">Saved reasoning from Qwen3.8-27B with thinking on (test and validation passages, one block order). With a sheet the reasoning is half as long and cites sheet facts against events in the passage, for example "If CHAR 2 is Liska, 'Liska's aunt' matches character info: Liska mentions an aunt who lives in Ząbki". With swapped sheets nearly every trace reasons from the misleading notes.</p>
+    <div class="table-wrap"><table>{{TRACES_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="ppl">
+    <h2 id="ppl">Does character information make the real next passage more likely?</h2>
+    <p class="muted">Change in perplexity of the real passage (names unmasked) against a prompt that only lists the characters' names. Qwen3.5-9B base reads a plain-text prompt; Qwen3.8-27B reads the notes as a chat request to write the next passage and is scored on the passage as its reply. "Story" adds the 4,000 words right before the passage. Negative is better; every value covering all passages is negative in all 21 books.</p>
+    <div class="table-wrap"><table>{{PPL_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="why">
