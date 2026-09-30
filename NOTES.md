@@ -86,3 +86,19 @@ with the entire book, reasoning on short spans and dense windows.
 - name-swapped v2: 5.6%, 90% of traces reason from the (misleading) notes.
 - Only ~2% of reasoning 4-grams are copied from the notes vs ~13% from the passage: the model paraphrases the notes
   and quotes the passage.
+
+### 05:00 UTC: combinations, 9B base, whole book, perplexity
+
+- Combinations (27B direct): legacy without filler + v2 = 67.0% (best so far; legacy alone 64.7%); all four = 67.1%;
+  v2 + charmem + summary = 56.2% (no better than v2 alone). Short sheets are redundant with each other; legacy adds.
+- Qwen3.5-9B base (completion scoring): names only 47.6%, v2 54.5%, charmem 56.5%, summary 54.9%, CHIRON-style
+  54.1%, legacy full 61.5%, passage oracle 72.7%; name-swapped v2 32.7%. Same ordering as the 27B.
+- 27B thinking with the entire book: 96.9% (legacy full 96.7%, v2 94.0%).
+- Perplexity of the real passage, loss change per token vs names only (all 21/21 books unless partial):
+  - 9B base, no story: v2 -0.091, charmem -0.099, summary -0.103, CHIRON-style full -0.137, legacy full -0.157.
+  - 9B base, with the 4k words before the passage: v2 -0.015, charmem -0.019, summary -0.017, CHIRON-style -0.025.
+  - 27B chat, no story: v2 -0.086, charmem -0.096, summary -0.102, CHIRON-style -0.136.
+  - 27B chat, with story: v2 -0.017, charmem -0.022, CHIRON-style 2k -0.022.
+  Character notes cut perplexity by ~9-15% alone and ~1.5-3.5% on top of recent story text; longer notes help more;
+  charmem > v2 consistently. The Qwen3-4B chat numbers are erratic (no gain from short sheets without story) and
+  should not be leaned on.
