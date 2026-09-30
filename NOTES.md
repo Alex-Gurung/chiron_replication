@@ -102,3 +102,12 @@ with the entire book, reasoning on short spans and dense windows.
   Character notes cut perplexity by ~9-15% alone and ~1.5-3.5% on top of recent story text; longer notes help more;
   charmem > v2 consistently. The Qwen3-4B chat numbers are erratic (no gain from short sheets without story) and
   should not be leaned on.
+
+### 06:00 UTC: which sheet sections matter
+
+- Qwen3.5-9B base, one v2/charmem section at a time (~100-160 words each): relationships alone 53.5 / 53.7 (full
+  sheet 54.5 / 56.5, names only 47.6), then history and goals (~51-53), physical, dialogue and knowledge weakest
+  (~48-51). Everything except relationships (~600 words) = 53.8 / 55.6. The ~120-word relationships section carries
+  about as much as the other five sections combined. Consistent with the interaction finding for legacy.
+- 27B section results pending (train shard). Reruns: two short-span reasoning shards (2-hour request timeout under
+  the old code) and 27B train perplexity with story (over-length prompt) requeued.
