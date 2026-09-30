@@ -199,7 +199,7 @@ with the entire book, reasoning on short spans and dense windows.
   character, established before the chapter, sourced; median 45 words) and passage clues. On those 63 passages (joint
   for thinking off): 27B prior facts 80.4 (v2 72.5, legacy full 88.0, gpt-oss prior oracle 69.0), passage clues 92.6;
   thinking 99.5 / 100 (v2 95.2); 9B base prior facts 76.4 (v2 64.0, legacy full 70.9); 4B 46.6 (v2 43.8). Swapped with
-  names exchanged: 27B 24.2, thinking 4.7 (partial). A few dozen words of the right prior facts beat whole sheets.
+  names exchanged: 27B 24.2, thinking 7.9. A few dozen words of the right prior facts beat whole sheets.
 - Agent notes on the data: note files number chapters 1-based vs the 0-based book file (not a leak); v2 errors (summer
   foster relation reversed; here Anthony is Cleo's son; dark Marysieńka is Liska's cousin); a likely hallucinated
   charmem fact (deep: Lukas as Scarlett's half-sibling).
