@@ -86,7 +86,9 @@ def main():
     for cond in args.conditions:
         base = OUT / "eval" / model_tag / stem / f"{cond.replace(':', '_')}{suffix}"
         out = base.with_name(base.name + f".r{os.environ.get('JOB_NAME', os.getpid())}.jsonl")
-        done = {(r["item_id"], tuple(r["order"])) for f in base.parent.glob(base.name + ".r*.jsonl") for r in read_jsonl(f)}
+        name = cond.replace(':', '_')                                     # any earlier run of this condition, whatever its sharding
+        done = {(r["item_id"], tuple(r["order"])) for f in base.parent.glob(f"{name}.*jsonl") if not f.name.endswith(".errors.jsonl")
+                for r in read_jsonl(f)}
         jobs, missing = [], 0
         for it in items:
             book, b, labels = it["book"], it["chapter_index"], it["labels"]

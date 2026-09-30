@@ -8,6 +8,7 @@ One record per (condition, book, boundary, label); every source is built from ch
   chiron         gpt-oss CHIRON-style statements rated 5, grouped by category, TF-IDF dedup at 0.9
   chiron_<cat>   one category only (for the per-category "Agreed" setting)
   charmem        finished Sep 8 gpt-oss rebuild sheet (ncp_charmem_gptoss120b_reviewed_20260908/sheets)
+  gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
 Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
 """
 import argparse
@@ -23,7 +24,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from build_items import alias_regex
-from common import COHORTS, DATA, OUT, REPO, SENT, read_jsonl
+from common import COHORTS, DATA, OUT, REPO, SENT, genders, read_jsonl
 
 CATEGORIES = ["Physical/Personality", "Dialogue", "Knowledge", "Goals"]
 CHARMEM = Path("/home/toolkit/ncp_charmem_gptoss120b_reviewed_20260908/sheets")
@@ -188,6 +189,10 @@ def main():
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():
             add("charmem", book, b, l, json.load(open(p))["character_sheets"].get(l))
+    for (book, label), x in genders(recs).items():               # gender alone: what every sheet gives away
+        for k in keys:
+            if k[0] == book and k[2] == label and x != "?":
+                add("gender", *k, f"Gender: {'female' if x == 'F' else 'male'}.")
     sections = {"physical": "Physicality And Personality", "dialogue": "Dialogue And Voice", "history": "History And Circumstances",
                 "knowledge": "Knowledge And Beliefs", "goals": "Goals And Motivations", "relationships": "Relationships"}
     # one sheet section at a time, and everything but relationships

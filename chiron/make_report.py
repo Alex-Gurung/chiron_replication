@@ -29,6 +29,12 @@ LABEL = {
     "oracle_passage": "Oracle: clues taken from the passage", "oracle_prior": "Oracle: prior facts chosen for the passage",
     "swapname_oracle_prior": "Oracle prior facts, swapped with names exchanged", "legacy_nofill": "Legacy full without filler",
 }
+SHEET_SECTIONS = [("relationships", "Relationships"), ("history", "History"), ("goals", "Goals"), ("physical", "Physical"),
+                  ("dialogue", "Dialogue"), ("knowledge", "Knowledge")]
+REASON_ROWS = ["noinfo", "v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "book_last8000", "legacy_full", "swapname_v2"]
+GENDER_ROWS = ["noinfo", "v2", "charmem", "summary", "book_last8000", "legacy_full", "swapname_v2"]
+GENDER_COLS = [("Qwen3.8-27B_nothink", "27B, sections"), ("Qwen3.8-27B_think", "27B thinking, sections"),
+               ("Qwen3.8-27B_think_short", "27B thinking, short spans")]
 MAIN_ROWS = ["noinfo", "legacy", "chiron_r2000", "v2", "chiron", "charmem", "summary", "book_last8000",
              "book_last32000", "book", "legacy_full", "legacy_nofill", "combo_short", "combo_legacy_v2"]
 ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", "swapname_oracle_prior"]
@@ -56,6 +62,16 @@ FINDINGS = [
     "The full legacy sheet (Llama-3.3-70B, per-chapter CHIRON answers) wins because of what it says, not its length or "
     "recency: cut to 6,000 words it scores {leg_r6000}%, without the previous chapter {leg_noprev}%. Its statements naming "
     "the other principals alone score {leg_inter}%; it has 4 to 7 times more of them than the gpt-oss CHIRON-style sheet.",
+    "A large part of every score is gender. With thinking on and names only, Qwen3.8-27B places {g_uni}% of characters whose "
+    "gender is unique among the three principals and {g_same}% when all three share one (chance 33%). Every representation "
+    "states gender, so the representations only compete on same-gender characters, where the spread widens: {same_v2}% (v2) "
+    "to {same_leg}% (full legacy) with thinking on sections.",
+    "Short spans (about 50 words) with thinking are the setting that separates representations best: names only "
+    "{s_noinfo}%, v2 {s_v2}%, summary {s_sum}%, full legacy {s_leg}%, name-swapped v2 {s_swap}%. The ordering matches "
+    "the no-thinking results on sections. On dense windows every representation is at {w_lo} to {w_hi}%.",
+    "Which part of a sheet matters depends on the model. For Qwen3.5-9B base the ~120-word relationships section alone "
+    "({rel9}%) does about as well as the whole v2 sheet ({v29}%); for Qwen3.8-27B each section alone adds only 3 to 6 "
+    "points, and the sheet without relationships ({norel27}%) is close to the full sheet ({v227}%).",
     "Character notes make the real next passage more likely in every book: {ppl_lo} to {ppl_hi}% lower perplexity for "
     "Qwen3.5-9B base without story context, and 1 to 4% on top of the 4,000 words before the passage (Qwen3.5-9B base and Qwen3.8-27B).",
 ]
@@ -107,6 +123,7 @@ def main():
     q27, q4, qt = "Qwen3.8-27B_nothink", "Qwen3-4B-Instruct-2507", "Qwen3.8-27B_think"
     items27 = json.load(open(OUT / "analysis_items_Qwen3.8-27B_nothink.json"))
     items9 = json.load(open(OUT / "analysis_items_Qwen3.5-9B-Base.json"))
+    gender = json.load(open(OUT / "analysis_gender.json"))["acc"]
     ppl = json.load(open(OUT / "analysis_ppl.json")) if (OUT / "analysis_ppl.json").exists() else {}
     traces = json.load(open(OUT / "analysis_traces.json")) if (OUT / "analysis_traces.json").exists() else {"stats": {}}
 
@@ -192,6 +209,45 @@ def main():
         return ("<thead><tr><th scope='col'>Representation (Qwen3.8-27B, sections)</th><th scope='col' class='num'>Words per character</th>"
                 f"<th scope='col' class='num'>Accuracy</th><th scope='col'>Δ vs v2</th></tr></thead><tbody>{rows}</tbody>")
 
+    def sections_table():
+        cols = [("Qwen3.5-9B-Base", "v2", "9B base, v2"), ("Qwen3.5-9B-Base", "charmem", "9B base, charmem"),
+                (q27, "v2", "27B, v2"), (q27, "charmem", "27B, charmem")]
+        body = []
+        for key, name in [("noinfo", "Names only")] + [(f"sec_{k}", f"{n} section only") for k, n in SHEET_SECTIONS] + [("norel", "Everything except relationships"), ("", "Full sheet")]:
+            conds = ["noinfo" if key == "noinfo" else (f"{r}_{key}" if key else r) for _, r, _ in cols]
+            w = "0" if key == "noinfo" else f"{medw.get(f'v2_{key}' if key else 'v2', 0):,} / {medw.get(f'charmem_{key}' if key else 'charmem', 0):,}"
+            body.append(f"<tr><th scope='row'>{name}</th><td class='num'>{w}</td>" +
+                        "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for (m, _, _), c in zip(cols, conds)) + "</tr>")
+        head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, _, n in cols)
+        return (f"<thead><tr><th scope='col'>Part of the sheet</th><th scope='col' class='num'>Words (v2 / charmem)</th>{head}</tr></thead>"
+                f"<tbody>{''.join(body)}</tbody>")
+
+    def reason_table():
+        def cells(k, c):
+            r = get(k, qt, c)
+            if not r:
+                return "<td>—</td><td></td><td></td>"
+            return (f"<td class='num strong'>{pct(r['macro'])}</td><td>{delta(r) if c != 'noinfo' else ''}</td>"
+                    f"<td>{delta(r, 'v2') if c not in ('noinfo', 'v2') else ''}</td>")
+        rows = "".join(f"<tr><th scope='row'>{LABEL[c]}</th>{cells('short', c)}<td class='num strong'>{pct(macro('window', qt, c))}</td></tr>" for c in REASON_ROWS)
+        return ("<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Short spans</th><th scope='col'>Δ vs names only</th>"
+                f"<th scope='col'>Δ vs v2</th><th scope='col' class='num'>Dense windows</th></tr></thead><tbody>{rows}</tbody>")
+
+    def gender_table():
+        groups = [("unique", "unique"), ("shared", "shared"), ("all same", "all same")]
+        head1 = "".join(f"<th scope='colgroup' colspan='3' class='num'>{n}</th>" for _, n in GENDER_COLS)
+        head2 = "".join(f"<th scope='col' class='num'>{g}</th>" for _ in GENDER_COLS for _, g in groups)
+        rows = []
+        for c in GENDER_ROWS:
+            cells = "".join(f"<td class='num'>{100 * gender[f'{m}|{c}'][g]['acc']:.0f}</td>" if f"{m}|{c}" in gender else "<td>—</td>"
+                            for m, _ in GENDER_COLS for g, _ in groups)
+            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th>{cells}</tr>")
+        share = f"<tr><th scope='row' class='muted'>Share of characters</th>" + "".join(
+            f"<td class='num muted'>{100 * gender[f'{m}|noinfo'][g]['n'] / sum(v['n'] for v in gender[f'{m}|noinfo'].values()):.0f}%</td>"
+            for m, _ in GENDER_COLS for g, _ in groups) + "</tr>"
+        return (f"<thead><tr><th scope='col' rowspan='2'>Representation</th>{head1}</tr><tr>{head2}</tr></thead>"
+                f"<tbody>{''.join(rows)}{share}</tbody>")
+
     def small_table(a, rows):
         if not a:
             return ""
@@ -249,6 +305,14 @@ def main():
         leg_nofill=pct(macro("main", q27, "legacy_nofill")), leg_inter=pct(macro("main", q27, "legacy_inter")),
         orpass27=pct(macro("main", q27, "oracle_passage")), orpassthink=pct(macro("main", qt, "oracle_passage")),
         combo=pct(macro("main", q27, "combo_legacy_v2")),
+        g_uni=f"{100 * gender[qt + '|noinfo']['unique']['acc']:.0f}", g_same=f"{100 * gender[qt + '|noinfo']['all same']['acc']:.0f}",
+        same_v2=f"{100 * gender[qt + '|v2']['all same']['acc']:.0f}", same_leg=f"{100 * gender[qt + '|legacy_full']['all same']['acc']:.0f}",
+        s_noinfo=pct(macro("short", qt, "noinfo")), s_v2=pct(macro("short", qt, "v2")), s_sum=pct(macro("short", qt, "summary")),
+        s_leg=pct(macro("short", qt, "legacy_full")), s_swap=pct(macro("short", qt, "swapname_v2")),
+        w_lo=f"{100 * min(macro('window', qt, c) or 1 for c in REASON_ROWS[1:-1]):.0f}",
+        w_hi=f"{100 * max(macro('window', qt, c) or 0 for c in REASON_ROWS[1:-1]):.0f}",
+        rel9=pct(macro("main", "Qwen3.5-9B-Base", "v2_sec_relationships")), v29=pct(macro("main", "Qwen3.5-9B-Base", "v2")),
+        norel27=pct(macro("main", q27, "v2_norel")),
         varp=f"{100 * items27['var_passage']:.0f}", varr=f"{100 * items27['var_representation']:.1f}",
         pick=f"{100 * items27['oracle_pick']:.0f}", best=f"{100 * items27['best_single']:.0f}",
         ppl_lo=f"{100 * (1 - max(v['ppl_ratio'] for k, v in ppl.get('Qwen3.5-9B-Base|none', {}).items() if k != 'names' and v['passages'] > 1000)):.0f}",
@@ -261,7 +325,8 @@ def main():
     page = TEMPLATE
     for k, v in {"ORACLE_TABLE": oracle_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
-                 "BOOK_TABLE": book_table(), "FINDINGS": findings,
+                 "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
+                 "REASON_TABLE": reason_table(), "GENDER_TABLE": gender_table(),
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
                  "LENGTH_DATA": json.dumps(length), "PASSAGE_DATA": json.dumps(passage),
@@ -346,7 +411,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
 <main>
   <header style="display:grid;gap:0.6rem">
-    <div class="eyebrow">CHIRON replication · NCP books · 29 September 2026</div>
+    <div class="eyebrow">CHIRON replication · NCP books · 30 September 2026</div>
     <h1>Can a character sheet put the names back?</h1>
     <p class="lede">CHIRON's masked-character test on the NCP novels. A model sees a passage with the three principals' names replaced by ids, plus one representation of each character built only from earlier chapters, and says which id is which. {{N_MAIN}} sections (about 320 words), {{N_SHORT}} short spans (about 50 words) and {{N_WINDOW}} dense windows (about 900 words); four model setups.</p>
   </header>
@@ -394,10 +459,22 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <div class="table-wrap"><table>{{PASSAGE_TABLE}}</table></div>
   </section>
 
+  <section aria-labelledby="rsn">
+    <h2 id="rsn">Reasoning on short spans and dense windows</h2>
+    <p class="muted">Qwen3.8-27B with thinking on. Sections are near ceiling with any representation; about 50 words are not, and there the representations separate. Dense windows (about 900 words) are at ceiling. Short spans: {{N_SHORT}} passages, macro over the 19 books with at least 10; windows: 13 books with at least 5.</p>
+    <div class="table-wrap"><table>{{REASON_TABLE}}</table></div>
+  </section>
+
   <section aria-labelledby="sim">
     <h2 id="sim">Why the numbers look so similar</h2>
     <p class="muted">Per passage and character, correctness depends far more on which passage it is than on which representation the model gets. The representations are right on different passages, so their averages converge while a per-passage choice would do much better (thinking off, sections).</p>
     <div class="table-wrap"><table>{{ITEMS_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="gen">
+    <h2 id="gen">Gender does much of the work</h2>
+    <p class="muted">Accuracy (%, pooled over passages) split by whether a character's gender is unique among the three principals, shared with one other, or shared by all three (gender read from the pronouns in each character's sheets and summaries). Pronouns in the passage give the unique character away once the model knows who is who by gender, which names alone often tell it; the shared pair is then a coin flip. Only same-gender characters need what the notes say about them.</p>
+    <div class="table-wrap"><table>{{GENDER_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="orc">
@@ -422,6 +499,12 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h2 id="why">Why legacy and book text do best</h2>
     <p class="muted">Ablations with Qwen3.8-27B, thinking off. Dropping the chapter just before the passage changes nothing, and neither does cutting legacy to a third of its length, so the lead is not recency or volume. A word-overlap matcher with no model ranks legacy below the CHIRON-style sheet, so it is not shared vocabulary either. Legacy's per-chapter answers name the other two principals about twice as often per word as the other sheets (31 per 1,000 words against 13 to 20), which is the information that separates three characters appearing together.</p>
     <div class="table-wrap"><table>{{ABLATION_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="secs">
+    <h2 id="secs">Which part of the sheet matters</h2>
+    <p class="muted">Sections, thinking off. v2 and charmem sheets cut to one of their six sections, or everything except relationships.</p>
+    <div class="table-wrap"><table>{{SECTIONS_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="ctl">

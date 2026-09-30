@@ -114,3 +114,25 @@ with the entire book, reasoning on short spans and dense windows.
 - Within one representation, a character's sheet length does not predict its gain over names only (27B; v2 quartiles
   +16.4/+16.6/+12.8/+20.2; charmem +19.3/+17.1/+16.9/+17.6; legacy flat too). Sheets with an empty section are not
   worse (small n). Consistent with "is the needed fact there", not "how much is there".
+
+### 07:00-07:45 UTC: gender, sheet sections on 27B, short-span reasoning
+
+- Sheet sections on the 27B (thinking off): each ~120-word section alone adds only 3 to 6 points over names only
+  (relationships 44.9 / 46.4 for v2 / charmem), and the sheet without relationships (54.8 / 56.5) is close to the full
+  sheet (56.2 / 58.4). On 9B base relationships alone nearly matched the full sheet, so which part of a sheet matters
+  depends on the model; the 27B without thinking seems to add up many weak cues.
+- Gender does much of the work. Principals' genders read from the pronouns in their v2 + charmem sheets (28% of
+  (passage, character) pairs have a gender unique among the three principals, 56% share it with one other, 17% all
+  three the same). 27B thinking, names only: unique 89%, shared 58%, all same 35% (chance 33%): names-only reasoning is
+  mostly gender inference from the names. With sheets: unique 97-98%, shared 94-96%, all same 86% (v2) to 94% (legacy
+  full). The representations only compete on same-gender characters. Without thinking the 27B barely infers gender from
+  names (unique 41%), so part of every sheet's gain there may just be learning the gender. A "Gender: female." only
+  representation is queued on all models to measure this.
+- Short spans with thinking separate the representations (partial: v2 and swapname_v2 train shards running): names
+  only 51.3, v2 74.2 (9 books so far), summary 78.3, charmem 77.8, CHIRON-style 79.6, book 8k 80.6, legacy full 82.1,
+  name-swapped v2 19.5. Dense windows with thinking are at ceiling (97-99; names only 70.7).
+- Rolling summaries drift onto another principal in two long books: from the middle of refuse, Sol's summary describes
+  Rainy ("Little John", the boat Flower); late in when_moon, Kaan's describes Raeve. 1.3% of summaries have the wrong
+  gender's pronouns (when_moon 19, refuse 12, husbands 2); v2 0%, charmem 0.1%.
+- Ops: the 4-way thinking-on short/window shards were running at ~1,350 records/hour. They were re-split 12-16 ways; the
+  eval scripts now treat any earlier output file of a condition as done, whatever its sharding.

@@ -6,6 +6,8 @@
   python3 scripts/queue_jobs.py charmem         finish the Sep 8 charmem rebuild, all books
   python3 scripts/queue_jobs.py eval NAME MAXLEN MODEL ITEMS COND...   one eval job (MODEL: qwen4b|mistral)
   python3 scripts/queue_jobs.py final SPLIT...  every condition for the given splits (needs items/reps built)
+  python3 scripts/queue_jobs.py reshard         re-split the slow thinking-on short/window shards wider
+  python3 scripts/queue_jobs.py gender          gender-only representation on every model and set
 Lower priority number is claimed first. Job names are stamped so reruns never collide.
 """
 import json
@@ -35,6 +37,23 @@ def add(name, gpus, model_args, client, priority):
 def addraw(name, gpus, cmd, priority):
     ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane="chiron", priority=priority)
     print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
+
+
+def env(**kv):
+    return ["env", *[f"{k}={v}" for k, v in kv.items()]]
+
+
+def srv(model, tp_long):
+    return ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", model, "--max-model-len", "262144" if tp_long else "65536", "--"]
+
+
+def ev(script, split, stem, c, k=0, n=1, extra=()):
+    return ["python3", "-u", f"{REPO}/chiron/{script}", "--split", split, "--items", stem, "--conditions", c,
+            "--workers", "128", "--shard", str(k), "--nshards", str(n), *extra]
+
+
+def tag(c):
+    return c.replace(":", "_")
 
 
 def gen_client(books, shard, nshards, *extra):
@@ -108,38 +127,32 @@ def main():
             two_short, two_long = ([c for c in x if keep(c)] for x in (two_short, two_long))
         shards = {"train": 8, "val": 2, "test": 2}
         for split in splits:
-            ev = lambda stem, conds, k=0, n=1: [f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", stem,
+            ev4 = lambda stem, conds, k=0, n=1: [f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", stem,
                                                 "--conditions", *conds, "--workers", "128", "--shard", str(k), "--nshards", str(n)]
             for c in short:
-                add(f"final_{split}_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev(f"items_{split}", [c]), 1)
+                add(f"final_{split}_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev4(f"items_{split}", [c]), 1)
             for c in long:
                 n = shards[split]
                 for k in range(n):
-                    add(f"final_{split}_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}", [c], k, n), 1)
+                    add(f"final_{split}_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev4(f"items_{split}", [c], k, n), 1)
             for c in pron:
                 n = shards[split] if c == "chiron" else 1
                 for k in range(n):
-                    add(f"final_{split}_pron_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_pron", [c], k, n), 1)
+                    add(f"final_{split}_pron_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev4(f"items_{split}_pron", [c], k, n), 1)
             for c in mistral:
-                add(f"final_{split}_mistral_{c.replace(':', '_')}", 1, ["--model", "mistral", "--max-model-len", "32768"], ev(f"items_{split}", [c]), 2)
+                add(f"final_{split}_mistral_{c.replace(':', '_')}", 1, ["--model", "mistral", "--max-model-len", "32768"], ev4(f"items_{split}", [c]), 2)
             for c in two_short:
-                add(f"final_{split}_two_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev(f"items_{split}_two", [c]), 2)
+                add(f"final_{split}_two_{c.replace(':', '_').replace('@', 'at')}", 1, ["--model", "qwen4b", "--max-model-len", "65536"], ev4(f"items_{split}_two", [c]), 2)
             for c in two_long:
                 n = shards[split]
                 for k in range(n):
-                    add(f"final_{split}_two_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev(f"items_{split}_two", [c], k, n), 2)
+                    add(f"final_{split}_two_{c.replace(':', '_')}_s{k}", 1, ["--model", "qwen4b", "--max-model-len", "262144"], ev4(f"items_{split}_two", [c], k, n), 2)
     elif what == "q27":
         # Qwen3.8-27B: direct scoring with thinking off (main, dense-window and short sets), then the thinking-on
         # run at the back of the queue (priority 9).
         short = ["noinfo", "summary", "v2", "legacy", "charmem", "chiron_r2000", "book_last8000", "swapname:v2"]
         long = ["chiron", "legacy_full", "book_last32000", "swapname:chiron"]
         reason = ["noinfo", "summary", "v2", "legacy", "charmem", "chiron_r2000", "chiron", "legacy_full", "book_last8000", "swapname:v2"]
-        env = lambda **kv: ["env", *[f"{k}={v}" for k, v in kv.items()]]
-        srv = lambda model, tp_long: ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", model,
-                                      "--max-model-len", "262144" if tp_long else "65536", "--"]
-        ev = lambda script, split, stem, c, k=0, n=1, extra=(): ["python3", "-u", f"{REPO}/chiron/{script}", "--split", split,
-                 "--items", stem, "--conditions", c, "--workers", "128", "--shard", str(k), "--nshards", str(n), *extra]
-        tag = lambda c: c.replace(":", "_")
         for split in ("test", "val", "train"):
             for stem in (f"items_{split}", f"items_{split}_window", f"items_{split}_short"):
                 kind = stem.split("_")[-1] if stem.count("_") > 1 else "main"
@@ -155,6 +168,24 @@ def main():
                 n = {"train": 8 if lng else 4, "val": 2, "test": 2}[split]
                 for k in range(n):
                     addraw(f"q27think_{split}_{tag(c)}_s{k}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", c, k, n), 9)
+    elif what == "reshard":
+        # slow thinking-on shards, re-split wider; finished (item, rotation) pairs are skipped on start
+        for split, stem, c, n in [("train", "items_train_short", "v2", 16), ("train", "items_train_short", "swapname:v2", 16),
+                                  ("train", "items_train_short", "chiron_r2000", 12), ("val", "items_val_short", "swapname:v2", 4),
+                                  ("val", "items_val_short", "chiron_r2000", 4), ("train", "items_train_window", "noinfo", 4),
+                                  ("train", "items_train_window", "swapname:v2", 6), ("train", "items_train_window", "chiron_r2000", 4)]:
+            for k in range(n):
+                addraw(f"q27think_rs_{stem[6:]}_{tag(c)}_s{k}of{n}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, stem, c, k, n), 1)
+    elif what == "gender":
+        # "Gender: female/male." as the only character information
+        for split in ("test", "val", "train"):
+            for stem in (f"items_{split}", f"items_{split}_short", f"items_{split}_window"):
+                addraw(f"g_q27_{stem[6:]}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False) + ev("eval_mcp.py", split, stem, "gender", extra=["--rotations"]), 0)
+            addraw(f"g_q9b_{split}", 1, env(CHIRON_BASE=1) + srv("qwen9base", False) + ev("eval_mcp.py", split, f"items_{split}", "gender", extra=["--rotations"]), 0)
+            addraw(f"g_q4b_{split}", 1, srv("qwen4b", False) + ev("eval_mcp.py", split, f"items_{split}", "gender"), 0)
+            n = {"train": 8, "val": 1, "test": 2}[split]
+            for k in range(n):
+                addraw(f"g_q27think_{split}_s{k}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, f"items_{split}", "gender", k, n), 2)
     elif what == "reason_smoke":
         addraw("q27think_smoke", 1, ["env", "CHIRON_THINKING=1", "python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "qwen27",
             "--max-model-len", "65536", "--", "python3", "-u", f"{REPO}/chiron/eval_reason.py", "--split", "test", "--items", "items_test",

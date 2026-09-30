@@ -132,3 +132,22 @@ def write_json(path, obj):
     tmp = path.with_suffix(path.suffix + f".tmp{os.getpid()}")
     tmp.write_text(json.dumps(obj, ensure_ascii=False, indent=1))
     os.replace(tmp, path)
+
+
+PRONOUN_M = re.compile(r"\b(he|him|his|himself)\b", re.I)
+PRONOUN_F = re.compile(r"\b(she|her|hers|herself)\b", re.I)
+GENDER_FIX = {("first_lie", "Mr. Smith"): "M", ("ugly", "Kitty Goldman"): "F"}    # too few pronouns in their sheets
+
+
+def genders(reps):
+    """Book-level gender per principal: over 65% of the pronouns in its v2 and charmem sheets one way.
+
+    (Rolling summaries are not used: in two long books they drift onto another principal.)"""
+    counts = collections.defaultdict(lambda: [0, 0])
+    for r in reps:
+        if r["condition"] in ("v2", "charmem"):
+            c = counts[(r["book"], r["label"])]
+            c[0] += len(PRONOUN_M.findall(r["text"]))
+            c[1] += len(PRONOUN_F.findall(r["text"]))
+    g = {k: "M" if m > 0.65 * (m + f) else "F" if f > 0.65 * (m + f) else "?" for k, (m, f) in counts.items()}
+    return {**g, **{k: v for k, v in GENDER_FIX.items() if k in g}}
