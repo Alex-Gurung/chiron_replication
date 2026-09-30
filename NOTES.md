@@ -56,3 +56,21 @@ with the entire book, reasoning on short spans and dense windows.
   verbatim); passage clues median 3. The chosen prior facts are often generic traits, so the prior oracle measures what
   the old notes can offer, as judged by gpt-oss.
 - Queued combined representations (v2+charmem+summary; legacy without filler + v2; all four).
+
+### 03:50 UTC: oracles
+
+| model | names only | v2 | legacy full | passage oracle | prior-facts oracle | swapped prior oracle |
+|---|---|---|---|---|---|---|
+| Qwen3-4B | 40.4 | 43.1 | 45.3 | 59.6 | 40.9 | 33.6 |
+| Qwen3.5-9B base | 47.6 | 54.5 | 60.1 (partial) | 72.7 | 51.0 | 35.5 |
+| Qwen3.8-27B | 40.1 | 56.2 | 63.4 | 59.7 | 44.8 | 31.8 |
+| Qwen3.8-27B thinking | 63.7 | 94.0 | 96.7 | 98.4 (partial) | 91.1 (partial) | 9.8 (partial) |
+
+- Without thinking, the passage oracle (clues copied from the passage itself) reaches only 59.7% on the 27B, below
+  legacy full. The ceiling of direct one-token answering is the model's matching ability, not information. With
+  thinking the same clues give 98%.
+- A handful of selected prior facts (median 4) is worse than a whole sheet without thinking (44.8 vs 56.2) but nearly as
+  good with thinking (91 vs 94). Direct answering seems to need many weak cues; reasoning can use a few facts.
+- Both modes use the facts: the name-swapped prior oracle drops to 31.8% (direct) and 9.8% (thinking).
+- Note: 27B jobs requeued on one GPU run at 131k context; prompts longer than that (the longest legacy-full and
+  combination prompts late in long books) are logged in .errors.jsonl and skipped.
