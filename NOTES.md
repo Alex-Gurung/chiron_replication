@@ -111,3 +111,6 @@ with the entire book, reasoning on short spans and dense windows.
   about as much as the other five sections combined. Consistent with the interaction finding for legacy.
 - 27B section results pending (train shard). Reruns: two short-span reasoning shards (2-hour request timeout under
   the old code) and 27B train perplexity with story (over-length prompt) requeued.
+- Within one representation, a character's sheet length does not predict its gain over names only (27B; v2 quartiles
+  +16.4/+16.6/+12.8/+20.2; charmem +19.3/+17.1/+16.9/+17.6; legacy flat too). Sheets with an empty section are not
+  worse (small n). Consistent with "is the needed fact there", not "how much is there".
