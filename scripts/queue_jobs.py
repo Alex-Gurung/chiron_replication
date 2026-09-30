@@ -11,6 +11,10 @@
   python3 scripts/queue_jobs.py long27          27B prompts over 131k tokens, rerun at 262k on 2 GPUs
   python3 scripts/queue_jobs.py quote|manual   item-level oracles from manual_oracle.py on every model
   python3 scripts/queue_jobs.py bookch          book text by last 1/2/4/8 chapters and the chapter so far, every model
+  python3 scripts/queue_jobs.py sweep_think     the representation-length sweep with thinking on
+  python3 scripts/queue_jobs.py chapnotes       the Llama CHIRON notes redone with gpt-oss (per chapter)
+  python3 scripts/queue_jobs.py chapnotes_eval|plot_eval   evaluate the gpt-oss chapter notes / plot summaries, every model
+  python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
   python3 scripts/queue_jobs.py gender          gender-only representation on every model and set
@@ -225,6 +229,47 @@ def main():
                            + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 1)
                 addraw(f"{t}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), 0)
                 addraw(f"{t}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), 0)
+    elif what == "sweep_think":
+        # the length sweep with thinking on (Qwen3.8-27B), for the representation-length chart
+        groups = [(["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r4000"], False), (["v2@100", "v2@250", "v2@500"], False),
+                  (["legacy@100", "legacy@250", "summary@100"], False), (["summary@250", "summary@500", "book_last2000"], False),
+                  (["book_last32000"], True)]
+        for split in ("test", "val", "train"):
+            n = {"train": 8, "val": 1, "test": 2}[split]
+            for g, (conds, lng) in enumerate(groups):
+                for k in range(n):
+                    addraw(f"sweepthink_{split}_g{g}_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng)
+                           + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 2)
+    elif what == "chapnotes":
+        # the Llama CHIRON notes redone with gpt-oss (per chapter, unfiltered), 8 book groups on 1 GPU each
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(8):
+            addraw(f"chapnotes_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
+                                        "--", "python3", "-u", f"{REPO}/chiron/gen_chapnotes.py", "--books", *books[k::8], "--workers", "64"], 0)
+    elif what in ("chapnotes_eval", "plot_eval"):
+        # evaluate the gpt-oss chapter notes (long: 262k) or the plot summaries (short) on every model
+        if what == "chapnotes_eval":
+            conds, lng = ["chapnotes"], True
+        else:
+            conds = [f"plot_{k}_{n}" for k in ("global", "hier") for n in (500, 1000, 2000, 4000)] + \
+                    [f"plot_{k}_4000@last{n}" for k in ("global", "hier") for n in (500, 1000, 2000)]
+            lng = False
+        for split in ("test", "val", "train"):
+            n = 4 if split == "train" else 1
+            for k in range(n):
+                addraw(f"{what}_{split}_q27_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, k, n, ["--rotations"]), 0)
+                addraw(f"{what}_{split}_q27think_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 1)
+            addraw(f"{what}_{split}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), 0)
+            addraw(f"{what}_{split}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), 0)
+    elif what == "plot":
+        # plot summaries with gpt-oss (one pass at 131k context on 2 GPUs; chapter-by-chapter at 65k on 1 GPU)
+        books = sorted({b for s in ("test", "val", "train") for b in (json.loads(l)["book"] for l in open(f"{REPO}/data/items_{s}.jsonl"))})
+        groups = [books[k::6] for k in range(6)]
+        for k, g in enumerate(groups):
+            addraw(f"plot_global_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
+                                           "--", "python3", "-u", f"{REPO}/chiron/gen_plot.py", "global", "--books", *g, "--workers", str(len(g))], 0)
+            addraw(f"plot_hier_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
+                                         "--", "python3", "-u", f"{REPO}/chiron/gen_plot.py", "hier", "--books", *g, "--workers", str(len(g))], 0)
     elif what == "oracle_shards":
         # thinking-on prior-facts oracle (and its name-swapped control) on train, 8 ways each
         for c in ("oracle_prior", "swapname:oracle_prior"):

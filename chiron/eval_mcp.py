@@ -7,6 +7,7 @@ Conditions come from data/reps_<split>.jsonl (condition, book, boundary, label, 
   noinfo         names only
   book           the novel's chapters before the section's chapter (no per-character blocks)
   book_last<k>   the last k words of that text; more variants (last k chapters, the chapter so far) in book_context
+  plot_<kind>_<n>[@last<k>]  a gpt-oss plot summary of the story so far (gen_plot.py), optionally its last k words
   <cond>@<k>     representation truncated to its first k words
   swap:<cond>    each character gets the next principal's representation (cyclic)
 Output: outputs/eval/<model>/<split>/<condition>.jsonl, resumable.
@@ -64,12 +65,21 @@ def load_prefixes(split):
             for r in map(json.loads, open(COHORTS / f"{split}_examples.jsonl"))}
 
 
-def book_context(cond, it, chapters, prefixes):
+def load_plots(split):
+    """(condition, book, boundary) -> plot summary of chapters < boundary (gen_plot.py export)."""
+    return {(r["condition"], r["book"], r["boundary"]): r["text"] for r in read_jsonl(DATA / f"plot_{split}.jsonl")}
+
+
+def book_context(cond, it, chapters, prefixes, plots=None):
     """Book text for the book conditions (shown instead of per-character blocks). b = the passage's chapter.
     book: chapters < b; book_last<k>: its last k words; book_noprev<k>: last k words of chapters < b-1;
     book_prevonly: chapter b-1; book_ch<k>: chapters b-k .. b-1; book_prefix: chapter b up to the passage;
     book_ch<k>p: chapters b-k .. b-1 plus chapter b up to the passage."""
     b = it["chapter_index"]
+    if cond.startswith("plot_"):                           # plot_<kind>_<target>[@last<k>]: a plot summary, optionally its last k words
+        base, k = (cond.split("@") + [None])[:2]
+        t = plots.get((base, it["book"], b))
+        return None if t is None else ("Summary of the novel so far", words(t, int(k[4:]), last=True) if k else t)
     m = BOOK.match(cond)
     text = lambda lo, hi: "\n\n".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[it["book"]] if lo <= ch["chapter_index"] < hi)
     prefix = lambda: prefixes[(it["book"], b, it["chunk_index"])]
@@ -87,7 +97,8 @@ def prompt(item, names, blocks, book_text, target):
     n = len(item["order"])
     parts = [INTRO[n]]
     if book_text is not None:
-        parts.append("# The novel so far\n\n" + book_text)
+        head, text = book_text if isinstance(book_text, tuple) else ("The novel so far", book_text)
+        parts.append(f"# {head}\n\n{text}")
     if blocks is None:
         parts.append("# Characters\n\n" + "\n".join(f"- {names[l]}" for l in item["order"]))
     else:
@@ -165,6 +176,7 @@ def main():
         reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
+    plots = load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None
     prefixes = load_prefixes(args.split) if any(c == "book_prefix" or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
@@ -180,8 +192,11 @@ def main():
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
             book_text, blocks = None, None
-            if cond.startswith("book"):
-                book_text = book_context(cond, it, chapters, prefixes)
+            if cond.startswith(("book", "plot_")):
+                book_text = book_context(cond, it, chapters, prefixes, plots)
+                if book_text is None:
+                    missing += 1
+                    continue
             elif cond != "noinfo":
                 base, k = (cond.split("@") + [None])[:2]
                 swapname = base.startswith("swapname:")

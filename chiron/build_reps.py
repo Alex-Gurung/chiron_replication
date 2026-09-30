@@ -8,6 +8,7 @@ One record per (condition, book, boundary, label); every source is built from ch
   chiron         gpt-oss CHIRON-style statements rated 5, grouped by category, TF-IDF dedup at 0.9
   chiron_<cat>   one category only (for the per-category "Agreed" setting)
   charmem        finished Sep 8 gpt-oss rebuild sheet (ncp_charmem_gptoss120b_reviewed_20260908/sheets)
+  chapnotes      gpt-oss chapter notes (gen_chapnotes.py): the Llama notes' layout and questions, redone with gpt-oss
   gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
 Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
 """
@@ -25,10 +26,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from build_items import alias_regex
 from common import COHORTS, DATA, OUT, REPO, SENT, genders, read_jsonl
+from gen_chiron import QUESTIONS
 
 CATEGORIES = ["Physical/Personality", "Dialogue", "Knowledge", "Goals"]
 CHARMEM = Path("/home/toolkit/ncp_charmem_gptoss120b_reviewed_20260908/sheets")
 LEGACY = DATA / "legacy"
+CHAPNOTE_LAYOUT = [("Personality/Physical Attributes", ["physical", "personality"]), ("Knowledge", ["facts", "learned"]),
+                   ("Plot and Motivation", ["goals_gained", "goals_completed", "motivation_change"]), ("Character Dialogue", ["dialogue"])]
 LEGACY_LABEL = {"Rohan": "Rohanc", "Michael Bradshaw": "Michael BradshaDavinaw"}   # the archive keeps the pre-repair names
 
 
@@ -185,6 +189,21 @@ def main():
             add("chiron_" + cat.split("/")[0].lower(), *k, render(rows, cat))
         for words in (250, 500, 1000, 2000, 4000):
             add(f"chiron_r{words}", *k, render(budget(rows, words)))
+    notes = collections.defaultdict(dict)                     # gpt-oss chapter notes, laid out like the Llama notes
+    for f in glob.glob(str(OUT / "chapnotes" / "*.jsonl")):
+        for r in read_jsonl(f):
+            notes[(r["book"], r["label"])][r["chapter_index"]] = r["answers"]
+    for book, b, l in keys:
+        chs = sorted(c for c in notes.get((book, l), {}) if c < b)
+        if chs and len(chs) == b:                                 # every earlier chapter present
+            parts = []
+            for head, qs in CHAPNOTE_LAYOUT:
+                parts.append(f"## {head}")
+                for q in qs:
+                    body = "\n".join(f"<snippet {c}>\n{notes[(book, l)][c][q]}" for c in chs if notes[(book, l)][c][q])
+                    if body:
+                        parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
+            add("chapnotes", book, b, l, "\n\n".join(parts))
     for book, b, l in keys:
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():

@@ -81,6 +81,7 @@ def main():
     reps = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")}
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = E.load_chapters() if any(c.startswith("book") for c in args.conditions) else None
+    plots = E.load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None
     prefixes = E.load_prefixes(args.split) if any(c == "book_prefix" or E.re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     aliases = {}
     model_tag = MODEL.split("/")[-1] + args.tag + "_think"
@@ -95,8 +96,11 @@ def main():
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
             book_text, blocks = None, None
-            if cond.startswith("book"):
-                book_text = E.book_context(cond, it, chapters, prefixes)
+            if cond.startswith(("book", "plot_")):
+                book_text = E.book_context(cond, it, chapters, prefixes, plots)
+                if book_text is None:
+                    missing += 1
+                    continue
             elif cond != "noinfo":
                 basec, k = (cond.split("@") + [None])[:2]
                 swapname = basec.startswith("swapname:")

@@ -20,7 +20,7 @@ MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9
 CHART_MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"), ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking")]
 LABEL = {
     "noinfo": "Names only", "gender": "Gender only (\"Gender: female.\")", "v2": "v2 sheet (current dataset)", "legacy": "Llama CHIRON notes, summarized",
-    "legacy_full": "Llama CHIRON notes, full", "summary": "gpt-oss summary",
+    "legacy_full": "Llama CHIRON notes, full", "chapnotes": "gpt-oss chapter notes (the Llama notes redone)", "summary": "gpt-oss summary",
     "chiron": "gpt-oss CHIRON claims, full", "chiron_r2000": "gpt-oss CHIRON claims, last 2,000 words",
     "charmem": "Charmem sheet (gpt-oss rebuild of v2)", "book_last8000": "Book text, last 8,000 words",
     "book_last32000": "Book text, last 32,000 words", "book": "Book text, everything so far",
@@ -32,6 +32,8 @@ LABEL = {
     "book_ch1": "Book text, previous chapter", "book_ch2": "Book text, last 2 chapters", "book_ch4": "Book text, last 4 chapters",
     "book_ch8": "Book text, last 8 chapters", "book_prefix": "Book text, this chapter up to the passage",
     "book_ch1p": "Book text, previous chapter + this chapter up to the passage",
+    **{f"plot_{k}_{n}": f"Plot summary, {v}, about {n:,} words" for k, v in (("global", "one pass"), ("hier", "chapter by chapter")) for n in (500, 1000, 2000, 4000)},
+    **{f"plot_{k}_4000@last{n}": f"Plot summary, {v}, last {n:,} of 4,000 words" for k, v in (("global", "one pass"), ("hier", "chapter by chapter")) for n in (500, 1000, 2000)},
     "oracle_quote": "Oracle: the passage's own sentences, names left in", "manual_passage": "Hand-written: clues from the passage",
     "manual_prior": "Hand-written: prior facts chosen for the passage",
     "swapname_manual_prior": "Hand-written prior facts, swapped with names exchanged", "legacy_nofill": "Llama notes, full, without filler",
@@ -40,9 +42,10 @@ REP_INFO = [
     ("v2", "The character sheets in the current NCP dataset (ncp_cohorts_v2): six sections (physicality, dialogue, history, knowledge, goals, relationships) with chapter citations."),
     ("charmem", "A gpt-oss-120b rebuild of the v2 sheets, updated chapter by chapter with a review pass (the September 8 rebuild, finished here for all 30 books). Same six sections."),
     ("summary", "gpt-oss-120b rolling prose summary of the character, updated after every chapter and condensed to about 700 words."),
-    ("legacy_full", "From the original NCP archive: Llama-3.3-70B answered CHIRON's questions (appearance and personality, dialogue, knowledge, goals, and so on) for every ~300-word snippet, kept as prose, unfiltered, including \"not mentioned\" answers."),
+    ("legacy_full", "From the original NCP archive: Llama-3.3-70B answered CHIRON's 8 questions (appearance, personality, dialogue, knowledge, goals, and so on) once per chapter, with the whole chapter as the story section; kept as short prose sentences, unfiltered."),
     ("legacy", "The same Llama notes summarized by Llama-3.3-70B to about 500 words."),
-    ("chiron", "Our gpt-oss-120b re-run of CHIRON's full pipeline: the same questions per snippet, answers split into single claims, each kept only if rated fully entailed by its snippet (5 on CHIRON's 1-5 scale), then deduplicated. No trained verifier."),
+    ("chapnotes", "The Llama notes redone with gpt-oss-120b: the same 8 questions once per chapter, same layout, empty answers left out. Only the model differs."),
+    ("chiron", "Our gpt-oss-120b run of CHIRON's full pipeline as in the paper: the same questions per ~300-word snippet, answers as single claims, each kept only if rated fully entailed by its snippet (5 on CHIRON's 1-5 scale), then deduplicated. No trained verifier."),
 ]
 SHEET_SECTIONS = [("relationships", "Relationships"), ("history", "History"), ("goals", "Goals"), ("physical", "Physical"),
                   ("dialogue", "Dialogue"), ("knowledge", "Knowledge")]
@@ -51,7 +54,7 @@ GENDER_ROWS = ["noinfo", "gender", "v2", "charmem", "summary", "book_last8000", 
 GENDER_COLS = [("Qwen3.8-27B_nothink", "27B, sections"), ("Qwen3.8-27B_think", "27B thinking, sections"),
                ("Qwen3.8-27B_think_short", "27B thinking, short spans")]
 MAIN_ROWS = ["noinfo", "gender", "legacy", "chiron_r2000", "v2", "chiron", "charmem", "summary", "book_last8000",
-             "book_last32000", "book", "legacy_full", "legacy_nofill", "combo_short", "combo_legacy_v2"]
+             "book_last32000", "book", "legacy_full", "legacy_nofill", "chapnotes", "combo_short", "combo_legacy_v2"]
 ORACLE_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "oracle_passage", "oracle_quote", "swapname_oracle_prior"]
 MANUAL_ROWS = ["noinfo", "v2", "legacy_full", "oracle_prior", "manual_prior", "oracle_passage", "manual_passage", "oracle_quote",
                "swapname_manual_prior"]
@@ -62,7 +65,15 @@ LENGTH_FAMILIES = [("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r10
                    ("Summary", ["summary@100", "summary@250", "summary@500", "summary"]),
                    ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"]),
                    ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"])]
-FAMILY_STYLE = {"Book text, last k chapters": {"color": 4, "dash": True}}      # same source as the word cuts: same hue, dashed
+FAMILY_STYLE = {}
+SUMMARY_FAMILIES = [("Character summaries, first k words", ["summary@100", "summary@250", "summary@500", "summary"]),
+                    ("Plot summary, one pass", ["plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000"]),
+                    ("Plot summary, chapter by chapter", ["plot_hier_500", "plot_hier_1000", "plot_hier_2000", "plot_hier_4000"]),
+                    ("One pass, last k words", ["plot_global_4000@last500", "plot_global_4000@last1000", "plot_global_4000@last2000", "plot_global_4000"]),
+                    ("Chapter by chapter, last k words", ["plot_hier_4000@last500", "plot_hier_4000@last1000", "plot_hier_4000@last2000", "plot_hier_4000"])]
+SUMMARY_STYLE = {}
+PLOT_ROWS = ["noinfo", "summary", "plot_global_500", "plot_global_1000", "plot_global_2000", "plot_global_4000", "plot_hier_500",
+             "plot_hier_1000", "plot_hier_2000", "plot_hier_4000", "plot_global_4000@last1000", "plot_hier_4000@last1000", "book_last8000"]
 BOOKCH_ROWS = ["noinfo", "book_prefix", "book_ch1", "book_ch1p", "book_ch2", "book_ch4", "book_ch8", "book", "book_last8000", "legacy_full"]
 PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("gpt-oss claims", "chiron"),
                   ("Summary", "summary"), ("Llama notes", "legacy_full"), ("Book, last 8k", "book_last8000")]
@@ -89,9 +100,9 @@ FINDINGS = [
     "{best}% for the best single one. Combining the Llama notes with v2 gives the best score, {combo}%.",
     "The full Llama CHIRON notes win because of what they say, not their length or recency: without the previous chapter "
     "they score {leg_noprev}% (full {legfull27}%), and cut to 6,000 words {leg_r6000}%, still well above the gpt-oss CHIRON "
-    "claims at any length ({chiron27}% in full). Both answer CHIRON's questions snippet by snippet; the Llama notes keep the "
-    "answers as prose, while CHIRON's entailment filter keeps only short self-contained claims and drops most of what "
-    "relates a character to the other principals (the Llama notes name them 4 to 7 times as often).",
+    "claims at any length ({chiron27}% in full). The Llama notes answer CHIRON's questions once per chapter, seeing the "
+    "whole chapter; the gpt-oss claims answer them per 300-word snippet as in the paper, as single claims, and keep "
+    "little of what relates a character to the other principals (the Llama notes name them 4 to 7 times as often).",
     "With thinking, much of every score is gender. From names alone, Qwen3.8-27B places {g_uni}% of characters whose gender "
     "is unique among the three principals and {g_same}% when all three share one (chance 33%); the representations mostly "
     "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full Llama notes). "
@@ -222,6 +233,18 @@ def main():
         return (f"<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Prompt tokens, median</th>{head}</tr></thead>"
                 f"<tbody>{''.join(rows)}</tbody>")
 
+    def plot_table():
+        models = [(q4, "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9B base"), (q27, "Qwen3.8-27B"), (qt, "Qwen3.8-27B, thinking")]
+        head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in models)
+        rows = []
+        for c in PLOT_ROWS:
+            q = (get("main", q27, c) or {}).get("rep_tokens_q")
+            tk = f"{q[2] / 1000:.1f}k" if q else "—"
+            rows.append(f"<tr><th scope='row'>{LABEL[c]}</th><td class='num'>{tk}</td>" +
+                        "".join(f"<td class='num strong'>{pct(macro('main', m, c))}</td>" for m, _ in models) + "</tr>")
+        return (f"<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Representation tokens, median</th>{head}</tr></thead>"
+                f"<tbody>{''.join(rows)}</tbody>")
+
     def manual_table():
         def cell(m, c):
             v = manual["rows"].get(f"{m}|{c}")
@@ -305,7 +328,7 @@ def main():
            ("legacy_onlyprev", "Llama notes, previous chapter only"), ("legacy_r6000", "Llama notes, most recent 6,000 words"),
            ("legacy_nofill", "Llama notes without \"not mentioned\" filler"), ("legacy_inter", "Llama notes, only statements naming another principal"),
            ("legacy_nointer", "Llama notes, only statements not naming another principal"),
-           ("chiron", "gpt-oss claims, full"), ("chiron_noprev", "gpt-oss claims without the previous chapter"),
+           ("chapnotes", "gpt-oss chapter notes (Llama notes' format and questions)"), ("chiron", "gpt-oss claims, full"), ("chiron_noprev", "gpt-oss claims without the previous chapter"),
            ("chiron_onlyprev", "gpt-oss claims, previous chapter only"), ("chiron_inter", "gpt-oss claims, only statements naming another principal"),
            ("chiron_nointer", "gpt-oss claims, only statements not naming another principal"),
            ("book_last8000", "Book, last 8,000 words"), ("book_noprev8000", "Book, last 8,000 words before the previous chapter"),
@@ -395,25 +418,32 @@ def main():
     both = [i for i in ptok["book"] if i in ptok["legacy_full"]]
     leg_ratio = f"{st.median(ptok['legacy_full'][i] / ptok['book'][i] for i in both):.2f}"
     leg_longer = f"{100 * sum(ptok['legacy_full'][i] > ptok['book'][i] for i in both) / len(both):.0f}"
-    length = {}
-    for m, name in CHART_MODELS[:2]:
-        a = A[("main", m)]
-        if not a:
-            continue
-        rows = a["rows"]
-        def pt(c):
-            r = rows[c]
-            xs = {"all": {"med": r["tokens_q"][2], "mean": r["mean_tokens"], "lo": r["tokens_q"][1], "hi": r["tokens_q"][3]}}
-            if r.get("rep_tokens_q"):
-                q = r["rep_tokens_q"]
-                xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3]}
-            return {"xs": xs, "y": 100 * get("main", m, c)["macro"], "cov": r["items"] / r["items_total"]}
-        series = [{"name": fam, **FAMILY_STYLE.get(fam, {}),
-                   "points": [{"label": c, **pt(c)} for c in conds if c in rows and rows[c]["tokens_q"] and get("main", m, c)]}
-                  for fam, conds in LENGTH_FAMILIES]
-        singles = [{"name": n, **pt(c)} for n, c in (("charmem", "charmem"), ("Llama notes, full", "legacy_full")) if c in rows]
-        length[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
-                        "xticks": [100, 300, 1000, 3000, 10000, 30000, 100000, 300000]}
+    def length_data(families, singles_spec, styles):
+        out = {}
+        for m, name in CHART_MODELS:
+            a = A[("main", m)]
+            if not a:
+                continue
+            rows = a["rows"]
+
+            def pt(c):
+                r = rows[c]
+                xs = {"all": {"med": r["tokens_q"][2], "mean": r["mean_tokens"], "lo": r["tokens_q"][1], "hi": r["tokens_q"][3]}}
+                if r.get("rep_tokens_q"):
+                    q = r["rep_tokens_q"]
+                    xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3]}
+                return {"xs": xs, "y": 100 * get("main", m, c)["macro"], "cov": r["items"] / r["items_total"]}
+            ok = lambda c: c in rows and rows[c]["tokens_q"] and get("main", m, c)
+            series = [{"name": fam, **styles.get(fam, {}), "points": [{"label": c, **pt(c)} for c in conds if ok(c)]}
+                      for fam, conds in families]
+            singles = [{"name": n, **pt(c)} for n, c in singles_spec if ok(c)]
+            if any(s_["points"] for s_ in series) and get("main", m, "noinfo"):
+                out[name] = {"series": series, "singles": singles, "ref": 100 * get("main", m, "noinfo")["macro"], "unit": "tokens",
+                             "xticks": [100, 300, 1000, 3000, 10000, 30000, 100000, 300000]}
+        return out
+
+    length = length_data(LENGTH_FAMILIES, (("charmem", "charmem"), ("Llama notes, full", "legacy_full"), ("gpt-oss chapter notes", "chapnotes")), FAMILY_STYLE)
+    summaries = length_data(SUMMARY_FAMILIES, (), SUMMARY_STYLE)
     passage = {}
     for m, name in CHART_MODELS:
         series = [{"name": n, "points": [{"label": sname, "x": passage_words[k], "lo": passage_q[k][0], "hi": passage_q[k][1], "y": 100 * macro(k, m, c)}
@@ -422,7 +452,7 @@ def main():
                for k, sname in SETS if macro(k, m, "noinfo") is not None]
         if any(s["points"] for s in series):
             passage[name] = {"series": series, "refline": ref, "unit": "words",
-                             "xlabel": "median passage length in words (log scale); bars span the middle half of passages",
+                             "xlabel": "median passage length in words; bars span the middle half of passages",
                              "xticks": [30, 100, 300, 1000]}
 
     def table_rows(d):
@@ -489,7 +519,7 @@ def main():
     for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
-                 "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
+                 "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "SUMMARY_DATA": json.dumps(summaries), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
                  "LENGTH_DATA": json.dumps(length), "PASSAGE_DATA": json.dumps(passage),
@@ -617,10 +647,21 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <p class="muted">Sections. By default each point is the median length of the whole prompt (all three characters' blocks, the passage and the question) with a bar over the middle half of prompts; the switches show the mean instead, or only the representation's own tokens (the prompt minus the names-only prompt for the same passage and character); lengths vary a lot because notes and book text grow through a book. Each line is one representation cut to increasing lengths: the gpt-oss claims keep their most recent statements, v2, the summarized Llama notes and the summary keep their first words, book text keeps its last words. Diamonds are representations tested at one length only. The dashed line is names only. The full Llama notes (for the three characters together) are shorter than the whole book so far for most passages (median {{LEG_RATIO}} times as long) but longer for {{LEG_LONGER}}% of them, early in books.</p>
     <div class="chart" id="lenbox">
       <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
-      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against mean prompt tokens, log scale"></svg>
+      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against prompt length"></svg>
       <div class="tip" hidden></div>
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{LENGTH_ROWS}}</tbody></table></div></details>
+  </section>
+
+  <section aria-labelledby="plt">
+    <h2 id="plt">Plot summaries vs character summaries</h2>
+    <p class="muted">One gpt-oss summary of the story so far, shared by the three characters and shown in place of their blocks. One pass: the whole text of the chapters before the passage's chapter (the most recent 85,000 words for the longest books), summarized to a target length. Chapter by chapter: each chapter summarized to about 250 words, then those summaries combined to the target length. "Last k words" cuts the 4,000-word summary to its most recent part. Character summaries are cut to their first k words (they are organized by topic, not time).</p>
+    <div class="chart" id="sumbox">
+      <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
+      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy of plot and character summaries against their length"></svg>
+      <div class="tip" hidden></div>
+    </div>
+    <div class="table-wrap"><table>{{PLOT_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="bch">
@@ -634,7 +675,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <p class="muted">The same representations on three passage sets: short spans (the tightest run of sentences naming all three principals, 20 to 150 words), NCP sections, and dense windows (up to three consecutive sections, about 900 words, each principal named at least three times). Each set averages over its own books, so the points are not paired. The dashed line is names only.</p>
     <div class="chart" id="pasbox">
       <div class="bar"><div class="legend" data-legend></div><div class="controls" data-controls></div></div>
-      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against median passage length, log scale"></svg>
+      <svg viewBox="0 0 760 380" role="img" aria-label="Accuracy against passage length"></svg>
       <div class="tip" hidden></div>
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{PASSAGE_ROWS}}</tbody></table></div></details>
@@ -739,16 +780,21 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     svg.replaceChildren(); legend.replaceChildren(); tip.hidden = true;
     const W = 760, H = 380, L = 48, R = 178, T = 16, B = 42;
     const pts = spec.series.flatMap(s => s.points).concat(spec.singles || [], spec.refline || []);
-    const xs = pts.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]);
+    const xs = pts.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]), lin = spec.scale === "linear";
     const ys = pts.map(p => p.y).concat(spec.ref !== undefined ? [spec.ref] : []);
-    const x0 = Math.log10(Math.min(...xs) * 0.8), x1 = Math.log10(Math.max(...xs) * 1.15);
-    const ticks = spec.xticks.filter(v => Math.log10(v) >= x0 && Math.log10(v) <= x1);
+    const f = lin ? (v => v) : Math.log10;
+    const x0 = lin ? 0 : f(Math.min(...xs) * 0.8), x1 = lin ? Math.max(...xs) * 1.05 : f(Math.max(...xs) * 1.15);
+    let ticks = spec.xticks.filter(v => f(v) >= x0 && f(v) <= x1);
+    if (lin) {
+      const raw = x1 / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 5, 10].map(k => k * mag).find(v => v >= raw);
+      ticks = []; for (let v = 0; v <= x1; v += step) ticks.push(v);
+    }
     const fmt = v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k" : Math.round(v).toString();
     const desc = p => `${p.y.toFixed(1)}% · median ${fmt(p.x)} ${spec.unit}` + (p.lo ? ` (middle half ${fmt(p.lo)}–${fmt(p.hi)})` : "")
       + (p.cov !== undefined && p.cov < 1 ? ` · ${Math.round(100 * p.cov)}% of passages` : "");
     let y0 = Math.floor(Math.min(...ys) / 5) * 5, y1 = Math.ceil(Math.max(...ys) / 5) * 5;
     if (y1 - y0 < 10) y1 = y0 + 10;
-    const X = v => L + (Math.log10(v) - x0) / (x1 - x0) * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+    const X = v => L + (f(v) - x0) / (x1 - x0) * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
     const el = (tag, a) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
     const step = (y1 - y0) > 30 ? 10 : 5;
     for (let v = y0; v <= y1; v += step) {
@@ -756,7 +802,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       el("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end" }).textContent = v + "%";
     }
     ticks.forEach(v => { el("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }).textContent = v >= 1000 ? (v / 1000) + "k" : String(v); });
-    el("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle" }).textContent = spec.xlabel;
+    el("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle" }).textContent = `${spec.xlabel} (${lin ? "linear" : "log"} scale)`;
     const labels = [];
     const hover = (x, y, text) => {
       const hit = el("circle", { cx: x, cy: y, r: 12, fill: "transparent", tabindex: 0 });
@@ -805,14 +851,14 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   }
   const XLABEL = { all: "prompt tokens (whole prompt)", rep: "representation tokens (the three characters' blocks)" };
   function view(spec, st) {
-    if (!st.basis) return spec;
+    if (!st.basis) return { ...spec, scale: st.scale };
     const pick = p => {
       const v = p.xs[st.basis];
       return v ? { ...p, x: v[st.stat], lo: v.lo, hi: v.hi } : null;
     };
     return { ...spec, series: spec.series.map(s => ({ ...s, points: s.points.map(pick).filter(Boolean) })),
              singles: (spec.singles || []).map(pick).filter(Boolean),
-             xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}, log scale; bars span the middle half` };
+             scale: st.scale, xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}; bars span the middle half` };
   }
   function segment(box, label, choices, current, onPick) {
     const seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role", "group"); seg.setAttribute("aria-label", label);
@@ -829,12 +875,16 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     const st = { model: names[names.length > 1 ? 1 : 0] };
     const redraw = () => draw(box, view(data[st.model], st));
     segment(box, "Model", names.map(n => [n, n]), st.model, v => { st.model = v; redraw(); });
+    st.scale = "log";
+    segment(box, "X axis", [["log", "log x"], ["linear", "linear x"]], st.scale, v => { st.scale = v; redraw(); });
     (options || []).forEach(o => { st[o.key] = o.choices[0][0]; segment(box, o.label, o.choices, st[o.key], v => { st[o.key] = v; redraw(); }); });
     redraw();
   }
   mount("lenbox", {{LENGTH_DATA}}, [{ key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
+  mount("sumbox", {{SUMMARY_DATA}}, [{ key: "basis", label: "Length of", choices: [["rep", "representation only"], ["all", "whole prompt"]] },
+                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] }]);
 })();
 </script>
 """
