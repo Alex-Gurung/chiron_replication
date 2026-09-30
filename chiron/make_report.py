@@ -110,7 +110,10 @@ def example():
 
 def main():
     A = {(s, m): load(s, m) for s, _ in SETS + [("two", ""), ("pron", "")] for m, _ in MODELS}
-    get = lambda s, m, c: ((A.get((s, m)) or {}).get("rows") or {}).get(c)
+    def get(s, m, c):                                   # rows covering under half the set's books are still running: hidden
+        a = A.get((s, m)) or {}
+        r = (a.get("rows") or {}).get(c)
+        return r if r and r["books"] >= len(a["books"]) / 2 else None
     macro = lambda s, m, c: (get(s, m, c) or {}).get("macro")
     words = collections.defaultdict(list)
     for s in ("test", "val", "train"):
@@ -243,7 +246,8 @@ def main():
         head2 = "".join(f"<th scope='col' class='num'>{g}</th>" for _ in GENDER_COLS for _, g in groups)
         rows = []
         for c in GENDER_ROWS:
-            cells = "".join(f"<td class='num'>{100 * gender[f'{m}|{c}'][g]['acc']:.0f}</td>" if f"{m}|{c}" in gender else "<td>—</td>"
+            shown = lambda m: f"{m}|{c}" in gender and get("short" if m.endswith("_short") else "main", m.removesuffix("_short"), c)
+            cells = "".join(f"<td class='num'>{100 * gender[f'{m}|{c}'][g]['acc']:.0f}</td>" if shown(m) else "<td>—</td>"
                             for m, _ in GENDER_COLS for g, _ in groups)
             rows.append(f"<tr><th scope='row'>{LABEL[c]}</th>{cells}</tr>")
         share = f"<tr><th scope='row' class='muted'>Share of characters</th>" + "".join(
