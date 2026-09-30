@@ -587,8 +587,17 @@ code { font: 0.85em var(--mono); }
 .chart .lbl { font-weight: 600; }
 .bar { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; justify-content: space-between; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; font-size: 0.8rem; color: var(--muted); }
-.legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.legend label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+.legend input { margin: 0; accent-color: var(--accent); }
+.legend span { display: inline-flex; }
 .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.legend i.dash { background: repeating-linear-gradient(90deg, var(--c) 0 5px, transparent 5px 8px); }
+.legend i.diamond { width: 8px; height: 8px; border-radius: 1px; background: var(--fg); transform: rotate(45deg); }
+.bounds { display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; align-items: center; font-size: 0.8rem; color: var(--muted); }
+.bounds label { display: inline-flex; align-items: center; gap: 0.35rem; }
+.bounds input { width: 6.5rem; font: 0.8rem var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0.2rem 0.4rem; }
+.bounds button { font: 500 0.8rem var(--body); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 6px; padding: 0.25rem 0.6rem; cursor: pointer; }
+.bounds input:focus-visible, .bounds button:focus-visible, .legend input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
 .seg button { font: 500 0.8rem var(--body); color: var(--muted); background: transparent; border: 0; padding: 0.35rem 0.7rem; cursor: pointer; }
@@ -775,79 +784,119 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 <script>
 (function () {
   const ns = "http://www.w3.org/2000/svg", colors = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
-  function draw(box, spec) {
+  const niceStep = raw => { const m = Math.pow(10, Math.floor(Math.log10(raw))); return [1, 2, 5, 10].map(k => k * m).find(v => v >= raw); };
+  const num = v => (Math.abs(v) >= 1000 ? +(v / 1000).toFixed(2) + "k" : String(+v.toFixed(2)));
+  function logTicks(a, b) {
+    for (const ds of [[1, 2, 5], [1, 3], [1]]) {
+      const t = [];
+      for (let k = Math.floor(Math.log10(a)) - 1; k <= Math.ceil(Math.log10(b)); k++) ds.forEach(d => { const v = d * Math.pow(10, k); if (v >= a * 0.999 && v <= b * 1.001) t.push(v); });
+      if (t.length <= 8) return t;
+    }
+    return [];
+  }
+  const logFloor = v => { const m = Math.pow(10, Math.floor(Math.log10(v))); return [5, 2, 1].map(d => d * m).find(x => x <= v); };
+  const logCeil = v => { const m = Math.pow(10, Math.floor(Math.log10(v))); return [1, 2, 5, 10].map(d => d * m).find(x => x >= v); };
+  // Draws one chart. st.hidden: names switched off in the legend; st.bounds: manual x0/x1/y0/y1 (null = automatic).
+  // Returns the automatic bounds, shown as placeholders in the bound inputs.
+  function draw(box, spec, st) {
     const svg = box.querySelector("svg"), tip = box.querySelector(".tip"), legend = box.querySelector("[data-legend]");
     svg.replaceChildren(); legend.replaceChildren(); tip.hidden = true;
-    const W = 760, H = 380, L = 48, R = 178, T = 16, B = 42;
-    const pts = spec.series.flatMap(s => s.points).concat(spec.singles || [], spec.refline || []);
-    const xs = pts.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]), lin = spec.scale === "linear";
-    const ys = pts.map(p => p.y).concat(spec.ref !== undefined ? [spec.ref] : []);
+    const W = 760, H = 380, L = 48, R = 178, T = 16, B = 42, lin = spec.scale === "linear";
+    const on = name => !st.hidden.has(name);
+    const series = spec.series.map((s, i) => ({ ...s, c: `var(${colors[s.color !== undefined ? s.color : i]})` })).filter(s => s.points.length);
+    const refName = "names only", refOn = on(refName) && (spec.ref !== undefined || (spec.refline || []).length);
+    const vis = series.filter(s => on(s.name)).flatMap(s => s.points).concat((spec.singles || []).filter(p => on(p.name)),
+                refOn ? spec.refline || [] : []);
+    const shown = vis.length ? vis : series.flatMap(s => s.points);
+    const xs = shown.flatMap(p => [p.x, p.lo || p.x, p.hi || p.x]).filter(v => lin || v > 0);
+    const ys = shown.map(p => p.y).concat(refOn && spec.ref !== undefined ? [spec.ref] : []);
+    const auto = {};
+    { const lo = Math.min(...xs), hi = Math.max(...xs);
+      if (lin) { const step = niceStep(Math.max(hi - lo, 1) / 5); auto.x0 = Math.max(0, Math.floor(lo / step) * step); auto.x1 = Math.ceil(hi / step) * step; }
+      else { auto.x0 = logFloor(lo); auto.x1 = logCeil(hi); } }
+    const bd = k => (Number.isFinite(st.bounds[k]) && (lin || !k.startsWith("x") || st.bounds[k] > 0) ? st.bounds[k] : auto[k]);
+    let x0 = bd("x0"), x1 = bd("x1");
+    if (x1 <= x0) x1 = x0 * (lin ? 1 : 10) + (lin ? 1 : 0);
+    { const inX = shown.filter(p => p.x >= x0 && p.x <= x1).map(p => p.y).concat(refOn && spec.ref !== undefined ? [spec.ref] : []);
+      const yy = inX.length ? inX : ys, lo = Math.min(...yy), hi = Math.max(...yy), step = niceStep(Math.max(hi - lo, 4) / 6);
+      auto.y0 = Math.max(0, Math.floor((lo - 1) / step) * step); auto.y1 = Math.min(100, Math.ceil((hi + 1) / step) * step); }
+    let y0 = bd("y0"), y1 = bd("y1");
+    if (y1 <= y0) y1 = y0 + 5;
     const f = lin ? (v => v) : Math.log10;
-    const x0 = lin ? 0 : f(Math.min(...xs) * 0.8), x1 = lin ? Math.max(...xs) * 1.05 : f(Math.max(...xs) * 1.15);
-    let ticks = spec.xticks.filter(v => f(v) >= x0 && f(v) <= x1);
-    if (lin) {
-      const raw = x1 / 5, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 5, 10].map(k => k * mag).find(v => v >= raw);
-      ticks = []; for (let v = 0; v <= x1; v += step) ticks.push(v);
-    }
-    const fmt = v => v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + "k" : Math.round(v).toString();
-    const desc = p => `${p.y.toFixed(1)}% · median ${fmt(p.x)} ${spec.unit}` + (p.lo ? ` (middle half ${fmt(p.lo)}–${fmt(p.hi)})` : "")
-      + (p.cov !== undefined && p.cov < 1 ? ` · ${Math.round(100 * p.cov)}% of passages` : "");
-    let y0 = Math.floor(Math.min(...ys) / 5) * 5, y1 = Math.ceil(Math.max(...ys) / 5) * 5;
-    if (y1 - y0 < 10) y1 = y0 + 10;
-    const X = v => L + (f(v) - x0) / (x1 - x0) * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
-    const el = (tag, a) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
-    const step = (y1 - y0) > 30 ? 10 : 5;
-    for (let v = y0; v <= y1; v += step) {
+    const X = v => L + (f(v) - f(x0)) / (f(x1) - f(x0)) * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+    const inside = p => p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1;
+    const el = (tag, a, parent) => { const e = document.createElementNS(ns, tag); for (const k in a) e.setAttribute(k, a[k]); (parent || svg).appendChild(e); return e; };
+    const clipId = "clip-" + box.id;
+    const clip = el("clipPath", { id: clipId }, el("defs", {}));
+    el("rect", { x: L, y: T - 6, width: W - L - R, height: H - T - B + 12 }, clip);
+    const ystep = niceStep((y1 - y0) / 6);
+    for (let v = Math.ceil(y0 / ystep) * ystep; v <= y1 + 1e-9; v += ystep) {
       el("line", { x1: L, x2: W - R, y1: Y(v), y2: Y(v), stroke: "var(--rule)", "stroke-width": 1 });
-      el("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end" }).textContent = v + "%";
+      el("text", { x: L - 8, y: Y(v) + 4, "text-anchor": "end" }).textContent = num(v) + "%";
     }
-    ticks.forEach(v => { el("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }).textContent = v >= 1000 ? (v / 1000) + "k" : String(v); });
+    let ticks;
+    if (lin) { const step = niceStep((x1 - x0) / 5); ticks = []; for (let v = Math.ceil(x0 / step) * step; v <= x1 + 1e-9; v += step) ticks.push(v); }
+    else ticks = logTicks(x0, x1);
+    ticks.forEach(v => { el("text", { x: X(v), y: H - B + 18, "text-anchor": "middle" }).textContent = num(v); });
     el("text", { x: (L + W - R) / 2, y: H - 6, "text-anchor": "middle" }).textContent = `${spec.xlabel} (${lin ? "linear" : "log"} scale)`;
+    const g = el("g", { "clip-path": `url(#${clipId})` });
+    const desc = p => `${p.y.toFixed(1)}% · median ${num(p.x)} ${spec.unit}` + (p.lo ? ` (middle half ${num(p.lo)}–${num(p.hi)})` : "")
+      + (p.cov !== undefined && p.cov < 1 ? ` · ${Math.round(100 * p.cov)}% of passages` : "");
     const labels = [];
-    const hover = (x, y, text) => {
-      const hit = el("circle", { cx: x, cy: y, r: 12, fill: "transparent", tabindex: 0 });
+    const hover = (p, text) => {
+      if (!inside(p)) return;
+      const x = X(p.x), y = Y(p.y), hit = el("circle", { cx: x, cy: y, r: 12, fill: "transparent", tabindex: 0 }, g);
       const show = () => { const r = svg.getBoundingClientRect(), k = r.width / W; tip.hidden = false; tip.textContent = text;
         tip.style.left = Math.min(x * k + 12, r.width - 250) + "px"; tip.style.top = (y * k + 30) + "px"; };
       hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
       hit.addEventListener("mouseleave", () => tip.hidden = true); hit.addEventListener("blur", () => tip.hidden = true);
     };
-    function whisker(p, c) {
+    const whisker = (p, c) => {
       if (!p.lo) return;
       const y = Y(p.y), a = { stroke: c, "stroke-width": 2, opacity: 0.7 };
-      el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a });
-      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 4, y2: y + 4, ...a });
-      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 4, y2: y + 4, ...a });
+      el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a }, g);
+      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 4, y2: y + 4, ...a }, g);
+      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 4, y2: y + 4, ...a }, g);
+    };
+    const endLabel = (pts, text, c) => { const last = pts.filter(inside).pop(); if (last) labels.push({ y: Y(last.y), text, c }); };
+    const legendItem = (name, swatch) => {
+      const lab = document.createElement("label"), box_ = document.createElement("input");
+      box_.type = "checkbox"; box_.checked = on(name);
+      box_.addEventListener("change", () => { if (box_.checked) st.hidden.delete(name); else st.hidden.add(name); st.redraw(); });
+      lab.appendChild(box_); const sw = document.createElement("span"); sw.innerHTML = swatch; lab.appendChild(sw); lab.append(name); legend.appendChild(lab);
+    };
+    if (spec.ref !== undefined || (spec.refline || []).length) {
+      legendItem(refName, `<i class="dash" style="--c:var(--ref)"></i>`);
+      if (refOn && spec.ref !== undefined && spec.ref >= y0 && spec.ref <= y1) {
+        el("line", { x1: L, x2: W - R, y1: Y(spec.ref), y2: Y(spec.ref), stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 }, g);
+        labels.push({ y: Y(spec.ref), text: refName, c: "var(--ref)" });
+      }
+      if (refOn && (spec.refline || []).length) {
+        el("polyline", { points: spec.refline.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 }, g);
+        spec.refline.forEach(p => { whisker(p, "var(--ref)"); hover(p, `Names only · ${p.label}: ${desc(p)}`); });
+        endLabel(spec.refline, refName, "var(--ref)");
+      }
     }
-    if (spec.ref !== undefined) {
-      el("line", { x1: L, x2: W - R, y1: Y(spec.ref), y2: Y(spec.ref), stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 });
-      labels.push({ y: Y(spec.ref), text: "names only", c: "var(--ref)" });
-    }
-    if (spec.refline && spec.refline.length) {
-      el("polyline", { points: spec.refline.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: "var(--ref)", "stroke-dasharray": "5 4", "stroke-width": 1.5 });
-      spec.refline.forEach(p => { whisker(p, "var(--ref)"); hover(X(p.x), Y(p.y), `Names only · ${p.label}: ${desc(p)}`); });
-      const last = spec.refline[spec.refline.length - 1]; labels.push({ y: Y(last.y), text: "names only", c: "var(--ref)" });
-    }
-    spec.series.forEach((s, i) => {
-      if (!s.points.length) return;
-      const c = `var(${colors[s.color !== undefined ? s.color : i]})`;
-      el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round",
-                       ...(s.dash ? { "stroke-dasharray": "6 4" } : {}) });
-      s.points.forEach(p => { whisker(p, c); });
-      s.points.forEach(p => { el("circle", { cx: X(p.x), cy: Y(p.y), r: 4.5, fill: c, stroke: "var(--surface)", "stroke-width": 2 });
-        hover(X(p.x), Y(p.y), `${s.name} · ${p.label}: ${desc(p)}`); });
-      const last = s.points[s.points.length - 1]; labels.push({ y: Y(last.y), text: s.name, c });
-      const lg = document.createElement("span");
-      lg.innerHTML = s.dash ? `<i style="background:repeating-linear-gradient(90deg,${c} 0 5px,transparent 5px 8px)"></i>` : `<i style="background:${c}"></i>`;
-      lg.append(s.name); legend.appendChild(lg);
+    series.forEach(s => {
+      legendItem(s.name, `<i style="background:${s.c}"></i>`);
+      if (!on(s.name)) return;
+      el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: s.c, "stroke-width": 2, "stroke-linejoin": "round" }, g);
+      s.points.forEach(p => whisker(p, s.c));
+      s.points.forEach(p => { el("circle", { cx: X(p.x), cy: Y(p.y), r: 4.5, fill: s.c, stroke: "var(--surface)", "stroke-width": 2 }, g);
+        hover(p, `${s.name} · ${p.label}: ${desc(p)}`); });
+      endLabel(s.points, s.name, s.c);
     });
     (spec.singles || []).forEach(p => {
+      legendItem(p.name, `<i class="diamond"></i>`);
+      if (!on(p.name)) return;
       whisker(p, "var(--fg)");
-      el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` });
-      hover(X(p.x), Y(p.y), `${p.name}: ${desc(p)}`);
-      const t = el("text", { x: X(p.hi || p.x) + 9, y: Y(p.y) + 4, class: "lbl" }); t.textContent = p.name; t.style.fill = "var(--fg)";
+      el("rect", { x: X(p.x) - 5, y: Y(p.y) - 5, width: 10, height: 10, fill: "var(--fg)", transform: `rotate(45 ${X(p.x)} ${Y(p.y)})` }, g);
+      hover(p, `${p.name}: ${desc(p)}`);
+      const t = el("text", { x: X(p.hi || p.x) + 9, y: Y(p.y) + 4, class: "lbl" }, g); t.textContent = p.name; t.style.fill = "var(--fg)";
     });
     labels.sort((a, b) => a.y - b.y).forEach((l, i, arr) => { if (i && l.y - arr[i - 1].y < 13) l.y = arr[i - 1].y + 13; });
     labels.forEach(l => { const t = el("text", { x: W - R + 8, y: l.y + 4, class: "lbl" }); t.textContent = l.text; t.style.fill = l.c; });
+    return auto;
   }
   const XLABEL = { all: "prompt tokens (whole prompt)", rep: "representation tokens (the three characters' blocks)" };
   function view(spec, st) {
@@ -869,11 +918,28 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     });
     box.querySelector("[data-controls]").appendChild(seg);
   }
+  function boundsRow(box, st) {
+    const row = document.createElement("div"); row.className = "bounds";
+    const inputs = {};
+    [["x0", "x from"], ["x1", "to"], ["y0", "y from"], ["y1", "to"]].forEach(([k, text]) => {
+      const lab = document.createElement("label"), inp = document.createElement("input");
+      inp.type = "number"; inp.step = "any"; inp.inputMode = "decimal";
+      inp.addEventListener("change", () => { const v = parseFloat(inp.value); st.bounds[k] = Number.isFinite(v) ? v : null; st.redraw(); });
+      lab.append(text); lab.appendChild(inp); row.appendChild(lab); inputs[k] = inp;
+    });
+    const reset = document.createElement("button"); reset.type = "button"; reset.textContent = "Reset bounds";
+    reset.addEventListener("click", () => { Object.values(inputs).forEach(i => { i.value = ""; }); st.bounds = {}; st.redraw(); });
+    row.appendChild(reset);
+    box.appendChild(row);
+    return auto => Object.entries(inputs).forEach(([k, i]) => { i.placeholder = num(auto[k]); });
+  }
   function mount(id, data, options) {
     const box = document.getElementById(id), names = Object.keys(data);
     if (!names.length) { box.hidden = true; return; }
-    const st = { model: names[names.length > 1 ? 1 : 0] };
-    const redraw = () => draw(box, view(data[st.model], st));
+    const st = { model: names[names.length > 1 ? 1 : 0], hidden: new Set(), bounds: {} };
+    const setPlaceholders = boundsRow(box, st);
+    const redraw = () => setPlaceholders(draw(box, view(data[st.model], st), st));
+    st.redraw = redraw;
     segment(box, "Model", names.map(n => [n, n]), st.model, v => { st.model = v; redraw(); });
     st.scale = "log";
     segment(box, "X axis", [["log", "log x"], ["linear", "linear x"]], st.scale, v => { st.scale = v; redraw(); });
