@@ -155,3 +155,16 @@ with the entire book, reasoning on short spans and dense windows.
 - Oracle prior facts by source: 11,859 of the verbatim facts gpt-oss chose come from legacy (last 6k words), 516 from
   charmem (806 words). Weak evidence only: legacy was listed first, is 7x longer, and charmem's compound bullets are
   harder to quote verbatim.
+
+### 09:00 UTC: near-final
+
+- Short spans with thinking, now complete except name-swapped v2 on train: names only 51.3, v2 78.3 (the earlier 74.2
+  was 9 books), charmem 77.9, summary 78.3, legacy 78.7, CHIRON-style 79.4, CHIRON-style 2k 79.5, book 8k 80.6, legacy
+  full 82.1 (+3.7 over v2, 16/19 books, CI [+1.7, +5.8]); name-swapped v2 19.0 (partial). So short spans do not separate
+  the representations much more than sections do; the legacy lead is the one robust difference, as without thinking.
+- Prior-facts oracle with thinking, complete: 88.9 (v2 94.0, names only 63.7). Name-swapped version 14.1 (partial).
+- 27B sheet sections, complete: relationships only 44.9 / 46.5 (v2 / charmem), other single sections 43.2-45.7,
+  everything but relationships 55.0 / 56.3, full sheet 56.2 / 58.4.
+- Ops: sec_qwen27_test's vLLM engine hung at 05:04 (0 tokens/s, 13 running, 98 waiting) and sat for almost 4 hours
+  without failing; rerun as 7 jobs in 10 minutes. No other job was hung. scripts/final_analysis.sh regenerates every
+  analysis file and the report.

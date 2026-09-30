@@ -7,6 +7,8 @@
   python3 scripts/queue_jobs.py eval NAME MAXLEN MODEL ITEMS COND...   one eval job (MODEL: qwen4b|mistral)
   python3 scripts/queue_jobs.py final SPLIT...  every condition for the given splits (needs items/reps built)
   python3 scripts/queue_jobs.py reshard         re-split the slow thinking-on short/window shards wider
+  python3 scripts/queue_jobs.py sections SPLIT...  sheet-section ablation on the 27B, two conditions a job
+  python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender          gender-only representation on every model and set
 Lower priority number is claimed first. Job names are stamped so reruns never collide.
 """
@@ -176,6 +178,20 @@ def main():
                                   ("train", "items_train_window", "swapname:v2", 6), ("train", "items_train_window", "chiron_r2000", 4)]:
             for k in range(n):
                 addraw(f"q27think_rs_{stem[6:]}_{tag(c)}_s{k}of{n}", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", split, stem, c, k, n), 1)
+    elif what == "sections":
+        # one v2/charmem sheet section at a time, and everything but relationships (27B, thinking off), two conditions a job
+        conds = [f"{src}_{x}" for src in ("v2", "charmem") for x in ("sec_physical", "sec_dialogue", "sec_history", "sec_knowledge",
+                                                                     "sec_goals", "sec_relationships", "norel")]
+        for split in sys.argv[2:]:
+            for k in range(0, len(conds), 2):
+                addraw(f"sec27_{split}_{k // 2}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False) + [
+                    "python3", "-u", f"{REPO}/chiron/eval_mcp.py", "--split", split, "--items", f"items_{split}",
+                    "--conditions", *conds[k:k + 2], "--workers", "128", "--rotations"], 0)
+    elif what == "oracle_shards":
+        # thinking-on prior-facts oracle (and its name-swapped control) on train, 8 ways each
+        for c in ("oracle_prior", "swapname:oracle_prior"):
+            for k in range(8):
+                addraw(f"or_rs_train_{tag(c)}_s{k}of8", 1, env(CHIRON_THINKING=1) + srv("qwen27", False) + ev("eval_reason.py", "train", "items_train", c, k, 8), 1)
     elif what == "gender":
         # "Gender: female/male." as the only character information
         for split in ("test", "val", "train"):

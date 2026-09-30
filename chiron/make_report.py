@@ -67,9 +67,9 @@ FINDINGS = [
     "compete on same-gender characters, where the spread widens from {same_v2}% (v2) to {same_leg}% (full legacy). "
     "Without thinking, gender does nothing by itself: told only each character's gender, Qwen3.8-27B scores {gen27}% "
     "(names only {noinfo27}%) and Qwen3.5-9B base {gen9}% ({noinfo9}%), so the direct gains come from what the sheets say.",
-    "Short spans (about 50 words) with thinking are the setting that separates representations best: names only "
-    "{s_noinfo}%, v2 {s_v2}%, summary {s_sum}%, full legacy {s_leg}%, name-swapped v2 {s_swap}%. The ordering matches "
-    "the no-thinking results on sections. On dense windows every representation is at {w_lo} to {w_hi}%.",
+    "Short spans (about 50 words) keep thinking-on accuracy below ceiling: names only {s_noinfo}%, every representation "
+    "{s_lo} to {s_hi}%, name-swapped v2 {s_swap}%. Only the full legacy sheet is clearly ahead of v2 ({s_legd} "
+    "points, better in {s_legpos} books), matching its lead on sections without thinking; on dense windows every representation is at {w_lo} to {w_hi}%.",
     "Better notes shorten the reasoning. With thinking on, the median reasoning on sections is {eff_noi}k characters with "
     "names only, {eff_v2}k with v2 and {eff_leg}k with the full legacy sheet; on dense windows, where every representation "
     "is at ceiling, v2 still needs {effw_v2}k against {effw_leg}k for legacy.",
@@ -322,8 +322,12 @@ def main():
         noinfo9=pct(macro("main", "Qwen3.5-9B-Base", "noinfo")),
         g_uni=f"{100 * gender[qt + '|noinfo']['unique']['acc']:.0f}", g_same=f"{100 * gender[qt + '|noinfo']['all same']['acc']:.0f}",
         same_v2=f"{100 * gender[qt + '|v2']['all same']['acc']:.0f}", same_leg=f"{100 * gender[qt + '|legacy_full']['all same']['acc']:.0f}",
-        s_noinfo=pct(macro("short", qt, "noinfo")), s_v2=pct(macro("short", qt, "v2")), s_sum=pct(macro("short", qt, "summary")),
-        s_leg=pct(macro("short", qt, "legacy_full")), s_swap=pct(macro("short", qt, "swapname_v2")),
+        s_noinfo=pct(macro("short", qt, "noinfo")),
+        s_swap=pct(macro("short", qt, "swapname_v2")),
+        s_lo=f"{100 * min(macro('short', qt, c) or 1 for c in REASON_ROWS[1:-1]):.0f}",
+        s_hi=f"{100 * max(macro('short', qt, c) or 0 for c in REASON_ROWS[1:-1]):.0f}",
+        s_legd=f"{100 * get('short', qt, 'legacy_full')['vs_v2']['mean']:+.1f}",
+        s_legpos=f"{get('short', qt, 'legacy_full')['vs_v2']['pos']}/{get('short', qt, 'legacy_full')['vs_v2']['n']}",
         w_lo=f"{100 * min(macro('window', qt, c) or 1 for c in REASON_ROWS[1:-1]):.0f}",
         w_hi=f"{100 * max(macro('window', qt, c) or 0 for c in REASON_ROWS[1:-1]):.0f}",
         rel9=pct(macro("main", "Qwen3.5-9B-Base", "v2_sec_relationships")), v29=pct(macro("main", "Qwen3.5-9B-Base", "v2")),
@@ -478,7 +482,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 
   <section aria-labelledby="rsn">
     <h2 id="rsn">Reasoning on short spans and dense windows</h2>
-    <p class="muted">Qwen3.8-27B with thinking on. Sections are near ceiling with any representation; about 50 words are not, and there the representations separate. Dense windows (about 900 words) are at ceiling. Short spans: {{N_SHORT}} passages, macro over the 19 books with at least 10; windows: 13 books with at least 5.</p>
+    <p class="muted">Qwen3.8-27B with thinking on. Sections are near ceiling with any representation; about 50 words are not, and there the full legacy sheet leads again, with the others within about two points of v2. Dense windows (about 900 words) are at ceiling. Short spans: {{N_SHORT}} passages, macro over the 19 books with at least 10; windows: 13 books with at least 5.</p>
     <div class="table-wrap"><table>{{REASON_TABLE}}</table></div>
   </section>
 
@@ -559,7 +563,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       <dt>Representations</dt><dd>All built from chapters before the passage's chapter. CHIRON-style: CHIRON's 8 questions answered per 300-word snippet by gpt-oss-120b, claims kept only at rating 5 on the paper's 1–5 entailment scale, grouped by category and deduplicated. Summary: gpt-oss rolling summary condensed to about 700 words. Legacy: the Llama-3.3-70B sheets from the original NCP archive.</dd>
       <dt>Scoring</dt><dd>Without thinking: next-token probabilities of the id digits at temperature 0 (Qwen3-4B over all 6 block orders, Qwen3.8-27B over 3 rotations; Mistral's reply is pre-started with "[CHAR "). With thinking: one generation per passage and rotation (temperature 0.6, up to 32k tokens) ending in a JSON mapping; an unreadable answer counts as wrong.</dd>
       <dt>Memorization</dt><dd>Temperature-0 continuations of the four test books reproduced no 13-word sequence (longest verbatim run 5 words).</dd>
-      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. Reasoning results are partial until every shard finishes.</dd>
+      <dt>Caveats</dt><dd>21 books carry the statistics and ten of them hold most passages. The passage sets cover different books (short spans 19, dense windows 13 with at least 5 passages). With thinking on, sections are near ceiling, which compresses differences between representations. Still running when this version was made (partial rows): thinking-on name-swapped v2 on short spans, the thinking-on name-swapped oracle, and thinking-on gender only.</dd>
     </dl>
   </section>
 </main>

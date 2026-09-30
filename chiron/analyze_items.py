@@ -13,7 +13,7 @@ import itertools
 import json
 import statistics as st
 
-from common import OUT, write_json
+from common import OUT, read_jsonl, write_json
 
 CONDS = ["v2", "charmem", "chiron", "summary", "legacy", "legacy_full", "book_last8000"]
 
@@ -28,8 +28,7 @@ def main():
         for f in glob.glob(str(OUT / "eval" / args.model / "items_*" / f"{c}.*jsonl")) + glob.glob(str(OUT / "eval" / args.model / "items_*" / f"{c}.jsonl")):
             if not any(f"/items_{s}/" in f for s in ("test", "val", "train")):
                 continue
-            for line in open(f):
-                r = json.loads(line)
+            for r in read_jsonl(f):
                 lp = r["logprobs"]
                 tmp[(r["item_id"], r["target"])].append(int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"])))
         for k, v in tmp.items():

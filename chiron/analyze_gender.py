@@ -8,7 +8,6 @@ Writes outputs/analysis_gender.json.
 """
 import collections
 import glob
-import json
 
 from common import DATA, OUT, genders, read_jsonl, write_json
 
@@ -36,8 +35,7 @@ def main():
             for f in glob.glob(str(OUT / "eval" / model / f"items_*{suf}" / f"{c}.*jsonl")) + glob.glob(str(OUT / "eval" / model / f"items_*{suf}" / f"{c}.jsonl")):
                 if f.endswith(".errors.jsonl") or not any(f"/items_{s}{suf}/" in f for s in ("test", "val", "train")):
                     continue
-                for line in open(f):
-                    r = json.loads(line)
+                for r in read_jsonl(f):
                     lp = r["logprobs"]
                     tmp[(r["item_id"], r["target"])].append(int(not r.get("invalid") and max(lp, key=lp.get) == str(r["answer"])))
             by = collections.defaultdict(list)
