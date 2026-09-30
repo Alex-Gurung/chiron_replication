@@ -14,6 +14,9 @@
   python3 scripts/queue_jobs.py sweep_think     the representation-length sweep with thinking on
   python3 scripts/queue_jobs.py chapnotes       the Llama CHIRON notes redone with gpt-oss (per chapter)
   python3 scripts/queue_jobs.py chapnotes_eval|plot_eval   evaluate the gpt-oss chapter notes / plot summaries, every model
+  python3 scripts/queue_jobs.py narrator        who narrates each chapter in the first person (gpt-oss)
+  python3 scripts/queue_jobs.py headings_gen    every gpt-oss representation again, with chapter headings and narrators
+  python3 scripts/queue_jobs.py headings_eval   evaluate the with-headings representations on every model
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
@@ -21,6 +24,7 @@
 Lower priority number is claimed first. Job names are stamped so reruns never collide.
 """
 import json
+import os
 import sys
 import time
 
@@ -261,6 +265,43 @@ def main():
                 addraw(f"{what}_{split}_q27think_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 1)
             addraw(f"{what}_{split}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), 0)
             addraw(f"{what}_{split}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), 0)
+    elif what == "narrator":
+        # who narrates each chapter (for the chapter-heading/narrator hints), 4 book groups on 1 GPU each
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(4):
+            addraw(f"narrator_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
+                                       "--", "python3", "-u", f"{REPO}/chiron/gen_narrator.py", "--books", *books[k::4], "--workers", "64"], -1)
+    elif what == "headings_gen":
+        # regenerate every gpt-oss representation with chapter headings and narrator hints, after the narrator jobs
+        deps = sorted(f[:-5] for d in ("queued", "running", "done") for f in os.listdir(f"{q.QDIR}/{d}") if f.startswith("chiron_narrator_"))
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        oss = lambda n: ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", str(n), "--"]
+        def dep(name, gpus, cmd, prio):
+            ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane="chiron", priority=prio, deps=deps)
+            print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
+        for k in range(8):
+            g = books[k::8]
+            dep(f"h_chapnotes_{k}", 1, oss(65536) + ["python3", "-u", f"{REPO}/chiron/gen_chapnotes.py", "--books", *g, "--workers", "64", "--headings"], 0)
+            dep(f"h_summary_{k}", 1, oss(40960) + ["python3", "-u", f"{REPO}/chiron/gen_summary.py", "--books", *g, "--tag", f"h{k}", "--headings"], 0)
+        for k in range(6):
+            g = books[k::6]
+            dep(f"h_plot_global_{k}", 2, oss(131072) + ["python3", "-u", f"{REPO}/chiron/gen_plot.py", "global", "--books", *g, "--workers", str(len(g)), "--headings"], 1)
+            dep(f"h_plot_hier_{k}", 1, oss(65536) + ["python3", "-u", f"{REPO}/chiron/gen_plot.py", "hier", "--books", *g, "--workers", str(len(g)), "--headings"], 1)
+        for k in range(24):
+            dep(f"h_claims_{k:02d}", 1, oss(32768) + ["python3", "-u", *gen_client(books, k, 24, "--workers", "48", "--headings")], 2)
+    elif what == "headings_eval":
+        # evaluate the with-headings representations on every model (long ones at 262k)
+        groups = [(["chapnotes_h", "chiron_h"], True),
+                  (["summary_h", "chiron_h_r2000"] + [f"plot_h_{k}_{n}" for k in ("global", "hier") for n in (500, 1000, 2000, 4000)], False)]
+        for split in ("test", "val", "train"):
+            n = 4 if split == "train" else 1
+            for conds, lng in groups:
+                t = f"heval_{split}_{'long' if lng else 'short'}"
+                for k in range(n):
+                    addraw(f"{t}_q27_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, k, n, ["--rotations"]), 0)
+                    addraw(f"{t}_q27think_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 1)
+                addraw(f"{t}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), 0)
+                addraw(f"{t}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), 0)
     elif what == "plot":
         # plot summaries with gpt-oss (one pass at 131k context on 2 GPUs; chapter-by-chapter at 65k on 1 GPU)
         books = sorted({b for s in ("test", "val", "train") for b in (json.loads(l)["book"] for l in open(f"{REPO}/data/items_{s}.jsonl"))})

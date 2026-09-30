@@ -20,7 +20,7 @@ MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.5-9B-Base", "Qwen3.5-9
 CHART_MODELS = [("Qwen3-4B-Instruct-2507", "Qwen3-4B"), ("Qwen3.8-27B_nothink", "Qwen3.8-27B"), ("Qwen3.8-27B_think", "Qwen3.8-27B, thinking")]
 LABEL = {
     "noinfo": "Names only", "gender": "Gender only (\"Gender: female.\")", "v2": "v2 sheet (current dataset)", "legacy": "Llama CHIRON notes, summarized",
-    "legacy_full": "Llama CHIRON notes, full", "chapnotes": "gpt-oss chapter notes (the Llama notes redone)", "summary": "gpt-oss summary",
+    "legacy_full": "Llama CHIRON notes, full", "chapnotes": "gpt-oss chapter notes (the Llama notes redone)", "summary": "Character summaries (gpt-oss, one per character)",
     "chiron": "gpt-oss CHIRON claims, full", "chiron_r2000": "gpt-oss CHIRON claims, last 2,000 words",
     "charmem": "Charmem sheet (gpt-oss rebuild of v2)", "book_last8000": "Book text, last 8,000 words",
     "book_last32000": "Book text, last 32,000 words", "book": "Book text, everything so far",
@@ -32,6 +32,9 @@ LABEL = {
     "book_ch1": "Book text, previous chapter", "book_ch2": "Book text, last 2 chapters", "book_ch4": "Book text, last 4 chapters",
     "book_ch8": "Book text, last 8 chapters", "book_prefix": "Book text, this chapter up to the passage",
     "book_ch1p": "Book text, previous chapter + this chapter up to the passage",
+    "summary_h": "Character summaries, with chapter headings", "chapnotes_h": "gpt-oss chapter notes, with chapter headings",
+    "chiron_h": "gpt-oss CHIRON claims, with chapter headings", "chiron_h_r2000": "gpt-oss CHIRON claims with headings, last 2,000 words",
+    **{f"plot_h_{k}_{n}": f"Plot summary with headings, {v}, about {n:,} words" for k, v in (("global", "one pass"), ("hier", "chapter by chapter")) for n in (500, 1000, 2000, 4000)},
     **{f"plot_{k}_{n}": f"Plot summary, {v}, about {n:,} words" for k, v in (("global", "one pass"), ("hier", "chapter by chapter")) for n in (500, 1000, 2000, 4000)},
     **{f"plot_{k}_4000@last{n}": f"Plot summary, {v}, last {n:,} of 4,000 words" for k, v in (("global", "one pass"), ("hier", "chapter by chapter")) for n in (500, 1000, 2000)},
     "oracle_quote": "Oracle: the passage's own sentences, names left in", "manual_passage": "Hand-written: clues from the passage",
@@ -62,7 +65,7 @@ CONTROL_ROWS = ["v2", "swap_v2", "swapname_v2", "chiron", "swap_chiron", "swapna
 LENGTH_FAMILIES = [("gpt-oss claims", ["chiron_r250", "chiron_r500", "chiron_r1000", "chiron_r2000", "chiron_r4000", "chiron"]),
                    ("v2 sheet", ["v2@100", "v2@250", "v2@500", "v2"]),
                    ("Llama notes, summarized", ["legacy@100", "legacy@250", "legacy"]),
-                   ("Summary", ["summary@100", "summary@250", "summary@500", "summary"]),
+                   ("Character summaries", ["summary@100", "summary@250", "summary@500", "summary"]),
                    ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"]),
                    ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"])]
 FAMILY_STYLE = {}
@@ -76,7 +79,7 @@ PLOT_ROWS = ["noinfo", "summary", "plot_global_500", "plot_global_1000", "plot_g
              "plot_hier_1000", "plot_hier_2000", "plot_hier_4000", "plot_global_4000@last1000", "plot_hier_4000@last1000", "book_last8000"]
 BOOKCH_ROWS = ["noinfo", "book_prefix", "book_ch1", "book_ch1p", "book_ch2", "book_ch4", "book_ch8", "book", "book_last8000", "legacy_full"]
 PASSAGE_SERIES = [("v2 sheet", "v2"), ("Charmem", "charmem"), ("gpt-oss claims", "chiron"),
-                  ("Summary", "summary"), ("Llama notes", "legacy_full"), ("Book, last 8k", "book_last8000")]
+                  ("Character summaries", "summary"), ("Llama notes", "legacy_full"), ("Book, last 8k", "book_last8000")]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
     "Scoring changes the thinking-off results. Asked about one character at a time, Qwen3.8-27B without thinking almost "
@@ -277,7 +280,7 @@ def main():
         cols = [("Qwen3.5-9B-Base|none", "9B base, notes only"), ("Qwen3.5-9B-Base|story", "9B base, notes + story"),
                 ("Qwen3.8-27B_chat|none", "27B chat, notes only"), ("Qwen3.8-27B_chat|story", "27B chat, notes + story")]
         reps = ["v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "legacy_full"]
-        names = {"v2": "v2 sheet", "charmem": "Charmem sheet", "summary": "Summary", "legacy": "Llama notes, summarized",
+        names = {"v2": "v2 sheet", "charmem": "Charmem sheet", "summary": "Character summaries", "legacy": "Llama notes, summarized",
                  "chiron_r2000": "gpt-oss claims, 2,000 words", "chiron": "gpt-oss claims, full", "legacy_full": "Llama notes, full"}
         def cell(k, r):
             v = ppl.get(k, {}).get(r)

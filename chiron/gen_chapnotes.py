@@ -3,7 +3,8 @@ with the whole chapter as the story section, as short prose sentences, unfiltere
 Llama-3.3-70B notes, so the two differ only in the model. (The gpt-oss CHIRON claims in gen_chiron.py instead answer
 per 300-word snippet, split answers into single claims and keep only entailed ones.)
 
-  python3 chiron/gen_chapnotes.py --books B... [--workers 64]
+  python3 chiron/gen_chapnotes.py --books B... [--workers 64] [--headings]
+With --headings each chapter is prefixed with its heading and, when first person, who "I" is (-> outputs/chapnotes_h).
 Covers every chapter before the last boundary a book's passages need. Output: outputs/chapnotes/<book>.jsonl, one
 record per (chapter, label) with an answer per question ("" when the chapter says nothing). Resumable.
 """
@@ -12,10 +13,10 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 
 import llm
-from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_jsonl
+from common import DATA, OUT, append_jsonl, chapter_context, clean_text, load_chapters, load_narrators, read_jsonl
 from gen_chiron import QUESTIONS, ROLE
 
-ROOT = OUT / "chapnotes"
+ROOT = OUT / "chapnotes"                         # --headings: OUT / "chapnotes_h"
 
 
 def messages(chapter, name):
@@ -42,8 +43,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--workers", type=int, default=64)
+    ap.add_argument("--headings", action="store_true", help="prefix each chapter with its heading and who narrates it")
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
+    global ROOT
+    ROOT = OUT / "chapnotes_h" if args.headings else ROOT
+    narrators = load_narrators() if args.headings else {}
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
     last = {}
@@ -62,7 +67,9 @@ def main():
         book, ch, l = job
         name = principals[book]["gen_names"][l][ch["chapter_index"]]
         try:
-            ans, meta = llm.ask(messages(clean_text(ch["chapter_text_normalized"]), name), check, max_tokens=12000)
+            ctx = chapter_context(ch, narrators) if args.headings else ""
+            text = clean_text(ch["chapter_text_normalized"])
+            ans, meta = llm.ask(messages(f"{ctx}\n\n{text}" if ctx else text, name), check, max_tokens=12000)
         except ValueError as e:
             print("FAILED", book, ch["chapter_index"], l, str(e)[:200], flush=True)
             return

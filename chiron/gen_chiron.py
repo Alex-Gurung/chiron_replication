@@ -3,7 +3,8 @@
 For every (snippet, principal): one call answers CHIRON's 8 questions as lists of single-claim
 sentences (generation + simplification) and says whether the character is present; one call then
 rates every claim on the paper's 1-5 entailment scale against the snippet. Sheets keep rating 5.
-Output: outputs/chiron/shards/<shard>.jsonl, one record per (snippet, principal); resumable.
+Output: outputs/chiron/shards/<shard>.jsonl, one record per (snippet, principal); resumable. With --headings both calls
+also see the snippet's chapter heading and, when first person, who "I" is (-> outputs/chiron_h/shards).
 """
 import argparse
 import json
@@ -11,7 +12,7 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from common import DATA, OUT, append_jsonl, read_jsonl
+from common import DATA, OUT, append_jsonl, chapter_context, load_chapters, load_narrators, read_jsonl
 import llm
 
 QUESTIONS = {
@@ -28,12 +29,12 @@ ROLE = ("You are a helpful and expert writing assistant. You will be given a sec
         "Please answer the following questions about the character learned in this story section.")
 
 
-def gen_messages(snippet, name):
+def gen_messages(snippet, name, ctx=""):
     qs = "\n".join(f"- {k}: {q}" for k, (_, q) in QUESTIONS.items())
     schema = ", ".join(f'"{k}": ["..."]' for k in QUESTIONS)
     return [{"role": "system", "content": ROLE},
             {"role": "user", "content": (
-                f"Story Section:\n{snippet}\n\nCharacter: {name}\n\n"
+                (f"{ctx}\n\n" if ctx else "") + f"Story Section:\n{snippet}\n\nCharacter: {name}\n\n"
                 f"First decide whether {name} appears in, or is directly referred to in, this story section. "
                 f"Then answer each question about {name} based only on this story section. Answer with short, "
                 "simple sentences with no dependent clauses or transition words; each sentence must state a single "
@@ -55,11 +56,11 @@ def check_gen(p):
     return p
 
 
-def rate_messages(snippet, name, claims):
+def rate_messages(snippet, name, claims, ctx=""):
     listing = "\n".join(f"{i}. {c}" for i, c in enumerate(claims))
     return [{"role": "system", "content": "You verify statements about story characters against a story section."},
             {"role": "user", "content": (
-                f"Story Section:\n{snippet}\n\nCharacter: {name}\n\nStatements:\n{listing}\n\n"
+                (f"{ctx}\n\n" if ctx else "") + f"Story Section:\n{snippet}\n\nCharacter: {name}\n\nStatements:\n{listing}\n\n"
                 "Rate each statement by whether it is entailed by the story section alone, using this scale:\n"
                 "1 = entirely unsupported by the snippet\n2 = largely contradicted by the snippet\n"
                 "3 = ambiguous in its relationship with the snippet, including statements too vague to verify, "
@@ -85,12 +86,12 @@ def check_rate(n):
     return f
 
 
-def process(snip, label, name):
-    gen, m1 = llm.ask(gen_messages(snip["text"], name), check_gen, max_tokens=8000)
+def process(snip, label, name, ctx=""):
+    gen, m1 = llm.ask(gen_messages(snip["text"], name, ctx), check_gen, max_tokens=8000)
     claims = [(k, c) for k in QUESTIONS for c in gen["answers"][k]]
     ratings, m2 = [], {}
     if claims:
-        ratings, m2 = llm.ask(rate_messages(snip["text"], name, [c for _, c in claims]), check_rate(len(claims)),
+        ratings, m2 = llm.ask(rate_messages(snip["text"], name, [c for _, c in claims], ctx), check_rate(len(claims)),
                               max_tokens=8000)
     return {"item_id": f"{snip['snippet_id']}::{label}", "snippet_id": snip["snippet_id"], "book": snip["book"],
             "chapter_index": snip["chapter_index"], "idx": snip["idx"], "label": label, "name": name,
@@ -107,13 +108,22 @@ def main():
     ap.add_argument("--nshards", type=int, default=1)
     ap.add_argument("--workers", type=int, default=128)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--headings", action="store_true", help="tell the model each snippet's chapter heading and narrator")
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
     principals = json.load(open(DATA / "principals.json"))
     snips = [s for s in read_jsonl(DATA / "snippets.jsonl") if s["book"] in args.books]
+    if args.headings:                                     # only chapters some passage's representation needs
+        last = {}
+        for sp in ("test", "val", "train"):
+            for it in read_jsonl(DATA / f"items_{sp}.jsonl"):
+                last[it["book"]] = max(last.get(it["book"], 0), it["chapter_index"])
+        snips = [s for s in snips if s["chapter_index"] < last.get(s["book"], 0)]
     snips = snips[args.shard::args.nshards]
     tag = f"{'-'.join(args.books) if len(args.books) <= 4 else f'{len(args.books)}books'}_{args.shard:03d}of{args.nshards:03d}"
-    out = OUT / "chiron" / "shards" / f"{tag}.jsonl"
+    out = OUT / ("chiron_h" if args.headings else "chiron") / "shards" / f"{tag}.jsonl"
+    chapters = {(c["book_id"], c["chapter_index"]): c for b, cs in load_chapters().items() for c in cs} if args.headings else {}
+    narrators = load_narrators() if args.headings else {}
     done = {r["item_id"] for r in read_jsonl(out)}
     items = [(s, l) for s in snips for l in principals[s["book"]]["labels"] if f"{s['snippet_id']}::{l}" not in done]
     if args.limit:
@@ -125,7 +135,7 @@ def main():
         s, l = item
         name = principals[s["book"]]["gen_names"][l][s["chapter_index"]]
         try:
-            rec = process(s, l, name)
+            rec = process(s, l, name, chapter_context(chapters[(s["book"], s["chapter_index"])], narrators) if args.headings else "")
             with lock:
                 append_jsonl(out, rec)
                 counts["ok"] += 1

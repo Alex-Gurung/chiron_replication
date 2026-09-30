@@ -9,6 +9,7 @@ One record per (condition, book, boundary, label); every source is built from ch
   chiron_<cat>   one category only (for the per-category "Agreed" setting)
   charmem        finished Sep 8 gpt-oss rebuild sheet (ncp_charmem_gptoss120b_reviewed_20260908/sheets)
   chapnotes      gpt-oss chapter notes (gen_chapnotes.py): the Llama notes' layout and questions, redone with gpt-oss
+  *_h            summary_h, chapnotes_h, chiron_h(_r2000): the same, generated with chapter headings and narrator hints
   gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
 Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
 """
@@ -47,10 +48,11 @@ def dedup(statements, threshold=0.9):
     return [statements[i] for i in keep]
 
 
-def chiron_sheets(keys):
-    """keys: set of (book, boundary, label). Statements come from snippets of chapters < boundary, in book order."""
+def chiron_sheets(keys, root="chiron"):
+    """keys: set of (book, boundary, label). Statements come from snippets of chapters < boundary, in book order.
+    root "chiron_h": the run that saw each snippet's chapter heading and narrator."""
     by = collections.defaultdict(list)
-    for f in glob.glob(str(OUT / "chiron" / "shards" / "*.jsonl")):
+    for f in glob.glob(str(OUT / root / "shards" / "*.jsonl")):
         if f.endswith(".errors.jsonl"):
             continue
         for r in read_jsonl(f):
@@ -170,14 +172,19 @@ def main():
             for name, want in (("legacy_inter", True), ("legacy_nointer", False)):
                 add(name, book, b, l, legacy_render(full[k], lambda c: True, clean=True,
                                                     keep_sentence=lambda x, want=want: names_other(book, l, x) == want))
-    summ = {}
-    for f in glob.glob(str(OUT / "summary_v2" / "*.jsonl")):       # v1 (outputs/summary) grew past the cap; superseded
-        if f.endswith(".errors.jsonl"):
-            continue
-        for r in read_jsonl(f):
-            summ[(r["book"], r["boundary"], r["label"])] = r["summary"]
-    for k in keys:
-        add("summary", *k, summ.get(k))
+    for cond, root in (("summary", "summary_v2"), ("summary_h", "summary_h")):   # v1 (outputs/summary) grew past the cap
+        summ = {}
+        for f in glob.glob(str(OUT / root / "*.jsonl")):
+            if f.endswith(".errors.jsonl"):
+                continue
+            for r in read_jsonl(f):
+                summ[(r["book"], r["boundary"], r["label"])] = r["summary"]
+        for k in keys:
+            add(cond, *k, summ.get(k))
+    if glob.glob(str(OUT / "chiron_h" / "shards" / "*.jsonl")):
+        for k, rows in chiron_sheets(keys, "chiron_h").items():
+            add("chiron_h", *k, render(rows))
+            add("chiron_h_r2000", *k, render(budget(rows, 2000)))
     for k, rows in chiron_sheets(keys).items():
         add("chiron", *k, render(rows))
         add("chiron_inter", *k, render([r for r in rows if names_other(k[0], k[2], r[1])]))       # statements naming another principal
@@ -189,21 +196,22 @@ def main():
             add("chiron_" + cat.split("/")[0].lower(), *k, render(rows, cat))
         for words in (250, 500, 1000, 2000, 4000):
             add(f"chiron_r{words}", *k, render(budget(rows, words)))
-    notes = collections.defaultdict(dict)                     # gpt-oss chapter notes, laid out like the Llama notes
-    for f in glob.glob(str(OUT / "chapnotes" / "*.jsonl")):
-        for r in read_jsonl(f):
-            notes[(r["book"], r["label"])][r["chapter_index"]] = r["answers"]
-    for book, b, l in keys:
-        chs = sorted(c for c in notes.get((book, l), {}) if c < b)
-        if chs and len(chs) == b:                                 # every earlier chapter present
-            parts = []
-            for head, qs in CHAPNOTE_LAYOUT:
-                parts.append(f"## {head}")
-                for q in qs:
-                    body = "\n".join(f"<snippet {c}>\n{notes[(book, l)][c][q]}" for c in chs if notes[(book, l)][c][q])
-                    if body:
-                        parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
-            add("chapnotes", book, b, l, "\n\n".join(parts))
+    for cond, root in (("chapnotes", "chapnotes"), ("chapnotes_h", "chapnotes_h")):   # gpt-oss chapter notes, Llama layout
+        notes = collections.defaultdict(dict)
+        for f in glob.glob(str(OUT / root / "*.jsonl")):
+            for r in read_jsonl(f):
+                notes[(r["book"], r["label"])][r["chapter_index"]] = r["answers"]
+        for book, b, l in keys:
+            chs = sorted(c for c in notes.get((book, l), {}) if c < b)
+            if chs and len(chs) == b:                             # every earlier chapter present
+                parts = []
+                for head, qs in CHAPNOTE_LAYOUT:
+                    parts.append(f"## {head}")
+                    for q in qs:
+                        body = "\n".join(f"<snippet {c}>\n{notes[(book, l)][c][q]}" for c in chs if notes[(book, l)][c][q])
+                        if body:
+                            parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
+                add(cond, book, b, l, "\n\n".join(parts))
     for book, b, l in keys:
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():

@@ -160,3 +160,38 @@ def joint_correct(d):
     ts = list(d)
     best = max(itertools.permutations(range(len(ts))), key=lambda p: sum(d[t][0].get(str(i), -1e9) for t, i in zip(ts, p)))
     return {t: int(i == d[t][1]) for t, i in zip(ts, best)}
+
+
+NARRATOR = OUT / "narrator"          # gen_narrator.py: who says "I", per (book, chapter)
+
+
+def load_narrators():
+    """(book, chapter_index) -> the first-person narrator's name, or None. Chapters whose narrator the model could not
+    name inherit the book's narrator when one name covers at least 80% of the named first-person chapters."""
+    got, first = {}, {}
+    for f in NARRATOR.glob("*.jsonl"):
+        for r in read_jsonl(f):
+            got[(r["book"], r["chapter_index"])] = r["narrator"] or None
+            first[(r["book"], r["chapter_index"])] = r["first_person"]
+    per_book = collections.defaultdict(collections.Counter)
+    for (b, c), n in got.items():
+        if n:
+            per_book[b][n] += 1
+    for (b, c), n in list(got.items()):
+        if first[(b, c)] and not n and per_book[b]:
+            name, k = per_book[b].most_common(1)[0]
+            if k >= 0.8 * sum(per_book[b].values()):
+                got[(b, c)] = name
+    return got
+
+
+def chapter_context(ch, narrators):
+    """What every gpt-oss generator reading chapter ch is told besides its text: the chapter heading, and who "I" is."""
+    parts = []
+    head = " ".join((ch.get("chapter_header") or "").split())
+    if head:
+        parts.append(f"Chapter heading: {head}")
+    n = narrators.get((ch["book_id"], ch["chapter_index"]))
+    if n:
+        parts.append(f'This chapter is narrated in the first person by {n}: "I" and "me" refer to {n}.')
+    return "\n".join(parts)

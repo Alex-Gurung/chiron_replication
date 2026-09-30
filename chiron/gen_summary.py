@@ -5,7 +5,8 @@ S_b, built from chapters < b only. Books exceed gpt-oss's 131k context, hence ro
 whole-book prompts. Each update is asked to stay near LIMIT words by condensing older details; if it
 still exceeds CAP, one compression call condenses it to LIMIT (the "update, then compress" rule applies
 to every step, so chains are consistent). Chains run in parallel; each chain is sequential. Resumable.
-Output: outputs/summary_v2/<tag>.jsonl, one record per (book, label, boundary).
+Output: outputs/summary_v2/<tag>.jsonl, one record per (book, label, boundary). With --headings each chapter is prefixed
+with its heading and, when first person, who "I" is (-> outputs/summary_h).
 """
 import argparse
 import json
@@ -13,7 +14,7 @@ import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_jsonl
+from common import DATA, OUT, append_jsonl, chapter_context, clean_text, load_chapters, load_narrators, read_jsonl
 import llm
 
 ASPECTS = ("Include aspects of the character like how they speak, what they look like, their personality, "
@@ -80,8 +81,12 @@ def main():
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--tag", required=True)
     ap.add_argument("--upto", type=int, default=0, help="stop each chain at this boundary (smoke tests)")
+    ap.add_argument("--headings", action="store_true", help="prefix each chapter with its heading and who narrates it")
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
+    global ROOT
+    ROOT = OUT / "summary_h" if args.headings else ROOT
+    narrators = load_narrators() if args.headings else {}
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
     out = ROOT / f"{args.tag}.jsonl"
@@ -103,6 +108,8 @@ def main():
                 continue
             name = principals[book]["gen_names"][label][c]
             text = clean_text(chs[c]["chapter_text_normalized"])
+            ctx = chapter_context(chs[c], narrators) if args.headings else ""
+            text = f"{ctx}\n\n{text}" if ctx else text
             try:
                 summ, meta = llm.ask(messages(name, prev, text), cap(4000), max_tokens=12000, as_json=False)
                 compressed = len(summ.split()) if len(summ.split()) > CAP else None
