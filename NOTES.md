@@ -379,3 +379,7 @@ with the entire book, reasoning on short spans and dense windows.
 - Ops: 2-GPU jobs were starving (freed GPUs return one at a time and 1-GPU jobs take them). scripts/free_pairs.py holds
   queued 1-GPU jobs, stops running 1-GPU thinking jobs two per worker, lets the 2-GPU jobs claim the pairs, then
   requeues/releases. Long thinking jobs raised to priority -2 so a freed pair goes to them.
+- 21:50 final long-context 27B (thinking off): full Llama notes + last 1,000 words 83.6 at 60k; + synopses + last 2
+  chapters 83.8 at 72k; filtered gpt-oss notes + Story Information 82.3 at 53k (the partial 83.3 settled down), + last
+  1,000 words 80.3 at 42k. The Llama notes cut to 3k words in the package (82.9 at 28k) gets within a point at 40% of
+  the tokens.
