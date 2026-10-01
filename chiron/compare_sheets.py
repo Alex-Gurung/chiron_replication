@@ -25,7 +25,7 @@ args = ap.parse_args()
 d = json.load(open(OUT / f"analysis_main_{args.model}.json"))
 rows, pbj = d["rows"], d["per_book_joint"]
 suf = "+pre" if args.pre else ""
-conds = list(dict.fromkeys(c + suf for c in REF + sorted(c for c in rows if (c.startswith(("sheet_", "si-")) or "&si-" in c) and "+pre" not in c)
+conds = list(dict.fromkeys(c + suf for c in REF + sorted(c for c in rows if (c.startswith(("sheet_", "si-")) or "&" in c) and "+pre" not in c)
                            if c + suf in rows))
 acc = {c: rows[c]["joint"]["macro"] for c in conds}
 tok = {c: rows[c]["mean_tokens"] for c in conds}

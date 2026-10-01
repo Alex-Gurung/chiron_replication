@@ -366,3 +366,9 @@ with the entire book, reasoning on short spans and dense windows.
 - Story Information grid on the smaller models: 9B base 63-67 (best Llama summary + synopses + last 2 chapters 67.1 at
   15.4k, the same as Llama summary + last 1,000 words alone, 67.0 at 4.0k); 4B 43-45, all below charmem + last 1,000
   words (49.1): long context and plot summaries hurt the 4B.
+- Richer notes in the package (27B thinking off): Llama notes cut to 3k words + synopses + last 2 chapters 82.9 at
+  27.7k (best non-oracle without the chapter so far; Llama full alone 80.3 at 59k); Llama last 3,000 words + same 82.2;
+  gpt-oss chapter notes + same 82.1 at 28.5k; best one-call sheet + same 79.7. With only the last 1,000 words: Llama
+  3k cut 81.7 at 16.3k (synopses on top: 81.2), gpt-oss chapter notes 79.1 at 17.2k, best one-call sheet 78.2 at
+  7.7k, Llama last 3,000 words 77.2. Full Llama notes / filtered gpt-oss notes in the package still running.
+  Queued: chapter-so-far and thinking (262k) for the Llama-3k-cut and gpt-oss-chapter-notes combinations.
