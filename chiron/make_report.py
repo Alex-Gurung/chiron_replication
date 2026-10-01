@@ -147,6 +147,27 @@ NEW_ROWS = [
         ("ncp_next", "Oracle: synopsis of the passage's own chapter", "NCP's writing target; it describes the passage's chapter"),
         ("v2&ncp_next", "Oracle: sheets + that synopsis", ""),
         ("v2&ncp_storynext", "Oracle: everything + that synopsis", "")]),
+    ("Story Information from other parts (sheet + plot summary + recent text)", [
+        ("v2&ncp_story", "v2 + synopses + last 2 chapters (the dataset's own)", ""),
+        ("charmem&ncp_story", "charmem + synopses + last 2 chapters", ""),
+        ("summary&si-ncp-ch2", "gpt-oss character summaries + synopses + last 2 chapters", ""),
+        ("legacy&si-ncp-ch2", "Llama summary + synopses + last 2 chapters", ""),
+        ("sheet_legsum_ent_500_flat&si-ncp-ch2", "gpt-oss Llama-style summary (~500 words) + synopses + last 2 chapters", ""),
+        ("charmem&book_ch2", "charmem + last 2 chapters (no plot)", ""),
+        ("v2&si-plot_global_1000-ch2", "v2 + gpt-oss plot summary (~1,000 words) + last 2 chapters", ""),
+        ("v2&si-plot_hier_4000-ch2", "v2 + gpt-oss plot summary (~4,000 words) + last 2 chapters", ""),
+        ("charmem&si-plot_global_1000-ch2", "charmem + gpt-oss plot summary (~1,000) + last 2 chapters", ""),
+        ("charmem&si-plot_hier_4000-ch2", "charmem + gpt-oss plot summary (~4,000) + last 2 chapters", ""),
+        ("si-plot_global_1000-ch2", "gpt-oss plot summary + last 2 chapters (no sheets)", ""),
+        ("v2&si-ncp-last1000", "v2 + synopses + last 1,000 words", ""), ("charmem&si-ncp-last1000", "charmem + synopses + last 1,000 words", ""),
+        ("summary&si-ncp-last1000", "gpt-oss character summaries + synopses + last 1,000 words", ""),
+        ("legacy&si-ncp-last1000", "Llama summary + synopses + last 1,000 words", ""),
+        ("si-ncp-last1000", "synopses + last 1,000 words (no sheets)", ""),
+        ("charmem&si-plot_global_1000-last1000", "All generated: charmem + gpt-oss plot summary + last 1,000 words", ""),
+        ("summary&si-plot_global_1000-last1000", "All generated: gpt-oss summaries + gpt-oss plot summary + last 1,000 words", ""),
+        ("sheet_legsum_ent_500_flat&si-plot_global_1000-last1000", "All generated: gpt-oss Llama-style summary + gpt-oss plot + last 1,000 words", ""),
+        ("legacy&si-plot_global_1000-last1000", "Llama summary + gpt-oss plot summary + last 1,000 words", ""),
+        ("si-plot_global_1000-last1000", "gpt-oss plot summary + last 1,000 words (no sheets)", "")]),
     ("Additions to an existing sheet", [
         ("charmem+last1", "charmem + gpt-oss notes on the last chapter", ""), ("charmem+last2", "charmem + notes on the last 2 chapters", ""),
         ("charmem+index", "charmem + 40 distinctive names", "non-principal names in the character's notes"), ("index_lgp", "the 40 names alone", ""),
@@ -205,7 +226,8 @@ BEST_CATS = [   # name, colour (follows the generator), dash (+ recent book text
     ("Llama summary + recent text", 2, "6 4", "star", lambda c: "&book_last" in c and _LLAMA(c.split("&")[0])),
     ("gpt-oss sheet + recent text", 1, "6 4", "star", lambda c: "&book_last" in c and not _LLAMA(c.split("&")[0])),
     ("Sheet + plot summary", 7, None, "pentagon", lambda c: "&plot_" in c or "&ncp_plot" in c),
-    ("NCP Story Information", 5, None, "hexagon", lambda c: c.startswith("ncp_story") or c.endswith(("&ncp_story", "&book_ch2"))),
+    ("Story Information (sheet + plot + recent text)", 5, None, "hexagon",
+     lambda c: c.startswith(("ncp_story", "si-")) or "&si-" in c or c.endswith(("&ncp_story", "&book_ch2"))),
 ]
 BEST_CATS = [(n, col, dash, sh, (lambda c, f=f: not c.startswith(_ORACLE) and not any(o in c for o in ("swap", "+index", "index_")) and f(c)))
              for n, col, dash, sh, f in BEST_CATS]

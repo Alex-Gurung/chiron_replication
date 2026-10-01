@@ -85,10 +85,32 @@ def ncp_story(it):
 def book_context(cond, it, chapters, prefixes, plots=None):
     """Book text for the book conditions (shown instead of per-character blocks). b = the passage's chapter.
     ncp_*: the NCP dataset's own Story Information (plot synopses so far, the last two chapters, the next chapter's synopsis).
+    si-<plot>-<recent>: Story Information from chosen parts. plot: ncp (the dataset's synopses), plot_<...> (a gpt-oss plot
+    summary, optionally @last<k>) or none; recent: ch2 (the dataset's last two chapters), last<k> (last k words) or none.
     book: chapters < b; book_last<k>: its last k words; book_noprev<k>: last k words of chapters < b-1;
     book_prevonly: chapter b-1; book_ch<k>: chapters b-k .. b-1; book_prefix: chapter b up to the passage;
     book_ch<k>p: chapters b-k .. b-1 plus chapter b up to the passage."""
     b = it["chapter_index"]
+    if cond.startswith("si-"):                             # si-<plot>-<recent>: Story Information from chosen parts
+        plot, recent = cond[3:].split("-")
+        r = ncp_story(it)
+        parts = []
+        if plot != "none":
+            base, k = (plot.split("@") + [None])[:2]
+            t = r["plot"] if r and base == "ncp" else plots.get((base, it["book"], b)) if base != "ncp" else None
+            if t is None:
+                return None
+            head = "Synopses of the chapters so far" if base == "ncp" else "Plot summary so far"
+            parts.append(f"## {head}\n\n" + (words(t, int(k[4:]), last=True) if k else t))
+        if recent == "ch2":
+            if r is None:
+                return None
+            parts.append(f"## The last two chapters\n\n{r['raw']}")
+        elif recent.startswith("last"):
+            n = int(recent[4:])
+            full = "\n\n".join(clean_text(ch["chapter_text_normalized"]) for ch in chapters[it["book"]] if ch["chapter_index"] < b)
+            parts.append(f"## The last {n:,} words before this chapter\n\n" + words(full, n, last=True))
+        return "Story information", "\n\n".join(parts)
     if cond.startswith("ncp_"):                            # ncp_plot[@last<k>], ncp_story, ncp_storynext, ncp_next
         r = ncp_story(it)
         if r is None:
@@ -201,8 +223,8 @@ def main():
     principals = json.load(open(DATA / "principals.json"))
     reps = load_reps(args.split)
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
-    chapters = load_chapters() if any(c.startswith("book") or "&book" in c or "^book" in c for c in args.conditions) else None
-    plots = load_plots(args.split) if any(c.startswith("plot_") or "&plot_" in c for c in args.conditions) else None
+    chapters = load_chapters() if any(c.startswith("book") or "&book" in c or "^book" in c or "si-" in c for c in args.conditions) else None
+    plots = load_plots(args.split) if any("plot_" in c for c in args.conditions) else None
     prefixes = load_prefixes(args.split) if any(c == "book_prefix" or c.endswith("+pre") or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
@@ -226,7 +248,7 @@ def main():
             rep, _, after = rep.partition("^")                   # <rep>^<book cond>: the same text after the blocks
             if after:
                 it = {**it, "recent": book_context(after, it, chapters, prefixes, plots)}
-            if rep.startswith(("book", "plot_", "ncp_")):
+            if rep.startswith(("book", "plot_", "ncp_", "si-")):
                 book_text = book_context(rep, it, chapters, prefixes, plots)
                 if book_text is None:
                     missing += 1
