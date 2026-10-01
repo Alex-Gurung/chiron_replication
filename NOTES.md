@@ -315,3 +315,8 @@ with the entire book, reasoning on short spans and dense windows.
   at 3.4k. On Qwen3.5-9B base charmem 61.2 -> 66.7 with the last 1,000 words (Llama full 67.8); Qwen3-4B 45.2 -> 49.1
   (Llama full 49.1).
 - Ops: the 62 held thinking jobs are back in the queue (priority 4/9); they fill spare GPUs and will keep running.
+- Paired per-book differences vs charmem, 27B, 95% bootstrap over the 21 books: charmem+last 500 words +3.5 [+1.8,
+  +5.4] 16/21; +last 1,000 +4.2 [+1.8, +6.6]; gpt-oss summaries + last 1,000 +4.8 [+2.1, +7.6]; Llama summary + last
+  1,000 +4.9 [+1.9, +7.8]; v2 + last 1,000 +3.4 [+0.6, +6.0]; charmem re-run -1.2 [-2.9, +0.5]; best one-call sheet
+  (CHIRON layout from Llama notes, as written) -0.2 [-2.3, +1.7]; filtered gpt-oss Llama-pipeline notes +5.5 [+2.0, +8.5].
+- Report v21 published (same URL) at 07:22 with a "New gpt-oss sheets (Oct 1)" section and the hybrids on the chart.
