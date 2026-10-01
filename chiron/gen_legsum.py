@@ -5,7 +5,8 @@ condition (~500 words, 70.4 on the 27B at 2.7k prompt tokens).
 
   python3 chiron/gen_legsum.py --source legacy_gptoss_ent|legacy_gptoss_nofill --variant NAME --books B... [--words W]
 The input is the source's Llama-layout notes (build_reps: questions grouped by section, one <snippet c> per chapter).
---words W appends "Use about W words." to the instruction (none by default: the archive gave no length, only a token cap).
+--words W appends "Use about W words." to the instruction (none by default: the archive gave no length, only a token cap)
+and, since gpt-oss writes ~2x that, sends longer summaries back to be rewritten shorter (gen_sheet.write, <= 1.5 x W).
 Output: outputs/sheets/<variant>/<book>.jsonl (picked up by build_reps as sheet_<variant>). Resumable.
 """
 import argparse
@@ -17,6 +18,7 @@ import llm
 from build_reps import CHAPNOTE_LAYOUT, gclean
 from common import DATA, OUT, append_jsonl, read_jsonl
 from gen_chiron import QUESTIONS
+from gen_sheet import write
 
 SUMMARY_ROLE = "You are an expert author and writing assistant."
 SUMMARY_INSTRUCTION = (
@@ -91,7 +93,10 @@ def main():
         msgs = [{"role": "system", "content": SUMMARY_ROLE},
                 {"role": "user", "content": SUMMARY_QUERY.format(character_sheet=sheets[k], instruction=instruction)}]
         try:
-            text, meta = llm.ask(msgs, lambda x: x, max_tokens=24000, temperature=0.6, as_json=False)
+            if args.words:                                        # gpt-oss ignores the length: rewrite until <= 1.5 x W
+                text, meta = write(msgs, args.words, 0)
+            else:
+                text, meta = llm.ask(msgs, lambda x: x, max_tokens=24000, temperature=0.6, as_json=False)
         except ValueError as e:
             print("FAILED", *k, str(e)[:200], flush=True)
             return

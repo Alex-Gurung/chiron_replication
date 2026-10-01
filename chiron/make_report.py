@@ -68,7 +68,8 @@ NEW_ROWS = [
     ("gpt-oss summary of those notes (the archive's last step)", [
         ("sheet_legsum_nofill", "Llama summary prompt, from unfiltered notes", "gpt-oss writes ~1,800 words where Llama wrote ~500"),
         ("sheet_legsum_ent", "Llama summary prompt, from filtered notes", ""),
-        ("sheet_legsum_nofill_w800", "… asked for about 800 words", ""), ("sheet_legsum_ent_w800", "… from filtered notes, about 800 words", "")]),
+        ("sheet_legsum_nofill_w800", "… asked for about 800 words", ""), ("sheet_legsum_ent_w800", "… from filtered notes, about 800 words", ""),
+        ("sheet_legsum_ent_500_flat", "… from filtered notes, held to about 500 words", "rewritten shorter until at most 750 words, like Llama's ~500")]),
     ("charmem's own synthesis, re-run", [
         ("sheet_csyn_ldg", "same code, same ledgers, new sample", "prompts byte-identical to the published run"),
         ("sheet_csyn_ldg_r2", "second new sample", ""), ("sheet_csyn_ldg_r3", "third new sample", ""),
@@ -114,6 +115,8 @@ NEW_ROWS = [
         ("legacy&book_last500", "Llama summary + last 500 words", ""), ("legacy&book_last1000", "Llama summary + last 1,000 words", ""),
         ("v2&book_last1000", "v2 + last 1,000 words", ""), ("sheet_csyn_ldg&book_last1000", "charmem re-run + last 1,000 words", ""),
         ("sheet_legsum_ent_w800&book_last1000", "gpt-oss Llama summary + last 1,000 words", ""),
+        ("sheet_legsum_ent_500_flat&book_last1000", "gpt-oss Llama summary (~500 words) + last 1,000 words", ""),
+        ("sheet_legsum_ent_500_flat&book_last1500", "gpt-oss Llama summary (~500 words) + last 1,500 words", ""),
         ("charmem&book_last1500", "charmem + last 1,500 words", ""),
         ("charmem@500&book_last1000", "charmem cut to 500 words + last 1,000 words", ""),
         ("charmem@500&book_last1500", "charmem cut to 500 words + last 1,500 words", ""),
@@ -146,7 +149,8 @@ LABEL.update({
     "sheet_csyn_ldg_flat": "charmem's synthesis, re-run", "sheet_cast_cnl_flat": "gpt-oss joint sheets (one call for all three)",
     **{f"summary&book_last{k}": f"Character summaries + last {k:,} words" for k in (500, 1000, 2000)},
     **{f"legacy&book_last{k}": f"Llama summary + last {k:,} words" for k in (500, 1000, 1500)},
-    "charmem&book_last1500": "charmem + last 1,500 words", **{f"charmem@500&book_last{k}": f"charmem's first 500 words + last {k:,} words" for k in (1000, 1500)},
+    "charmem&book_last1500": "charmem + last 1,500 words", "sheet_legsum_ent_500_flat": "gpt-oss Llama summary, ~500 words",
+    **{f"sheet_legsum_ent_500_flat&book_last{k}": f"gpt-oss Llama summary (~500 words) + last {k:,} words" for k in (1000, 1500)}, **{f"charmem@500&book_last{k}": f"charmem's first 500 words + last {k:,} words" for k in (1000, 1500)},
     **{f"summary@500&book_last{k}": f"Character summaries' first 500 words + last {k:,} words" for k in (1000, 1500)},
     **{f"charmem&book_last{k}": f"charmem + last {k:,} words" for k in (500, 1000, 2000)},
     "v2&book_last1000": "v2 + last 1,000 words",
@@ -187,6 +191,7 @@ LENGTH_FAMILIES = [
     ("charmem + last k words", ["charmem", "charmem&book_last500", "charmem&book_last1000", "charmem&book_last1500", "charmem&book_last2000"], 0, DASH, "diamond", True, OTHER),
     ("charmem, 500 words, + last k", ["charmem@500&book_last1000", "charmem@500&book_last1500"], 0, DOT, "diamond", True, OTHER),
     ("Summaries + last k words", ["summary", "summary&book_last500", "summary&book_last1000", "summary&book_last2000"], 3, DASH, "circle", True, OTHER),
+    ("gpt-oss Llama summary + last k", ["sheet_legsum_ent_500_flat", "sheet_legsum_ent_500_flat&book_last1000", "sheet_legsum_ent_500_flat&book_last1500"], 1, DASH, "hexagon", True, OTHER),
     ("Llama summary + last k words", ["legacy", "legacy&book_last500", "legacy&book_last1000", "legacy&book_last1500"], 2, DASH, "circle", True, OTHER),
 ]
 LENGTH_SINGLES = [
@@ -522,7 +527,7 @@ def main():
     def new_table():
         rows = []
         for group, items in NEW_ROWS:
-            rows.append(f"<tr class='group'><th scope='rowgroup' colspan='8'>{group}</th></tr>")
+            rows.append(f"<tr class='group'><th scope='rowgroup' colspan='9'>{group}</th></tr>")
             for c, n, how in items:
                 r = get("main", q27, c)
                 if not r:
@@ -530,11 +535,13 @@ def main():
                 rows.append(f"<tr><th scope='row'>{n}<br><span class='sub'>{how}</span></th><td class='num'>{medw.get(c, 0):,}</td>"
                             f"<td class='num'>{r['mean_tokens'] / 1000:.1f}k</td><td class='num strong'>{pct(macro('main', q27, c))}</td>"
                             f"<td>{vs_charmem(c)}</td><td class='num'>{pct(macro('main', q27, c + '+pre'))}</td>"
-                            f"<td class='num'>{pct(macro('main', 'Qwen3.5-9B-Base', c))}</td><td class='num'>{pct(macro('main', q4, c))}</td></tr>")
+                            f"<td class='num'>{pct(macro('main', 'Qwen3.5-9B-Base', c))}</td><td class='num'>{pct(macro('main', q4, c))}</td>"
+                            f"<td class='num'>{pct(macro('main', qt, c))}</td></tr>")
         return ("<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Words per character</th>"
                 "<th scope='col' class='num'>27B prompt tokens</th><th scope='col' class='num'>27B</th><th scope='col'>Δ vs charmem "
                 "<span class='sub'>books better</span></th><th scope='col' class='num'>27B + chapter so far</th>"
-                f"<th scope='col' class='num'>9B base</th><th scope='col' class='num'>4B</th></tr></thead><tbody>{''.join(rows)}</tbody>")
+                f"<th scope='col' class='num'>9B base</th><th scope='col' class='num'>4B</th><th scope='col' class='num'>27B thinking</th>"
+                f"</tr></thead><tbody>{''.join(rows)}</tbody>")
 
     def new_text():
         v = lambda c, m=q27: pct(macro("main", m, c))
@@ -566,7 +573,10 @@ def main():
             f"2,000 words in place of the raw text gives only {v('charmem&plot_recap300')}%, and the same text placed after the sheets "
             f"instead of before them {v('charmem^book_last1000')}%. On Qwen3.5-9B base charmem goes from {v('charmem', 'Qwen3.5-9B-Base')} to "
             f"{v('charmem&book_last1000', 'Qwen3.5-9B-Base')}% (full Llama notes {v('legacy_full', 'Qwen3.5-9B-Base')}%), on Qwen3-4B from "
-            f"{v('charmem', q4)} to {v('charmem&book_last1000', q4)}% (full Llama notes {v('legacy_full', q4)}%).",
+            f"{v('charmem', q4)} to {v('charmem&book_last1000', q4)}% (full Llama notes {v('legacy_full', q4)}%), and with thinking "
+            f"from {v('charmem', qt)} to {v('charmem&book_last500', qt)}% with 500 words (full Llama notes {v('legacy_full', qt)}%). "
+            f"charmem plus the last 500 to 1,000 words is the choice that holds on every model; with the chapter so far as well, "
+            f"Qwen3.8-27B reaches {v('charmem&book_last1000+pre')}% at {tk('charmem&book_last1000+pre')} tokens.",
             f"<b>The Llama notes, redone with gpt-oss, now nearly match.</b> The archive's own extraction prompt, run with gpt-oss "
             f"(one call per chapter, character and question): {v('legacy_gptoss')}% at {tk('legacy_gptoss')}; without “the "
             f"section never mentions X” filler {v('legacy_gptoss_nofill')}%; kept only where gpt-oss rates the sentence fully "
