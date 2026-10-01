@@ -18,6 +18,7 @@
   python3 scripts/queue_jobs.py headings_gen    every gpt-oss representation again, with chapter headings and narrators
   python3 scripts/queue_jobs.py headings_eval   evaluate the with-headings representations on every model
   python3 scripts/queue_jobs.py pre             every representation + the passage's chapter so far (<cond>+pre)
+  python3 scripts/queue_jobs.py legacy_gptoss   the Llama notes' extraction prompt run with gpt-oss
   python3 scripts/queue_jobs.py long_notes      thorough gpt-oss chapter notes (with headings)
   python3 scripts/queue_jobs.py eval_conds TAG LONG COND...   evaluate conditions on every model
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
@@ -339,6 +340,12 @@ def main():
             addraw(f"longnotes_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
                                         "--", "python3", "-u", f"{REPO}/chiron/gen_chapnotes.py", "--books", *books[k::8], "--workers", "64",
                                         "--headings", "--long"], -1)
+    elif what == "legacy_gptoss":
+        # the Llama notes' extraction prompt with gpt-oss, 8 book groups
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(8):
+            addraw(f"leggpt_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
+                                     "--", "python3", "-u", f"{REPO}/chiron/gen_legacy_gptoss.py", "--books", *books[k::8], "--workers", "96"], -2)
     elif what == "eval_conds":
         # evaluate the given conditions on every model: queue_jobs.py eval_conds <tag> <long 0|1> COND...
         tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]

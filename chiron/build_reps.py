@@ -11,6 +11,7 @@ One record per (condition, book, boundary, label); every source is built from ch
   chapnotes      gpt-oss chapter notes (gen_chapnotes.py): the Llama notes' layout and questions, redone with gpt-oss
   *_h            summary_h, chapnotes_h, chiron_h(_r2000): the same, generated with chapter headings and narrator hints
   chapnotes_h_long  gpt-oss chapter notes asked for thorough answers (gen_chapnotes.py --headings --long)
+  legacy_gptoss  gpt-oss with the Llama notes' own extraction prompt (gen_legacy_gptoss.py), no splitting or filtering
   legacy_match   Llama notes without filler, each chapter's answer cut to gpt-oss's answer length for that chapter and question
   gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
 Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
@@ -198,6 +199,19 @@ def main():
             add("chiron_" + cat.split("/")[0].lower(), *k, render(rows, cat))
         for words in (250, 500, 1000, 2000, 4000):
             add(f"chiron_r{words}", *k, render(budget(rows, words)))
+    lg = collections.defaultdict(lambda: collections.defaultdict(dict))   # gpt-oss with the Llama notes' extraction prompt
+    for f in glob.glob(str(OUT / "legacy_gptoss" / "*.jsonl")):
+        for r in read_jsonl(f):
+            lg[(r["book"], r["label"])][r["chapter_index"]][r["q"]] = r["answer"]
+    for book, b, l in keys:
+        chs = [c for c in sorted(lg.get((book, l), {})) if c < b]
+        if chs and len(chs) == b and all(len(lg[(book, l)][c]) == len(QUESTIONS) for c in chs):
+            parts = []
+            for head, qs in CHAPNOTE_LAYOUT:
+                parts.append(f"## {head}")
+                for q in qs:
+                    parts.append(f"Question: {QUESTIONS[q][1]}\n\n" + "\n".join(f"<snippet {c}>\n{lg[(book, l)][c][q].strip()}" for c in chs))
+            add("legacy_gptoss", book, b, l, "\n\n".join(parts))
     for cond, root in (("chapnotes", "chapnotes"), ("chapnotes_h", "chapnotes_h"), ("chapnotes_h_long", "chapnotes_h_long")):
         notes = collections.defaultdict(dict)                     # gpt-oss chapter notes, Llama layout
         for f in glob.glob(str(OUT / root / "*.jsonl")):
