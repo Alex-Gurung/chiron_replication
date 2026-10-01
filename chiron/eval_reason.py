@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib import request as urlrequest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import DATA, OUT, append_jsonl, read_jsonl  # noqa: E402
+from common import DATA, OUT, append_jsonl, load_reps, read_jsonl  # noqa: E402
 import eval_mcp as E  # noqa: E402
 
 API = os.environ.get("CHIRON_API_BASE", "http://127.0.0.1:8000/v1")
@@ -90,7 +90,7 @@ def main():
         items = items[:args.limit]
     suffix = f".s{args.shard}of{args.nshards}" if args.nshards > 1 else ""
     principals = json.load(open(DATA / "principals.json"))
-    reps = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")}
+    reps = load_reps(args.split)
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = E.load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     plots = E.load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None

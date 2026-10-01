@@ -9,6 +9,7 @@ import html
 import json
 import os
 import re
+import time
 import unicodedata
 from pathlib import Path
 
@@ -116,6 +117,18 @@ def read_jsonl(path):
         except json.JSONDecodeError:
             pass                                    # torn final line after preemption
     return out
+
+
+def load_reps(split):
+    """(condition, book, boundary, label) -> text from data/reps_<split>.jsonl and reps_sheets_<split>.jsonl. Retries
+    when build_reps swaps a file in mid-read (NFS: stale file handle)."""
+    for attempt in range(5):
+        try:
+            return {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for f in (f"reps_{split}", f"reps_sheets_{split}")
+                    for r in read_jsonl(DATA / f"{f}.jsonl")}
+        except OSError:
+            time.sleep(60)
+    raise OSError(f"could not read the reps of {split}")
 
 
 def append_jsonl(path, rec):

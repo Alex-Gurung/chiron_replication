@@ -8,8 +8,13 @@ Sources (notes on chapters before the boundary only, in chapter order):
   legacy            the Llama-3.3-70B notes from the NCP archive, filler removed (a control on the compression step)
 One call per (book, boundary, principal). The brief (STYLES) is a writer's character bible and says nothing about
 how sheets are evaluated: bible (identity, names used, relationships, appearance, voice, story, now), chrono (a short
-profile plus a sentence or two per chapter) or dossier (terse bullet lists, with a timeline per chapter). A sheet outside [0.6, 1.5] x W words is sent back, in the same conversation, for a rewrite
-at a length scaled by the model's own overshoot (at most 3 rounds).
+profile plus a sentence or two per chapter), chrono_recent (the latest three chapters in a paragraph each), distinct
+(chrono plus what sets the character apart from the other principals), dossier (terse bullet lists), chiron (the
+CHIRON / v2 sections: personality, voice, history, knowledge, goals, relationships, with chapter citations) or inner
+(the character's inner life, voice, relationships and arc). A sheet outside [0.6, 1.5] x W words is sent back, in the same conversation, for a rewrite
+at a length scaled by the model's own overshoot (at most 3 rounds). --faithful: W becomes min(W, 0.35 x the notes'
+words), short sheets are never sent back to grow, and the brief forbids inventing names, quotes or forms of address
+(the fixed-length sheets padded thin notes with invented detail).
 Output: outputs/sheets/<variant>/<book>.jsonl, one record per (boundary, label). Resumable.
 """
 import argparse
@@ -19,7 +24,7 @@ import pickle
 from concurrent.futures import ThreadPoolExecutor
 
 import llm
-from build_reps import FILLER, LEGACY, LEGACY_LABEL, legacy_blocks
+from build_reps import FILLER, LEGACY, LEGACY_LABEL, gclean, legacy_blocks
 from common import DATA, OUT, append_jsonl, read_jsonl
 from gen_chiron import QUESTIONS
 
@@ -47,6 +52,45 @@ STYLES = {
         ("Current situation", "where {name} is, who {name} is with, and what {name} wants at the end of the latest "
                               "chapter."),
     ],
+    "chrono_recent": [                                            # chrono, with the latest chapters in more detail
+        ("Profile", "identity, roles, titles and nicknames (and who uses them), appearance, possessions, habits and voice, "
+                    "in a few dense sentences."),
+        ("Relationships", "one line per important person, by name: who they are to {name} and where things stand now."),
+        ("Chapter by chapter", "for every chapter in which {name} appears, one or two sentences on what {name} does there, "
+                               "naming the people, places and objects involved; for the three latest chapters, a short "
+                               "paragraph each. Mark each with its chapter number."),
+        ("Current situation", "where {name} is, who {name} is with, what {name} knows and wants, and what is unresolved "
+                              "at the end of the latest chapter."),
+    ],
+    "distinct": [                                                 # chrono, plus what sets the character apart
+        ("Profile", "identity, roles, titles and nicknames (and who uses them), appearance, possessions, habits and voice, "
+                    "in a few dense sentences."),
+        ("Distinguishing marks", "what sets {name} apart from {others}: the roles, people, places, habits, objects and "
+                                 "turns of phrase that belong to {name} and not to them."),
+        ("Relationships", "one line per important person, by name: who they are to {name} and where things stand now."),
+        ("Chapter by chapter", "for every chapter in which {name} appears, one or two sentences on what {name} does there, "
+                               "naming the people, places and objects involved. Mark each with its chapter number."),
+        ("Current situation", "where {name} is, who {name} is with, and what {name} wants at the end of the latest "
+                              "chapter."),
+    ],
+    "chiron": [                                                   # the CHIRON / v2 sheet sections
+        ("Physicality And Personality", "appearance, manner, temperament and how {name} tends to act and react."),
+        ("Dialogue And Voice", "how {name} speaks and to whom, with short characteristic quotes from the notes."),
+        ("History And Circumstances", "background, situation and the key events {name} has been part of."),
+        ("Knowledge And Beliefs", "what {name} knows, has learned, believes and suspects."),
+        ("Goals And Motivations", "what {name} wants, fears and is driven by, and how that has changed."),
+        ("Relationships", "the people {name} deals with, by name, and how {name} feels about each."),
+    ],
+    "inner": [                                                    # the character from the inside
+        ("Who {name} is", "identity, role, situation and appearance in a few sentences."),
+        ("Inner life", "temperament, feelings, fears, desires, beliefs and secrets: how {name} thinks and reacts, and how "
+                       "this has changed over the story."),
+        ("Voice", "how {name} speaks and thinks in words, with short characteristic quotes from the notes."),
+        ("Relationships", "the people {name} deals with, by name: what each is to {name} and how {name} feels about them "
+                          "now."),
+        ("Arc so far", "the turning points for {name}, in order, with what {name} felt and decided at each."),
+        ("Now", "where {name} stands at the end of the latest chapter: situation, company, mood, what {name} wants next."),
+    ],
     "dossier": [                                                  # compact lists instead of prose
         ("Names and titles", "every name, title, nickname and form of address used for {name}, and who uses it."),
         ("Facts", "identity, occupation, family, home, age, appearance, possessions and habits, as terse bullet points."),
@@ -61,21 +105,34 @@ STYLES = {
 }
 
 
-def brief(name, others, words, style, upto):
-    secs = "\n".join(f"- {h.format(name=name)}: {d.format(name=name)}" for h, d in STYLES[style])
+FAITHFUL = (" Never invent anything: no names, quotes, nicknames, forms of address or details the notes do not state. If the "
+            "notes give nothing for a section, write: None noted. Shorter is fine when the notes are thin.")
+
+
+RULES = {"bible": "Write short, self-contained sentences that name people instead of using pronouns. Prefer concrete, distinctive "
+                  "details over general personality traits.",
+         "dossier": "Write terse bullet points that name people instead of using pronouns. Prefer concrete, distinctive details "
+                    "over general personality traits.",
+         "chiron": "Write bullet points, each a self-contained sentence that names people instead of using pronouns, ending with "
+                   "the chapters it comes from, like [Ch. 4] or [Chs. 2, 7]. Be specific to this character.",
+         "inner": "Write short, self-contained sentences that name people instead of using pronouns. Be specific to this "
+                  "character: what sets {name}'s thoughts, feelings and words apart from anyone else's."}
+
+
+def brief(name, others, words, style, upto, faithful=False):
+    secs = "\n".join(f"- {h.format(name=name)}: {d.format(name=name, others=' and '.join(others))}" for h, d in STYLES[style])
     return (f"Write a character sheet for {name} as of the end of chapter {upto}, for a writer continuing the novel who must "
             f"keep {name} consistent. The other main characters are {', '.join(others)}. About {words} words, with these "
-            f"sections, each under a markdown heading (## Section name):\n{secs}\n" + ("Write terse bullet points that name people instead of using pronouns. " if style == "dossier"
-                                       else "Write short, self-contained sentences that name people instead of using pronouns. ") +
-            "Prefer concrete, distinctive details over general personality traits. Use only the notes.")
+            f"sections, each under a markdown heading (## Section name):\n{secs}\n" + RULES.get(style, RULES["bible"]).format(name=name)
+            + " Use only the notes." + (FAITHFUL if faithful else ""))
 
 
-def write(msgs, target):
+def write(msgs, target, low=0.6):
     text, meta = llm.ask(msgs, lambda x: x, max_tokens=24000, as_json=False)
     ask = target
     for rnd in range(3):
         n = len(text.split())
-        if 0.6 * target <= n <= 1.5 * target:
+        if low * target <= n <= 1.5 * target:
             return text, {**meta, "resize_rounds": rnd}
         ask = max(50, int(ask * target / n))
         text, _ = llm.ask(msgs + [{"role": "assistant", "content": text},
@@ -83,7 +140,7 @@ def write(msgs, target):
                                                               "same sections and rules."}],
                           lambda x: x, max_tokens=24000, as_json=False)
     n = len(text.split())
-    if not 0.6 * target <= n <= 1.5 * target:
+    if not low * target <= n <= 1.5 * target:
         raise ValueError(f"still {n} words after resizing")
     return text, {**meta, "resize_rounds": 3}
 
@@ -97,7 +154,8 @@ def load_notes(source, keys):
             for r in read_jsonl(f):
                 tmp[(r["book"], r["label"], r["chapter_index"])][r["q"]] = r["answer"].strip()
         for (b, l, c), d in tmp.items():
-            per[(b, l)][c] = "\n".join(f"- {d[q]}" for q in QUESTIONS if d.get(q))
+            ans = [gclean(d.get(q, "")) for q in QUESTIONS]
+            per[(b, l)][c] = "\n".join(f"- {a}" for a in ans if a)
     elif source in ("chapnotes", "chapnotes_h_long"):
         for f in (OUT / source).glob("*.jsonl"):
             for r in read_jsonl(f):
@@ -130,6 +188,7 @@ def main():
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--workers", type=int, default=48)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--faithful", action="store_true", help="target at most 0.35 x the notes' length, never expand, no invention")
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
     principals = json.load(open(DATA / "principals.json"))
@@ -148,15 +207,16 @@ def main():
         name = principals[b]["gen_names"][l][bd - 1]
         others = [principals[b]["gen_names"][o][bd - 1] for o in principals[b]["labels"] if o != l]
         body = "\n\n".join(f"Chapter {c + 1}:\n{t}" for c, t in notes[k])
+        words = min(args.words, max(100, round(0.35 * len(body.split()), -1))) if args.faithful else args.words
         msgs = [SYSTEM, {"role": "user", "content": f"Chapter-by-chapter notes about {name} (chapters 1 to {bd}):\n\n{body}\n\n"
-                                                    + brief(name, others, args.words, args.style, bd)}]
+                                                    + brief(name, others, words, args.style, bd, args.faithful)}]
         try:
-            text, meta = write(msgs, args.words)
+            text, meta = write(msgs, words, 0 if args.faithful else 0.6)
         except Exception as e:
             print("FAILED", b, bd, l, str(e)[:200], flush=True)
             return
         append_jsonl(root / f"{b}.jsonl", {"book": b, "boundary": bd, "label": l, "name": name, "text": text,
-                                           "words": len(text.split()), "notes_words": len(body.split()), **meta})
+                                           "words": len(text.split()), "target": words, "notes_words": len(body.split()), **meta})
     with ThreadPoolExecutor(args.workers) as ex:
         list(ex.map(one, todo))
 

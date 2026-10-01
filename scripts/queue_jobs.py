@@ -349,14 +349,13 @@ def main():
             addraw(f"leggpt_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
                                      "--", "python3", "-u", f"{REPO}/chiron/gen_legacy_gptoss.py", "--books", *books[k::8], "--workers", "96"], -2)
     elif what == "sheet":
-        # one sheet variant, NJOBS book groups; the Llama notes need 131k context on 2 GPUs
+        # one sheet variant, NJOBS book groups, on 2 GPUs: a 1-GPU copy holds only a handful of 10-60k-token prompts at once
         variant, source, words, style, nj = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], int(sys.argv[6])
         books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
-        g, ml = (2, "131072") if source == "legacy" else (1, "65536")
         for k in range(nj):
-            addraw(f"sheet_{variant}_{k}", g, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", ml,
+            addraw(f"sheet_{variant}_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
                                                "--", "python3", "-u", f"{REPO}/chiron/gen_sheet.py", "--variant", variant, "--source", source,
-                                               "--words", words, "--style", style, "--books", *books[k::nj], *sys.argv[7:]], -3)
+                                               "--words", words, "--style", style, "--books", *books[k::nj], "--workers", "128", *sys.argv[7:]], -3)
     elif what == "eval27":
         tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
         for split in ("test", "val", "train"):

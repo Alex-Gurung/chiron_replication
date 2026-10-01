@@ -12,10 +12,12 @@ One record per (condition, book, boundary, label); every source is built from ch
   *_h            summary_h, chapnotes_h, chiron_h(_r2000): the same, generated with chapter headings and narrator hints
   chapnotes_h_long  gpt-oss chapter notes asked for thorough answers (gen_chapnotes.py --headings --long)
   legacy_gptoss  gpt-oss with the Llama notes' own extraction prompt (gen_legacy_gptoss.py), no splitting or filtering
+  legacy_gptoss_nofill  the same without sentences saying the chapter does not mention the character (gclean)
   legacy_match   Llama notes without filler, each chapter's answer cut to gpt-oss's answer length for that chapter and question
  sheet_<variant> gpt-oss character sheets compressed from chapter notes (gen_sheet.py, outputs/sheets/<variant>)
   gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
-Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
+The sheet_* conditions go to data/reps_sheets_<split>.jsonl instead (--sheets-only rebuilds just that file).
+Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test [--sheets-only]
 """
 import argparse
 import collections
@@ -81,6 +83,19 @@ def budget(rows, k):
     return picked[::-1]
 
 
+GNEG = re.compile(r"\b(?:no|not|never|none|nothing|neither|nor)\b|n't\b", re.I)
+GMETA = re.compile(r"\b(?:text|snippet|excerpt|section|passage|story|mention\w*|describ\w*|information|indication|quot\w*|details?|"
+                   r"depict\w*|reveal\w*|provid\w*|specif\w*|stated|appears?|shown|given|attributed|listed|spoken|assigned|explained|"
+                   r"refer\w*|record\w*|clues?|attached|indicated)\b", re.I)
+GABOUT = re.compile(r"^(?:(?:the|this) (?:text|snippet|excerpt|section|story section|passage)\b|therefore\b|no\b|none\b|nothing\b|"
+                    r"there (?:is|are) no\b|we (?:have|do) not\b|we have no\b)", re.I)
+
+
+def gclean(text):
+    """gpt-oss notes without sentences about what the chapter does not say ("The snippet never mentions X.")."""
+    return " ".join(x for x in SENT.split(" ".join(text.split())) if not (GNEG.search(x) and GMETA.search(x)) and not GABOUT.search(x))
+
+
 FILLER = re.compile(r"[^.!?]*(?:not mentioned|no (?:physical )?description|not (?:explicitly )?described|no information)[^.!?]*[.!?]?", re.I)
 
 
@@ -132,9 +147,81 @@ def render(rows, only=None):
     return "\n\n".join(parts)
 
 
+SHEET_ABLATE = {"refer": "how others refer", "voice": "voice", "story": "story so far", "rel": "relationships"}
+
+
+def add_sheets(add, keys):
+    for d in sorted((OUT / "sheets").glob("*")):                # new gpt-oss sheets, one condition per variant
+        sh = {(r["book"], r["boundary"], r["label"]): re.sub(r"^(#+) ", r"#\1 ", r["text"], flags=re.M)   # nest under the name
+              .replace("\u2011", "-").replace("\u202f", " ") for f in d.glob("*.jsonl") for r in read_jsonl(f)}
+        for k in keys:
+            add(f"sheet_{d.name}", *k, sh.get(k))
+        if d.name in ("bible_cn", "bible_leg"):                 # one section dropped at a time
+            for k in keys:
+                if k not in sh:
+                    continue
+                secs = re.split(r"(?m)^(?=#+ )", sh[k])
+                for short, head in SHEET_ABLATE.items():
+                    kept = [x for x in secs if not re.match(r"#+\s*" + head, x.strip(), re.I)]
+                    add(f"sheet_{d.name}_no{short}", *k, "".join(kept))
+
+
+NAMESEQ = re.compile(r"(?<=[a-z,;:’'\"] )((?:(?:Dr|Mr|Mrs|Ms|St)\. )?[A-Z][\w’'-]+(?: (?:of |de |van |von |the )?[A-Z][\w’'-]+)*)")
+
+
+def name_index(notes, keys, n=40):
+    """(book, boundary, label) -> the non-principal names in that character's notes, ranked by count x the share of
+    their mentions that fall in this character's notes rather than the other principals' (most distinctive first)."""
+    out = {}
+    counts = {}
+    for k, chs in notes.items():
+        c = collections.Counter()
+        for _, t in chs:
+            c.update(re.sub(r"[’']s$", "", x) for x in NAMESEQ.findall(t))
+        counts[k] = c
+    for (b, bd, l) in keys:
+        if (b, bd, l) not in counts:
+            continue
+        al = json.load(open(REPO / "aliases" / f"{b}.json"))["principals"]
+        principal = {w for v in al.values() for a in v for w in a.split()}
+        others = [counts.get((b, bd, o), collections.Counter()) for o in al if o != l]
+        own = counts[(b, bd, l)]
+        score = {e: m * m / (m + sum(o[e] for o in others) / max(1, len(others))) for e, m in own.items()
+                 if m >= 2 and not set(e.replace(".", "").split()) & principal and len(e) > 2}
+        out[(b, bd, l)] = [e for e, _ in sorted(score.items(), key=lambda x: -x[1])[:n]]
+    return out
+
+
+def add_index(add, keys):
+    """Name indexes from the gpt-oss notes (legacy_gptoss), alone and appended to v2 / charmem / the new sheets."""
+    from gen_sheet import load_notes
+    idx = name_index(load_notes("legacy_gptoss", keys), keys)
+    have = {}
+    for k, names in idx.items():
+        if names:
+            add("index_lgp", *k, "Names in this character's story so far, most distinctive first: " + ", ".join(names) + ".")
+    return idx
+
+
+def save(recs, split, keys):
+    tmp = DATA / f"reps_{split}.jsonl.tmp"                    # atomic swap: running jobs never read a half-written file
+    with open(tmp, "w") as f:
+        for r in recs:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    os.replace(tmp, DATA / f"reps_{split}.jsonl")
+    cov = collections.Counter(r["condition"] for r in recs)
+    words = collections.defaultdict(list)
+    for r in recs:
+        words[r["condition"]].append(r["words"])
+    for c in sorted(cov):
+        w = sorted(words[c])
+        print(f"{c:22s} {cov[c]:5d}/{len(keys)} keys  median words {w[len(w) // 2]}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", default="test")
+    ap.add_argument("--sheets-only", action="store_true", help="only refresh the sheet_* conditions in the existing file")
     args = ap.parse_args()
     items = [it for f in sorted(DATA.glob(f"items_{args.split}*.jsonl")) for it in read_jsonl(f)]   # every item set of the split
     keys = {(it["book"], it["chapter_index"], l) for it in items for l in it["labels"]}
@@ -145,6 +232,18 @@ def main():
         if text is not None:
             recs.append({"condition": cond, "book": book, "boundary": b, "label": label, "text": text,
                          "words": len(text.split())})
+    add_sheets(add, keys)                                         # sheets live in their own small file (rebuilt often)
+    idx = add_index(add, keys)
+    base = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")
+            if r["condition"] in ("v2", "charmem")} if args.sheets_only else {}
+    base.update({(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs if r["condition"].startswith("sheet_")})
+    for (c, *k), t in base.items():
+        if idx.get(tuple(k)) and (c in ("v2", "charmem") or c in ("sheet_chiron_lgp", "sheet_chiron_cnl")):
+            add(f"{c}+index", *k, t.rstrip() + "\n\n### Names in the story\n" + ", ".join(idx[tuple(k)]) + ".")
+    save(recs, f"sheets_{args.split}", keys)
+    if args.sheets_only:
+        return
+    recs.clear()
 
     aliases = {}
 
@@ -170,7 +269,8 @@ def main():
         if full.get(k):                                # ablations: previous chapter removed / alone, recency budget, no filler
             add("legacy_noprev", book, b, l, legacy_render(full[k], lambda c: c != b - 1))
             add("legacy_onlyprev", book, b, l, legacy_render(full[k], lambda c: c == b - 1))
-            add("legacy_r6000", book, b, l, legacy_recent(full[k], 6000))
+            for n in (1000, 2000, 3000, 6000):                    # the most recent n words
+                add(f"legacy_r{n}", book, b, l, legacy_recent(full[k], n))
             add("legacy_nofill", book, b, l, legacy_render(full[k], lambda c: True, clean=True))
             for name, want in (("legacy_inter", True), ("legacy_nointer", False)):
                 add(name, book, b, l, legacy_render(full[k], lambda c: True, clean=True,
@@ -212,6 +312,15 @@ def main():
                 for q in qs:
                     parts.append(f"Question: {QUESTIONS[q][1]}\n\n" + "\n".join(f"<snippet {c}>\n{lg[(book, l)][c][q].strip()}" for c in chs))
             add("legacy_gptoss", book, b, l, "\n\n".join(parts))
+            parts = []                                                # the same without "the section never mentions X" filler
+            for head, qs in CHAPNOTE_LAYOUT:
+                parts.append(f"## {head}")
+                for q in qs:
+                    body = [(c, gclean(lg[(book, l)][c][q])) for c in chs]
+                    body = "\n".join(f"<snippet {c}>\n{t}" for c, t in body if t)
+                    if body:
+                        parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
+            add("legacy_gptoss_nofill", book, b, l, "\n\n".join(parts))
     for cond, root in (("chapnotes", "chapnotes"), ("chapnotes_h", "chapnotes_h"), ("chapnotes_h_long", "chapnotes_h_long")):
         notes = collections.defaultdict(dict)                     # gpt-oss chapter notes, Llama layout
         for f in glob.glob(str(OUT / root / "*.jsonl")):
@@ -228,6 +337,9 @@ def main():
                         if body:
                             parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
                 add(cond, book, b, l, "\n\n".join(parts))
+                if cond == "chapnotes_h_long":
+                    for n in (1000, 2000):
+                        add(f"{cond}_r{n}", book, b, l, legacy_recent("\n\n".join(parts), n))
         if cond == "chapnotes":                                   # Llama notes cut to gpt-oss's length, answer by answer
             qkey = {q: k for k, (_, q) in QUESTIONS.items()}
             for book, b, l in keys:
@@ -249,11 +361,6 @@ def main():
                     if body:
                         parts.append(head + "\n\n" + "\n".join(body))
                 add("legacy_match", book, b, l, "\n\n".join(parts))
-    for d in sorted((OUT / "sheets").glob("*")):                # new gpt-oss sheets, one condition per variant
-        sh = {(r["book"], r["boundary"], r["label"]): re.sub(r"^(#+) ", r"#\1 ", r["text"], flags=re.M)   # nest under the name
-              for f in d.glob("*.jsonl") for r in read_jsonl(f)}
-        for k in keys:
-            add(f"sheet_{d.name}", *k, sh.get(k))
     for book, b, l in keys:
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():
@@ -281,18 +388,7 @@ def main():
             texts = [have.get((c, *k)) for c in parts]
             if all(texts):
                 add(name, *k, "\n\n".join(f"#### {titles[c]}\n{t}" for c, t in zip(parts, texts)))
-    tmp = DATA / f"reps_{args.split}.jsonl.tmp"               # atomic swap: running jobs never read a half-written file
-    with open(tmp, "w") as f:
-        for r in recs:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    os.replace(tmp, DATA / f"reps_{args.split}.jsonl")
-    cov = collections.Counter(r["condition"] for r in recs)
-    words = collections.defaultdict(list)
-    for r in recs:
-        words[r["condition"]].append(r["words"])
-    for c in sorted(cov):
-        w = sorted(words[c])
-        print(f"{c:22s} {cov[c]:5d}/{len(keys)} keys  median words {w[len(w) // 2]}")
+    save(recs, args.split, keys)
 
 
 if __name__ == "__main__":

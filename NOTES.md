@@ -249,3 +249,20 @@ with the entire book, reasoning on short spans and dense windows.
   compression). legacy_gptoss (the Llama extraction prompt run with gpt-oss) is still generating.
 - Ops: demoted the with-headings thinking evals (chiron_h, chapnotes_h) to priority 4 (scripts/demote_jobs.py) to free
   GPUs for generation.
+- Round 1-2 (27B, thinking off, joint, all 21 books): every "bible" sheet loses to charmem (71.9 at 4.4k tokens):
+  from the Llama notes 69.3 (5.7k), from thorough gpt-oss notes 67.0 (5.6k), from short gpt-oss notes 64.6 (5.5k);
+  500 words 65.7 (3.1k). With the chapter so far: Llama-notes bible 77.0 vs charmem+pre 79.1. Dropping one section at a
+  time barely moves them (no "how others refer to" +1.2 for the short-notes sheet, 0 for the Llama one).
+- Why: (1) a fixed ~1,000-word target padded thin notes (13% of short-notes sheets are longer than their notes);
+  (2) the bible brief asked for concrete facts "over general personality traits" and spent words on identity, forms of
+  address and event lists, while the sheets that work (v2, charmem, Llama's own 500-word summary at 70.4) are mostly
+  personality, voice, beliefs and motivations, i.e. what a POV passage's narration and dialogue reveal.
+- Round 3: the CHIRON/v2 sections compressed in one call from complete notes (style "chiron", with [Ch. N] citations)
+  from gpt-oss Llama-prompt notes, thorough gpt-oss notes and Llama notes; an "inner life" layout; both with --faithful
+  (target <= 0.35 x notes, never expand, no invention). Also a 50-word distinctive-name index (non-principal names in
+  each character's notes, ranked by count x share vs the other principals) appended to v2/charmem, and recency cuts
+  of the notes at 1-3k words as no-generation baselines.
+- Ops: 1-GPU gpt-oss servers hold only 2-12 of these 10-60k-token prompts at once (~400 tok/s); sheet jobs now run on
+  2 GPUs. Sheet reps live in data/reps_sheets_<split>.jsonl (build_reps --sheets-only, seconds); evals read both files
+  with a retry (a 2.7 GB reps rewrite under a running eval gave "Stale file handle"). ~40 older thinking-on eval jobs
+  sit in /home/toolkit/eaiexp/state/queue/held (move back to queued/ to resume).

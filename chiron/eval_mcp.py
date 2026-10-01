@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor
 from urllib import error as urlerror, request as urlrequest
 
 sys.path.insert(0, os.path.dirname(__file__))
-from common import COHORTS, DATA, OUT, REPO, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
+from common import COHORTS, DATA, OUT, REPO, append_jsonl, clean_text, load_chapters, load_reps, read_jsonl  # noqa: E402
 from build_items import alias_regex  # noqa: E402
 
 
@@ -174,9 +174,7 @@ def main():
     items = read_jsonl(DATA / f"{stem}.jsonl")[args.shard::args.nshards]
     suffix = f".s{args.shard}of{args.nshards}" if args.nshards > 1 else ""
     principals = json.load(open(DATA / "principals.json"))
-    reps = {}
-    for r in read_jsonl(DATA / f"reps_{args.split}.jsonl"):
-        reps[(r["condition"], r["book"], r["boundary"], r["label"])] = r["text"]
+    reps = load_reps(args.split)
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
     chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
     plots = load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None
