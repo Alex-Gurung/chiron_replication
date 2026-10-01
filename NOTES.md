@@ -372,3 +372,10 @@ with the entire book, reasoning on short spans and dense windows.
   3k cut 81.7 at 16.3k (synopses on top: 81.2), gpt-oss chapter notes 79.1 at 17.2k, best one-call sheet 78.2 at
   7.7k, Llama last 3,000 words 77.2. Full Llama notes / filtered gpt-oss notes in the package still running.
   Queued: chapter-so-far and thinking (262k) for the Llama-3k-cut and gpt-oss-chapter-notes combinations.
+- 20:50 Full Llama notes + synopses + last 2 chapters 83.8 at 71.8k (best without the chapter so far); filtered gpt-oss
+  Llama-style notes + same 83.3 at 53k (n=1045); filtered gpt-oss notes + last 1,000 words 80.3 at 42k, + synopses
+  81.4. With the chapter so far: Llama 3k cut + Story Information 86.9 at 29.9k, + last 1,000 words 86.1 at 18.5k;
+  gpt-oss chapter notes + same 86.4 / 85.7 (Llama full + chapter so far: 85.7 at 61k).
+- Ops: 2-GPU jobs were starving (freed GPUs return one at a time and 1-GPU jobs take them). scripts/free_pairs.py holds
+  queued 1-GPU jobs, stops running 1-GPU thinking jobs two per worker, lets the 2-GPU jobs claim the pairs, then
+  requeues/releases. Long thinking jobs raised to priority -2 so a freed pair goes to them.
