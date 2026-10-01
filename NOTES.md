@@ -320,3 +320,20 @@ with the entire book, reasoning on short spans and dense windows.
   1,000 +4.9 [+1.9, +7.8]; v2 + last 1,000 +3.4 [+0.6, +6.0]; charmem re-run -1.2 [-2.9, +0.5]; best one-call sheet
   (CHIRON layout from Llama notes, as written) -0.2 [-2.3, +1.7]; filtered gpt-oss Llama-pipeline notes +5.5 [+2.0, +8.5].
 - Report v21 published (same URL) at 07:22 with a "New gpt-oss sheets (Oct 1)" section and the hybrids on the chart.
+- 08:40 gpt-oss redo of the Llama summary step held to ~400 words (gen_legsum --words 500 with rewrite-to-length):
+  69.9 at 2.8k tokens alone (Llama's own summary 70.4 at 2.7k), 75.5 at 4.2k with the last 1,000 words, ~77.6 with
+  1,500 (partial). Llama summary + last 1,500 words 77.1 at 4.7k ties the Llama notes cut to 3k words (77.3 at 15k).
+
+### Summary of the Oct 1 campaign (for the 11:00 check-in)
+
+- Asked for: a gpt-oss-120b character sheet, Pareto-optimal against non-oracle representations, ~5k mean prompt
+  tokens, +5 over existing sheets on Qwen3.8-27B (thinking off), ideally 80%.
+- Sheets alone: no. ~35 one-call designs plus charmem's own synthesis re-run all land at 68-72 at ~1,000 words per
+  character (charmem 71.9; best new, as written, 71.7; charmem re-run 70.7). Lures (facts in the wrong character's
+  sheet), not missing content, limit them; adding shared content (latest-chapter notes, names, status) makes it worse.
+- Sheet + the last 500-1,500 words of the story, shown once before the sheets: +3.5 to +5 on the 27B (all intervals
+  over books exclude 0), +5 on 9B base, +4 on 4B, +1.6 with thinking. 75-77% at 4-6k tokens; matches the 15k-token
+  Llama cut and beats every other non-oracle representation under 15k. With the chapter so far: 81.7% at 7.8k.
+- Not reached: 80% at ~5k without the chapter so far (best ~77).
+- gpt-oss Llama notes (archive extraction prompt + filler removal + gpt-oss entailment filter): 77.4 at 41k vs Llama
+  80.3 at 59k; gpt-oss Llama summary ~400 words 69.9 vs Llama 70.4.
