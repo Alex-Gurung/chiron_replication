@@ -266,3 +266,16 @@ with the entire book, reasoning on short spans and dense windows.
   2 GPUs. Sheet reps live in data/reps_sheets_<split>.jsonl (build_reps --sheets-only, seconds); evals read both files
   with a retry (a 2.7 GB reps rewrite under a running eval gave "Stale file handle"). ~40 older thinking-on eval jobs
   sit in /home/toolkit/eaiexp/state/queue/held (move back to queued/ to resume).
+- More 27B results: latest-chapter gpt-oss notes appended to charmem lower it (charmem+last1 69.1); the name index
+  hurts (alone 39.4, below names only; charmem+index 69.0; v2+index 65.2); chrono 69.0, dossier 68.6, distinct
+  68.7, CHIRON layout from thorough notes 68.6. Recency cuts of the Llama notes: 1k words 65.1, 2k 71.5, 3k ~75.
+  legacy_gptoss (gpt-oss, Llama extraction prompt, unfiltered) 75.9 at 70k tokens vs Llama 80.3 at 59k.
+- Error analysis 1 (agent; 10 items legacy_full right, charmem wrong): decisive clue = current situation 4, named
+  secondary character 2, past event 2, place 1, narrator 1; charmem lacks the clue in 6, has it but loses to a lure in 4.
+- Error analysis 2 (agent; 7 items charmem right, new CHIRON-layout sheet wrong): every case has a fact in the wrong
+  character's sheet that echoes the passage (actions, quotes, kinship, who-calls-whom like "ma'am"/"fox" reversed),
+  inherited from unverified gpt-oss chapter notes; cover stories stated as facts; stale status; quotes and per-chapter
+  timelines crowd out odd distinctive details. charmem's quote-verified ledgers filter these.
+- So: the notes' attribution quality, not the sheet layout, is the gap. Round 4: compress charmem's own verified ledgers
+  (with their claim/belief/flashback/state-change tags) with charmem's synthesis rules plus a Status block; the same
+  jointly for the three principals (cast); a review pass; joint cast sheets from thorough notes.

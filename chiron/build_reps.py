@@ -203,6 +203,35 @@ def add_index(add, keys):
     return idx
 
 
+def first_sentences(text, n=1):
+    return " ".join(SENT.split(" ".join(text.split()))[:n])
+
+
+def add_cuts(add, keys):
+    """Chapter notes cut answer by answer to their first sentence: every chapter kept, at a fraction of the length."""
+    for cond, root in (("chapnotes", "chapnotes"), ("chapnotes_h_long", "chapnotes_h_long"), ("legacy_gptoss_nofill", "legacy_gptoss")):
+        notes = collections.defaultdict(lambda: collections.defaultdict(dict))
+        for f in glob.glob(str(OUT / root / "*.jsonl")):
+            for r in read_jsonl(f):
+                if root == "legacy_gptoss":
+                    notes[(r["book"], r["label"])][r["chapter_index"]][r["q"]] = gclean(r["answer"])
+                else:
+                    notes[(r["book"], r["label"])][r["chapter_index"]].update(r["answers"])
+        for book, b, l in keys:
+            have = notes.get((book, l), {})
+            chs = sorted(c for c in have if c < b)
+            if not chs or len(chs) != b:
+                continue
+            parts = []
+            for head, qs in CHAPNOTE_LAYOUT:
+                parts.append(f"## {head}")
+                for q in qs:
+                    body = "\n".join(f"<snippet {c}>\n{first_sentences(have[c][q])}" for c in chs if have[c].get(q, "").strip())
+                    if body:
+                        parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
+            add(f"{cond}_s1", book, b, l, "\n\n".join(parts))
+
+
 def save(recs, split, keys):
     tmp = DATA / f"reps_{split}.jsonl.tmp"                    # atomic swap: running jobs never read a half-written file
     with open(tmp, "w") as f:
@@ -234,12 +263,26 @@ def main():
                          "words": len(text.split())})
     add_sheets(add, keys)                                         # sheets live in their own small file (rebuilt often)
     idx = add_index(add, keys)
+    add_cuts(add, keys)
     base = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")
             if r["condition"] in ("v2", "charmem")} if args.sheets_only else {}
     base.update({(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs if r["condition"].startswith("sheet_")})
     for (c, *k), t in base.items():
         if idx.get(tuple(k)) and (c in ("v2", "charmem") or c in ("sheet_chiron_lgp", "sheet_chiron_cnl")):
             add(f"{c}+index", *k, t.rstrip() + "\n\n### Names in the story\n" + ", ".join(idx[tuple(k)]) + ".")
+    notes = collections.defaultdict(dict)                         # short gpt-oss chapter notes on the latest chapters
+    for f in glob.glob(str(OUT / "chapnotes" / "*.jsonl")):
+        for r in read_jsonl(f):
+            notes[(r["book"], r["label"])][r["chapter_index"]] = " ".join(v for v in r["answers"].values() if v)
+    for (c, *k), t in base.items():
+        if c not in ("v2", "charmem"):
+            continue
+        b, bd, l = k
+        for n in (1, 2):
+            last = [(ch, notes[(b, l)].get(ch)) for ch in range(max(0, bd - n), bd)]
+            last = [(ch, x if x else "Not in this chapter.") for ch, x in last if x is not None]
+            if last:
+                add(f"{c}+last{n}", *k, t.rstrip() + "\n\n### Latest chapters\n" + "\n".join(f"Chapter {ch + 1}: {x}" for ch, x in last))
     save(recs, f"sheets_{args.split}", keys)
     if args.sheets_only:
         return
