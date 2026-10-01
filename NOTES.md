@@ -307,3 +307,11 @@ with the entire book, reasoning on short spans and dense windows.
   words 60.2, 1,000 65.2. A gpt-oss 300-word recap of the last 2,000 words instead of raw text: 72.4 (+0.5 only).
   Consensus of three charmem samples: 69.3 nested (no gain over single samples).
 - Filtered gpt-oss Llama-pipeline notes complete: legacy_gptoss_ent 77.4 at 40.7k tokens (Llama full 80.3 at 59k).
+- 07:05 As written (headings not nested), the one-call sheets: CHIRON layout from Llama notes 71.7, chrono 70.4, joint
+  70.2, CHIRON from ledgers 69.7; charmem re-run 70.7. Every reasonable ~1,000-word design ends at 70-72 on the 27B;
+  no sheet alone clearly beats charmem (71.9).
+- Hybrid placement: the recent text after the sheets (right before the passage) is worse than before them (charmem
+  72.8 vs 76.1). Trimming charmem to 500 words + 1,000 words of text: 75.0 at 4.2k; Llama summary + 500 words 75.9
+  at 3.4k. On Qwen3.5-9B base charmem 61.2 -> 66.7 with the last 1,000 words (Llama full 67.8); Qwen3-4B 45.2 -> 49.1
+  (Llama full 49.1).
+- Ops: the 62 held thinking jobs are back in the queue (priority 4/9); they fill spare GPUs and will keep running.

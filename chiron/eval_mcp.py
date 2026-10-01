@@ -105,6 +105,8 @@ def prompt(item, names, blocks, book_text, target):
         parts.append("# Characters\n\n" + "\n".join(f"- {names[l]}" for l in item["order"]))
     else:
         parts.append("# Character information\n\n" + "\n\n".join(f"## {names[l]}\n\n{blocks[l].strip()}" for l in item["order"]))
+    if "recent" in item:                                  # <rep>^<book cond>: book text after the character blocks
+        parts.append("# The story just before this chapter\n\n" + item["recent"])
     if "chapter_so_far" in item:                          # +pre conditions
         parts.append("# This chapter up to the passage\n\n" + (item["chapter_so_far"] or "(The passage starts the chapter.)"))
     parts.append("# Passage\n\n" + item["masked"])
@@ -177,7 +179,7 @@ def main():
     principals = json.load(open(DATA / "principals.json"))
     reps = load_reps(args.split)
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
-    chapters = load_chapters() if any(c.startswith("book") or "&book" in c for c in args.conditions) else None
+    chapters = load_chapters() if any(c.startswith("book") or "&book" in c or "^book" in c for c in args.conditions) else None
     plots = load_plots(args.split) if any(c.startswith("plot_") or "&plot_" in c for c in args.conditions) else None
     prefixes = load_prefixes(args.split) if any(c == "book_prefix" or c.endswith("+pre") or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
@@ -199,6 +201,9 @@ def main():
             rep, _, extra = cond.partition("&")                  # <rep>&<book cond>: character blocks plus book text
             if extra:
                 book_text = book_context(extra, it, chapters, prefixes, plots)
+            rep, _, after = rep.partition("^")                   # <rep>^<book cond>: the same text after the blocks
+            if after:
+                it = {**it, "recent": book_context(after, it, chapters, prefixes, plots)}
             if rep.startswith(("book", "plot_")):
                 book_text = book_context(rep, it, chapters, prefixes, plots)
                 if book_text is None:
