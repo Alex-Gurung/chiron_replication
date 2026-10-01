@@ -363,3 +363,6 @@ with the entire book, reasoning on short spans and dense windows.
   Llama-style summary 75.6 at 6.1k: the gpt-oss plot summary adds ~0 over sheet + recent text; the synopses add 2-3.
   With the chapter so far: v2 + last 2 chapters 83.6 at 13.8k; full Story Information 83.3-83.6; the Llama-style
   hybrids 81-82 at 6-7k.
+- Story Information grid on the smaller models: 9B base 63-67 (best Llama summary + synopses + last 2 chapters 67.1 at
+  15.4k, the same as Llama summary + last 1,000 words alone, 67.0 at 4.0k); 4B 43-45, all below charmem + last 1,000
+  words (49.1): long context and plot summaries hurt the 4B.
