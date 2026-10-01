@@ -4,16 +4,20 @@
 Hang signature (seen three times with Qwen3.8-27B): the server is READY, its last "Avg generation throughput" line
 still shows requests running or waiting, and no new line has been logged for --stale-min minutes. The job neither
 fails nor exits, so the queue never notices. For each such job: SIGKILL its process tree on its worker pod
-(eaiexp runners/kill_zombies.sh), wait for the record to reach failed/, requeue the same command under a fresh name
-(finished work is skipped on restart) and move the old record to failed_archive/. Prints one line per action.
+(eaiexp runners/kill_zombies.sh), requeue the same command (read before the kill) under a fresh name (finished work is
+skipped on restart) and move the old record from failed/ to failed_archive/ once it lands there. Prints one line per action.
 """
 import argparse
 import datetime
 import json
 import re
 import subprocess
+import sys
 import time
 from pathlib import Path
+
+sys.path.insert(0, "/home/toolkit/eaiexp")
+import jobqueue as q  # noqa: E402
 
 QUEUE = Path("/home/toolkit/eaiexp/state/queue")
 RUNS = Path("/home/toolkit/eaiexp/runs")
@@ -49,15 +53,19 @@ def main():
             name = f.stem
             if not hung(name, args.stale_min):
                 continue
-            pod = workers().get(json.load(open(f))["claimed_by"])
+            rec = json.load(open(f))                              # keep the command before the record moves
+            pod = workers().get(rec["claimed_by"])
             subprocess.run(["eai", "job", "exec", pod, "--", "bash", "/home/toolkit/eaiexp/runners/kill_zombies.sh", name],
                            stdin=subprocess.DEVNULL, capture_output=True)
             for _ in range(60):
                 if (QUEUE / "failed" / f"{name}.json").exists():
                     break
                 time.sleep(5)
-            subprocess.run(["python3", str(REPO / "scripts" / "queue_jobs.py"), "requeue", name], capture_output=True)
-            (QUEUE / "failed" / f"{name}.json").rename(QUEUE / "failed_archive" / f"{name}.json")
+            short = name.rsplit("_", 1)[0].replace("chiron_", "", 1)
+            q.add(q.conn(), f"chiron_{short}_{time.strftime('%m%d%H%M', time.gmtime())}", rec["cmd"], gpus=rec["gpus"], lane="chiron",
+                  priority=rec["priority"])
+            if (QUEUE / "failed" / f"{name}.json").exists():
+                (QUEUE / "failed" / f"{name}.json").rename(QUEUE / "failed_archive" / f"{name}.json")
             print(f"{datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None):%H:%M} hung engine: killed and requeued {name}", flush=True)
         if args.once:
             break
