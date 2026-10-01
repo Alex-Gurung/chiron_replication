@@ -223,3 +223,15 @@ with the entire book, reasoning on short spans and dense windows.
   larger in first-person books (27B -7.2 vs -2.4) and coincides with Llama's 4-5x more text.
 - Book text by chapters (27B, joint): chapter so far 70.1, last 1 chapter 64.7, 1 chapter + chapter so far 74.8, last
   2 70.3, last 4 73.3, last 8 72.2, whole 73.9. 9B base: chapter so far 65.8 beats any amount of earlier book text.
+
+### 2026-09-30 late: why the gpt-oss claims lose at the same length
+
+- 25% of the claims' words are the character's own name (every claim restates it; other representations 1-6%).
+- Cutting the claims to their most recent k words keeps only recent chapters: 500 words cover a median 3 of 20
+  chapters, 2,000 words 8 of 20; v2/charmem/summaries cover the whole book at any length.
+- Claims are short context-free facts (median 8 words; 18% of 5 words or fewer); relations are often garbled/dropped.
+- At about the same length (~6k words) Llama notes from only their most recent chapters score 77.4 vs 71.5 for the
+  claims over all chapters; gpt-oss's own chapter notes reach 75.4 at ~3.2k words. So the loss is the snippet/claim
+  format, not the model. Narrator fix (claims with headings) does not move accuracy (4B 45.2 vs 45.3, 9B 59.8 vs 57.3).
+- Queued: legacy_match (Llama notes cut answer by answer to gpt-oss chapter notes' length; median ~3.1k vs 3.3k words)
+  and chapnotes_h_long (gpt-oss asked for thorough answers), to separate model from volume.

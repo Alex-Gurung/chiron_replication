@@ -4,7 +4,8 @@ Llama-3.3-70B notes, so the two differ only in the model. (The gpt-oss CHIRON cl
 per 300-word snippet, split answers into single claims and keep only entailed ones.)
 
   python3 chiron/gen_chapnotes.py --books B... [--workers 64] [--headings]
-With --headings each chapter is prefixed with its heading and, when first person, who "I" is (-> outputs/chapnotes_h).
+With --headings each chapter is prefixed with its heading and, when first person, who "I" is (-> outputs/chapnotes_h);
+--long asks for thorough answers (-> outputs/chapnotes[_h]_long).
 Covers every chapter before the last boundary a book's passages need. Output: outputs/chapnotes/<book>.jsonl, one
 record per (chapter, label) with an answer per question ("" when the chapter says nothing). Resumable.
 """
@@ -19,15 +20,21 @@ from gen_chiron import QUESTIONS, ROLE
 ROOT = OUT / "chapnotes"                         # --headings: OUT / "chapnotes_h"
 
 
-def messages(chapter, name):
+THOROUGH = ("Answer each question thoroughly, with every relevant detail from this section: what the character does, says "
+            "and thinks, who they are with and how they relate to each other character, where they are, and what changes. Use "
+            "as many short, simple sentences as the section supports (often 3 to 8 per question), each naming the character. ")
+
+
+def messages(chapter, name, long=False):
     qs = "\n".join(f"- {k}: {q}" for k, (_, q) in QUESTIONS.items())
     schema = ", ".join(f'"{k}": "..."' for k in QUESTIONS)
+    how = (THOROUGH.replace("the character", name) + "Use only this story section. " if long else
+           f"Answer each question about {name} based only on this story section, in a few short, simple sentences that name "
+           "the character. ")                              # the original prompt, unchanged
     return [{"role": "system", "content": ROLE},
             {"role": "user", "content": (
-                f"Story Section:\n{chapter}\n\nCharacter: {name}\n\n"
-                f"Answer each question about {name} based only on this story section, in a few short, simple sentences "
-                f"that name the character. If the section says nothing for a question, answer with an empty string.\n\n"
-                f"Questions:\n{qs}\n\nReturn only JSON: {{{schema}}}")}]
+                f"Story Section:\n{chapter}\n\nCharacter: {name}\n\n{how}If the section says nothing for a question, answer "
+                f"with an empty string.\n\nQuestions:\n{qs}\n\nReturn only JSON: {{{schema}}}")}]
 
 
 def check(p):
@@ -44,10 +51,11 @@ def main():
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--workers", type=int, default=64)
     ap.add_argument("--headings", action="store_true", help="prefix each chapter with its heading and who narrates it")
+    ap.add_argument("--long", action="store_true", help="ask for thorough answers (-> chapnotes..._long)")
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
     global ROOT
-    ROOT = OUT / "chapnotes_h" if args.headings else ROOT
+    ROOT = OUT / ("chapnotes" + ("_h" if args.headings else "") + ("_long" if args.long else ""))
     narrators = load_narrators() if args.headings else {}
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
@@ -69,7 +77,7 @@ def main():
         try:
             ctx = chapter_context(ch, narrators) if args.headings else ""
             text = clean_text(ch["chapter_text_normalized"])
-            ans, meta = llm.ask(messages(f"{ctx}\n\n{text}" if ctx else text, name), check, max_tokens=12000)
+            ans, meta = llm.ask(messages(f"{ctx}\n\n{text}" if ctx else text, name, args.long), check, max_tokens=16000)
         except ValueError as e:
             print("FAILED", book, ch["chapter_index"], l, str(e)[:200], flush=True)
             return

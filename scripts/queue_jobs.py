@@ -18,6 +18,8 @@
   python3 scripts/queue_jobs.py headings_gen    every gpt-oss representation again, with chapter headings and narrators
   python3 scripts/queue_jobs.py headings_eval   evaluate the with-headings representations on every model
   python3 scripts/queue_jobs.py pre             every representation + the passage's chapter so far (<cond>+pre)
+  python3 scripts/queue_jobs.py long_notes      thorough gpt-oss chapter notes (with headings)
+  python3 scripts/queue_jobs.py eval_conds TAG LONG COND...   evaluate conditions on every model
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
@@ -294,10 +296,12 @@ def main():
         # evaluate the with-headings representations on every model (long ones at 262k)
         groups = [(["chapnotes_h", "chiron_h"], True),
                   (["summary_h", "chiron_h_r2000"] + [f"plot_h_{k}_{n}" for k in ("global", "hier") for n in (500, 1000, 2000, 4000)], False)]
+        if sys.argv[2:] == ["claims"]:                  # only the claims (they finish long before the rest)
+            groups = [(["chiron_h"], True), (["chiron_h_r2000"], False)]
         for split in ("test", "val", "train"):
             n = 4 if split == "train" else 1
             for conds, lng in groups:
-                t = f"heval_{split}_{'long' if lng else 'short'}"
+                t = f"heval{'c' if sys.argv[2:] == ['claims'] else ''}_{split}_{'long' if lng else 'short'}"
                 for k in range(n):
                     addraw(f"{t}_q27_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, k, n, ["--rotations"]), 0)
                     addraw(f"{t}_q27think_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 1)
@@ -328,6 +332,23 @@ def main():
                 for k in range(nt):
                     lng = c in think_long
                     addraw(f"prethink_{split}_{c}_s{k}of{nt}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", c + "+pre", k, nt), 3)
+    elif what == "long_notes":
+        # thorough gpt-oss chapter notes (with headings), 8 book groups
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(8):
+            addraw(f"longnotes_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
+                                        "--", "python3", "-u", f"{REPO}/chiron/gen_chapnotes.py", "--books", *books[k::8], "--workers", "64",
+                                        "--headings", "--long"], -1)
+    elif what == "eval_conds":
+        # evaluate the given conditions on every model: queue_jobs.py eval_conds <tag> <long 0|1> COND...
+        tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
+        for split in ("test", "val", "train"):
+            n = 4 if split == "train" else 1
+            for k in range(n):
+                addraw(f"ec_{tag}_{split}_q27_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, k, n, ["--rotations"]), -1)
+                addraw(f"ec_{tag}_{split}_q27think_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=1) + srv("qwen27", lng) + ev("eval_reason.py", split, f"items_{split}", conds, k, n), 0)
+            addraw(f"ec_{tag}_{split}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), -1)
+            addraw(f"ec_{tag}_{split}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), -1)
     elif what == "plot":
         # plot summaries with gpt-oss (one pass at 131k context on 2 GPUs; chapter-by-chapter at 65k on 1 GPU)
         books = sorted({b for s in ("test", "val", "train") for b in (json.loads(l)["book"] for l in open(f"{REPO}/data/items_{s}.jsonl"))})

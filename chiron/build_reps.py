@@ -10,6 +10,8 @@ One record per (condition, book, boundary, label); every source is built from ch
   charmem        finished Sep 8 gpt-oss rebuild sheet (ncp_charmem_gptoss120b_reviewed_20260908/sheets)
   chapnotes      gpt-oss chapter notes (gen_chapnotes.py): the Llama notes' layout and questions, redone with gpt-oss
   *_h            summary_h, chapnotes_h, chiron_h(_r2000): the same, generated with chapter headings and narrator hints
+  chapnotes_h_long  gpt-oss chapter notes asked for thorough answers (gen_chapnotes.py --headings --long)
+  legacy_match   Llama notes without filler, each chapter's answer cut to gpt-oss's answer length for that chapter and question
   gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
 Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
 """
@@ -196,8 +198,8 @@ def main():
             add("chiron_" + cat.split("/")[0].lower(), *k, render(rows, cat))
         for words in (250, 500, 1000, 2000, 4000):
             add(f"chiron_r{words}", *k, render(budget(rows, words)))
-    for cond, root in (("chapnotes", "chapnotes"), ("chapnotes_h", "chapnotes_h")):   # gpt-oss chapter notes, Llama layout
-        notes = collections.defaultdict(dict)
+    for cond, root in (("chapnotes", "chapnotes"), ("chapnotes_h", "chapnotes_h"), ("chapnotes_h_long", "chapnotes_h_long")):
+        notes = collections.defaultdict(dict)                     # gpt-oss chapter notes, Llama layout
         for f in glob.glob(str(OUT / root / "*.jsonl")):
             for r in read_jsonl(f):
                 notes[(r["book"], r["label"])][r["chapter_index"]] = r["answers"]
@@ -212,6 +214,27 @@ def main():
                         if body:
                             parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
                 add(cond, book, b, l, "\n\n".join(parts))
+        if cond == "chapnotes":                                   # Llama notes cut to gpt-oss's length, answer by answer
+            qkey = {q: k for k, (_, q) in QUESTIONS.items()}
+            for book, b, l in keys:
+                k = f"{book}_{LEGACY_LABEL.get(l, l)}_{b}"
+                if not full.get(k) or len(notes.get((book, l), {})) < b:
+                    continue
+                parts = []
+                for head, blocks in legacy_blocks(full[k]):
+                    q = qkey.get(head[len("Question: "):].strip()) if head.startswith("Question:") else None
+                    if not q:
+                        parts.append(head)
+                        continue
+                    body = []
+                    for c, t in blocks:
+                        n = len((notes[(book, l)].get(c) or {}).get(q, "").split())
+                        w = FILLER.sub("", t).split()[:n]
+                        if w:
+                            body.append(f"<snippet {c}>\n{' '.join(w)}")
+                    if body:
+                        parts.append(head + "\n\n" + "\n".join(body))
+                add("legacy_match", book, b, l, "\n\n".join(parts))
     for book, b, l in keys:
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():
