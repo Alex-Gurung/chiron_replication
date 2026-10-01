@@ -27,6 +27,7 @@
   python3 scripts/queue_jobs.py charsynth VARIANT SOURCE [WORDS]   charmem's exact synthesis on other notes (gen_charsynth.py)
   python3 scripts/queue_jobs.py evalsmall TAG LONG COND...   Qwen3.5-9B base and Qwen3-4B only
   python3 scripts/queue_jobs.py merge VARIANT WORDS V1 V2 V3...   consensus of sheet samples (gen_merge.py)
+  python3 scripts/queue_jobs.py recap WORDS SOURCE_WORDS   gpt-oss recap of the last words before the chapter (gen_recap.py)
   python3 scripts/queue_jobs.py entail          gpt-oss entailment ratings for the gpt-oss Llama-prompt notes (gen_entail.py)
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
@@ -397,6 +398,13 @@ def main():
             addraw(f"sheet_{variant}_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
                                                "--", "python3", "-u", f"{REPO}/chiron/gen_merge.py", "--variant", variant, "--words", words,
                                                "--from", *src, "--books", *books[k::2]], -3)
+    elif what == "recap":
+        # gpt-oss recap of the last words before the passage's chapter: recap WORDS SOURCE_WORDS
+        words, src = sys.argv[2], sys.argv[3]
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        addraw(f"recap_{words}_{src}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "32768",
+                                           "--", "python3", "-u", f"{REPO}/chiron/gen_recap.py", "--words", words, "--source-words", src,
+                                           "--books", *books], -3)
     elif what == "eval27":
         tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
         for split in ("test", "val", "train"):

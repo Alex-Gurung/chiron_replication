@@ -296,3 +296,14 @@ with the entire book, reasoning on short spans and dense windows.
   character summaries, the re-run charmem and the gpt-oss Llama summary, and a plot-summary tail instead of raw text.
 - Filtered gpt-oss Llama-pipeline notes (legacy_gptoss_ent): 77.9 at 38.6k tokens (n=751), on the frontier between
   legacy_r6000 (77.4 at 23k) and legacy_full (80.3 at 59k).
+- 06:35 Formatting control: build_reps had nested every new sheet's "## Section" headings under the "## Name" block
+  ("###"). That costs the 27B 1.5-2.5 points: charmem nested (and with plain hyphens) 69.4 vs 71.9 as published;
+  the charmem re-run as written 70.7 vs 69.3 nested. So the resample gap to the published charmem is ~1 point
+  (three nested resamples 68.5/69.0/69.3), and every sheet_* number above is understated by ~2. Re-evaluating 15
+  variants as written (sheet_<v>_flat).
+- Sheet + recent text, complete (27B): charmem + last 500 words 75.4 at 5.0k tokens; + last 1,000 76.1 at 5.7k;
+  + last 2,000 76.4 at 7.0k; Llama summary + last 1,000 76.8 at 4.0k; gpt-oss character summaries + last 1,000 76.9
+  at 5.3k; v2 + last 1,000 75.2 at 5.4k; gpt-oss Llama summary + last 1,000 76.3 at 11.5k. Recent text alone: 500
+  words 60.2, 1,000 65.2. A gpt-oss 300-word recap of the last 2,000 words instead of raw text: 72.4 (+0.5 only).
+  Consensus of three charmem samples: 69.3 nested (no gain over single samples).
+- Filtered gpt-oss Llama-pipeline notes complete: legacy_gptoss_ent 77.4 at 40.7k tokens (Llama full 80.3 at 59k).

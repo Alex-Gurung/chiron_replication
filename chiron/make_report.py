@@ -105,6 +105,16 @@ NEW_ROWS = [
         ("ledger_full", "charmem's ledgers, every claim", ""), ("ledger_c4", "charmem's ledgers, 4 claims per chapter", ""),
         ("ledger_c2", "charmem's ledgers, 2 claims per chapter", "")]),
 ]
+LABEL.update({
+    "legacy_gptoss": "gpt-oss notes, Llama prompt", "legacy_gptoss_nofill": "gpt-oss notes, Llama prompt, no filler",
+    "legacy_gptoss_ent": "gpt-oss notes, Llama prompt, entailment-filtered", "sheet_legsum_ent": "gpt-oss summary of the filtered notes",
+    "sheet_csyn_ldg": "charmem's synthesis, re-run", "sheet_cast_cnl": "gpt-oss joint sheets (one call for all three)",
+    **{f"charmem&book_last{k}": f"charmem + last {k:,} words" for k in (500, 1000, 2000)},
+    "legacy&book_last1000": "Llama summary + last 1,000 words", "v2&book_last1000": "v2 + last 1,000 words",
+    "book_last500": "Book text, last 500 words", "book_last1000": "Book text, last 1,000 words"})
+for _g, _items in NEW_ROWS:
+    for _c, _n, _ in _items:
+        LABEL.setdefault(_c, _n)
 REASON_ROWS = ["noinfo", "v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_ROWS = ["noinfo", "gender", "v2", "charmem", "summary", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_COLS = [("Qwen3.8-27B_nothink", "27B, sections"), ("Qwen3.8-27B_think", "27B thinking, sections"),
@@ -135,6 +145,7 @@ LENGTH_FAMILIES = [
     ("Plot, by chapter, headings", ["plot_h_hier_500", "plot_h_hier_1000", "plot_h_hier_2000", "plot_h_hier_4000"], 7, DOT, "down", True, SUMM),
     ("Book text, last k words", ["book_last2000", "book_last8000", "book_last32000", "book"], 4, None, "circle", False, BOOK),
     ("Book text, last k chapters", ["book_ch1", "book_ch2", "book_ch4", "book_ch8", "book"], 5, None, "triangle", False, BOOK),
+    ("charmem + last k words of the book", ["charmem", "charmem&book_last500", "charmem&book_last1000", "charmem&book_last2000"], 0, DASH, "diamond", True, OTHER),
 ]
 LENGTH_SINGLES = [
     ("charmem", "charmem", 0, None, "diamond", False, NOTES),
@@ -148,6 +159,14 @@ LENGTH_SINGLES = [
     ("Llama notes + v2", "combo_legacy_v2", None, None, "star", False, OTHER),
     ("v2 + charmem + summaries", "combo_short", None, None, "star", True, OTHER),
     ("All four combined", "combo_all", None, None, "hexagon", False, OTHER),
+    ("gpt-oss notes, Llama prompt", "legacy_gptoss", 1, None, "pentagon", False, NOTES),
+    ("gpt-oss notes, Llama prompt, no filler", "legacy_gptoss_nofill", 1, None, "pentagon", True, NOTES),
+    ("gpt-oss notes, Llama prompt, entailment-filtered", "legacy_gptoss_ent", 1, None, "star", False, NOTES),
+    ("gpt-oss summary of the filtered notes", "sheet_legsum_ent", 1, None, "hexagon", True, NOTES),
+    ("charmem's synthesis, re-run", "sheet_csyn_ldg", 0, None, "star", True, NOTES),
+    ("Best one-call gpt-oss sheet (joint)", "sheet_cast_cnl", 1, None, "down", True, NOTES),
+    ("Llama summary + last 1,000 words", "legacy&book_last1000", 2, None, "triangle", True, OTHER),
+    ("v2 + last 1,000 words", "v2&book_last1000", 0, None, "square", True, OTHER),
     ("Gender only", "gender", None, None, "plus", False, OTHER),
     ("Oracle: prior facts", "oracle_prior", None, None, "pentagon", True, OTHER),
     ("Oracle: passage clues", "oracle_passage", None, None, "pentagon", False, OTHER),
@@ -161,6 +180,14 @@ PASSAGE_SERIES = [
     ("gpt-oss claims", "chiron", 1, None, "circle", False, NOTES), ("gpt-oss claims, last 2,000 words", "chiron_r2000", 1, DASH, "circle", True, NOTES),
     ("Llama notes, full", "legacy_full", 2, None, "diamond", False, NOTES), ("Llama notes, summarized", "legacy", 2, DASH, "circle", True, NOTES),
     ("Character summaries", "summary", 3, None, "circle", False, SUMM), ("Book text, last 8,000 words", "book_last8000", 4, None, "circle", False, BOOK),
+    ("gpt-oss notes, Llama prompt", "legacy_gptoss", 1, None, "pentagon", False, NOTES),
+    ("gpt-oss notes, Llama prompt, no filler", "legacy_gptoss_nofill", 1, None, "pentagon", True, NOTES),
+    ("gpt-oss notes, Llama prompt, entailment-filtered", "legacy_gptoss_ent", 1, None, "star", False, NOTES),
+    ("gpt-oss summary of the filtered notes", "sheet_legsum_ent", 1, None, "hexagon", True, NOTES),
+    ("charmem's synthesis, re-run", "sheet_csyn_ldg", 0, None, "star", True, NOTES),
+    ("Best one-call gpt-oss sheet (joint)", "sheet_cast_cnl", 1, None, "down", True, NOTES),
+    ("Llama summary + last 1,000 words", "legacy&book_last1000", 2, None, "triangle", True, OTHER),
+    ("v2 + last 1,000 words", "v2&book_last1000", 0, None, "square", True, OTHER),
     ("Gender only", "gender", None, None, "plus", False, OTHER), ("v2, name-swapped", "swapname_v2", 0, DOT, "circle", True, OTHER),
 ]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]

@@ -68,7 +68,8 @@ def load_prefixes(split):
 
 def load_plots(split):
     """(condition, book, boundary) -> plot summary of chapters < boundary (gen_plot.py export)."""
-    return {(r["condition"], r["book"], r["boundary"]): r["text"] for r in read_jsonl(DATA / f"plot_{split}.jsonl")}
+    return {(r["condition"], r["book"], r["boundary"]): r["text"] for f in (f"plot_{split}", f"recap_{split}")
+            for r in read_jsonl(DATA / f"{f}.jsonl")}                # recaps: gen_recap.py
 
 
 def book_context(cond, it, chapters, prefixes, plots=None):

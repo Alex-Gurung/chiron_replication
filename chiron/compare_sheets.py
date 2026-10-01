@@ -12,7 +12,7 @@ from common import OUT
 REF = ["noinfo", "gender", "v2", "charmem", "summary", "legacy", "plot_global_1000", "plot_hier_4000", "chiron_r2000",
        "book_last8000", "chapnotes", "chapnotes_h_long", "legacy_match", "legacy_r6000", "legacy_full", "legacy_gptoss",
        "legacy_gptoss_nofill", "legacy_r1000", "legacy_r2000", "legacy_r3000", "chapnotes_h_long_r1000", "chapnotes_h_long_r2000",
-       "index_lgp", "v2+index", "charmem+index", "charmem+last1", "charmem+last2", "v2+last1", "v2+last2", "chapnotes_h_long_s1", "legacy_gptoss_nofill_s1", "ledger_full", "ledger_c2", "ledger_c4", "legacy_gptoss_ent", "legacy_gptoss_ent4", "charmem&book_last500", "charmem&book_last1000", "charmem&book_last2000", "v2&book_last1000", "book_last2000", "book_last1000", "book_last500", "legacy&book_last1000", "sheet_legsum_ent_w800&book_last1000", "sheet_csyn_ldg&book_last1000", "charmem&plot_hier_4000@last500", "charmem&plot_global_500", "summary&book_last1000"]
+       "index_lgp", "v2+index", "charmem+index", "charmem+last1", "charmem+last2", "v2+last1", "v2+last2", "chapnotes_h_long_s1", "legacy_gptoss_nofill_s1", "ledger_full", "ledger_c2", "ledger_c4", "legacy_gptoss_ent", "legacy_gptoss_ent4", "charmem&book_last500", "charmem&book_last1000", "charmem&book_last2000", "v2&book_last1000", "book_last2000", "book_last1000", "book_last500", "legacy&book_last1000", "sheet_legsum_ent_w800&book_last1000", "sheet_csyn_ldg&book_last1000", "charmem&plot_hier_4000@last500", "charmem&plot_global_500", "summary&book_last1000", "plot_recap300", "charmem&plot_recap300", "sheet_csyn_ldg_flat", "charmem_nest", "summary&book_last500", "summary&book_last2000", "summary_h&book_last1000", "legacy&book_last500", "summary@500&book_last1000"]
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="Qwen3.8-27B_nothink")
@@ -21,7 +21,7 @@ args = ap.parse_args()
 d = json.load(open(OUT / f"analysis_main_{args.model}.json"))
 rows, pbj = d["rows"], d["per_book_joint"]
 suf = "+pre" if args.pre else ""
-conds = [c + suf for c in REF + sorted(c for c in rows if c.startswith("sheet_") and "+" not in c) if c + suf in rows]
+conds = list(dict.fromkeys(c + suf for c in REF + sorted(c for c in rows if c.startswith("sheet_") and "+" not in c) if c + suf in rows))
 acc = {c: rows[c]["joint"]["macro"] for c in conds}
 tok = {c: rows[c]["mean_tokens"] for c in conds}
 front = {c for c in conds if not any(acc[o] >= acc[c] and tok[o] <= tok[c] and (acc[o], tok[o]) != (acc[c], tok[c]) for o in conds)}

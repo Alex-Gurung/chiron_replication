@@ -148,6 +148,10 @@ def render(rows, only=None):
     return "\n\n".join(parts)
 
 
+# Nesting the sheets' "## Section" headings under the "## Name" block (###) costs 1.5-2.5 points on the 27B (charmem
+# 71.9 -> 69.4 nested; re-run charmem 69.3 nested -> 70.7 as written), so these variants are also kept as written.
+FLAT = {"chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
+        "csyn_ldg_cons", "csyn_ent", "legsum_ent_w800", "charmemst_ent", "chiron_lgp_rv", "dossier_cnl", "distinct_cnl"}
 SHEET_ABLATE = {"refer": "how others refer", "voice": "voice", "story": "story so far", "rel": "relationships"}
 
 
@@ -157,6 +161,10 @@ def add_sheets(add, keys):
               .replace("\u2011", "-").replace("\u202f", " ") for f in d.glob("*.jsonl") for r in read_jsonl(f)}
         for k in keys:
             add(f"sheet_{d.name}", *k, sh.get(k))
+        if d.name in FLAT:                                        # as written: headings at the name's level, like charmem
+            raw = {(r["book"], r["boundary"], r["label"]): r["text"] for f in d.glob("*.jsonl") for r in read_jsonl(f)}
+            for k in keys:
+                add(f"sheet_{d.name}_flat", *k, raw.get(k))
         if d.name in ("bible_cn", "bible_leg"):                 # one section dropped at a time
             for k in keys:
                 if k not in sh:
@@ -306,6 +314,17 @@ def main():
             recs.append({"condition": cond, "book": book, "boundary": b, "label": label, "text": text,
                          "words": len(text.split())})
     add_sheets(add, keys)                                         # sheets live in their own small file (rebuilt often)
+    for f in (OUT / "sheets" / "csyn_ldg").glob("*.jsonl"):        # formatting control: the re-run as stored, headings not nested
+        for r in read_jsonl(f):
+            k = (r["book"], r["boundary"], r["label"])
+            if k in keys:
+                add("sheet_csyn_ldg_flat", *k, r["text"])
+    for book, b, l in keys:                                        # and charmem with nested headings and plain hyphens
+        p = CHARMEM / f"{book}__{b:04d}.json"
+        if p.exists():
+            t = json.load(open(p))["character_sheets"].get(l)
+            if t:
+                add("charmem_nest", book, b, l, re.sub(r"^(#+) ", r"#\1 ", t, flags=re.M).replace("\u2011", "-").replace("\u202f", " "))
     idx = add_index(add, keys)
     add_cuts(add, keys)
     add_ledger(add, keys)
