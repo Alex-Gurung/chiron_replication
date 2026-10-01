@@ -72,12 +72,34 @@ def load_plots(split):
             for r in read_jsonl(DATA / f"{f}.jsonl")}                # recaps: gen_recap.py
 
 
+NCP_STORY = {}
+
+
+def ncp_story(it):
+    """The NCP dataset's Story Information parts for the passage's chapter (build_ncp_story.py)."""
+    if not NCP_STORY:
+        NCP_STORY.update({(r["book"], r["chapter_index"]): r for r in read_jsonl(DATA / "ncp_story.jsonl")})
+    return NCP_STORY.get((it["book"], it["chapter_index"]))
+
+
 def book_context(cond, it, chapters, prefixes, plots=None):
     """Book text for the book conditions (shown instead of per-character blocks). b = the passage's chapter.
+    ncp_*: the NCP dataset's own Story Information (plot synopses so far, the last two chapters, the next chapter's synopsis).
     book: chapters < b; book_last<k>: its last k words; book_noprev<k>: last k words of chapters < b-1;
     book_prevonly: chapter b-1; book_ch<k>: chapters b-k .. b-1; book_prefix: chapter b up to the passage;
     book_ch<k>p: chapters b-k .. b-1 plus chapter b up to the passage."""
     b = it["chapter_index"]
+    if cond.startswith("ncp_"):                            # ncp_plot[@last<k>], ncp_story, ncp_storynext, ncp_next
+        r = ncp_story(it)
+        if r is None:
+            return None
+        base, k = (cond.split("@") + [None])[:2]
+        if base == "ncp_plot":
+            return "The story so far, chapter by chapter", words(r["plot"], int(k[4:]), last=True) if k else r["plot"]
+        if base == "ncp_next":
+            return "Synopsis of this chapter", r["next"]
+        text = f"## Synopses of the chapters so far\n\n{r['plot']}\n\n## The last two chapters\n\n{r['raw']}"
+        return "Story information", text + (f"\n\n## Synopsis of the next chapter\n\n{r['next']}" if base == "ncp_storynext" else "")
     if cond.startswith("plot_"):                           # plot_<kind>_<target>[@last<k>]: a plot summary, optionally its last k words
         base, k = (cond.split("@") + [None])[:2]
         t = plots.get((base, it["book"], b))
@@ -204,7 +226,7 @@ def main():
             rep, _, after = rep.partition("^")                   # <rep>^<book cond>: the same text after the blocks
             if after:
                 it = {**it, "recent": book_context(after, it, chapters, prefixes, plots)}
-            if rep.startswith(("book", "plot_")):
+            if rep.startswith(("book", "plot_", "ncp_")):
                 book_text = book_context(rep, it, chapters, prefixes, plots)
                 if book_text is None:
                     missing += 1

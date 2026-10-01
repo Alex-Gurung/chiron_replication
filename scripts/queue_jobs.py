@@ -405,10 +405,12 @@ def main():
         addraw(f"recap_{words}_{src}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "32768",
                                            "--", "python3", "-u", f"{REPO}/chiron/gen_recap.py", "--words", words, "--source-words", src,
                                            "--books", *books], -3)
-    elif what == "eval27":
-        tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
+    elif what in ("eval27", "eval27w"):
+        # eval27w TAG LONG NTRAIN COND...: the same with the train split in NTRAIN shards
+        tag, lng = sys.argv[2], sys.argv[3] == "1"
+        ntrain, conds = (int(sys.argv[4]), sys.argv[5:]) if what == "eval27w" else (2, sys.argv[4:])
         for split in ("test", "val", "train"):
-            n = 2 if split == "train" else 1
+            n = ntrain if split == "train" else 1
             for k in range(n):
                 addraw(f"e27_{tag}_{split}_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, k, n, ["--rotations"]), -3)
     elif what == "eval_conds":

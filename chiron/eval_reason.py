@@ -113,7 +113,7 @@ def main():
             rep, _, extra = cond.partition("&")                  # <rep>&<book cond>: character blocks plus book text
             if extra:
                 book_text = E.book_context(extra, it, chapters, prefixes, plots)
-            if rep.startswith(("book", "plot_")):
+            if rep.startswith(("book", "plot_", "ncp_")):
                 book_text = E.book_context(rep, it, chapters, prefixes, plots)
                 if book_text is None:
                     missing += 1

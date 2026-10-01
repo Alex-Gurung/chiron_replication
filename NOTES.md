@@ -337,3 +337,20 @@ with the entire book, reasoning on short spans and dense windows.
 - Not reached: 80% at ~5k without the chapter so far (best ~77).
 - gpt-oss Llama notes (archive extraction prompt + filler removal + gpt-oss entailment filter): 77.4 at 41k vs Llama
   80.3 at 59k; gpt-oss Llama summary ~400 words 69.9 vs Llama 70.4.
+
+### 2026-10-01 midday: plot + character combinations, NCP's Story Information, best-of-kind chart
+
+- NCP Story Information (ncp_cohorts_v2): prior_plot_summary = SuperSummary synopses of every earlier chapter (median
+  3.6k words), story_text = the two preceding chapters, character sheets = v2; no whole-book overview in this cohort;
+  next_chapter_synopsis describes the passage's own chapter (oracle). data/ncp_story.jsonl (build_ncp_story.py); eval
+  conditions ncp_plot[@last<k>], ncp_story, ncp_storynext, ncp_next, combinable as <sheet>&<...>.
+- 27B (thinking off): sheets only (v2) 68.8 at 4.1k; synopses only 71.2 at 5.6k; last 2 chapters only 70.3 at 8.2k;
+  synopses + last 2 chapters 74.8 at 13.3k; v2 + synopses 76.7 at 9.1k; v2 + last 2 chapters 77.6 at 11.7k; all of it
+  79.5 at 16.8k (charmem instead of v2 79.8); + the next-chapter synopsis (oracle) 80.5; that one-liner alone 51.6.
+  Every part helps; sheets + last 1,000 words (76.1-76.8 at 4-6k) gets most of it.
+- Plot + characters: charmem + synopses 77.6 at 9.4k, + last 1,000 words of the synopses 75.8 at 5.6k; gpt-oss plot
+  summary (1,000 words) + charmem 74.4 at 6.2k, + Llama summary 74.3 at 4.6k, + v2 75.1. Recent book text beats plot
+  summaries as the add-on at equal length.
+- Smaller models: 9B base Story Information 65.0 (charmem 61.2, charmem + last 1,000 words 66.7); 4B 44.3, below
+  charmem alone (45.2): long context hurts the 4B; charmem + last 1,000 words is best there (49.1).
+- Report: "Best of each kind" chart (Pareto line per kind of method) and a Story Information table group.

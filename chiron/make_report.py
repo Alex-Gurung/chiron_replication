@@ -130,6 +130,23 @@ NEW_ROWS = [
         ("charmem&plot_recap300", "charmem + gpt-oss recap of the last 2,000 words", "300-word recap instead of raw text"),
         ("plot_recap300", "the recap alone", ""), ("charmem&plot_global_500", "charmem + 500-word plot summary", ""),
         ("charmem&plot_hier_4000@last500", "charmem + last 500 words of the chapter-by-chapter plot summary", "")]),
+    ("Plot summaries with character information", [
+        ("ncp_plot", "NCP chapter synopses so far (SuperSummary, in the dataset)", "a human-written synopsis of every earlier chapter"),
+        ("ncp_plot@last1000", "… their last 1,000 words", ""),
+        ("plot_global_1000", "gpt-oss plot summary, one pass, ~1,000 words", ""),
+        ("v2&ncp_plot", "v2 + chapter synopses", ""), ("charmem&ncp_plot", "charmem + chapter synopses", ""),
+        ("summary&ncp_plot", "Character summaries + chapter synopses", ""), ("charmem&ncp_plot@last1000", "charmem + last 1,000 words of the synopses", ""),
+        ("v2&plot_global_1000", "v2 + gpt-oss plot summary (~1,000 words)", ""), ("charmem&plot_global_1000", "charmem + gpt-oss plot summary", ""),
+        ("summary&plot_global_1000", "Character summaries + gpt-oss plot summary", ""), ("summary&plot_global_500", "Character summaries + 500-word plot summary", ""),
+        ("legacy&plot_global_1000", "Llama summary + gpt-oss plot summary", "")]),
+    ("NCP's Story Information, whole and in parts", [
+        ("v2", "Sheets only (v2)", ""), ("ncp_plot", "Synopses only", ""), ("book_ch2", "Last 2 chapters only", ""),
+        ("ncp_story", "Synopses + last 2 chapters", ""), ("v2&ncp_plot", "Sheets + synopses", ""), ("v2&book_ch2", "Sheets + last 2 chapters", ""),
+        ("v2&ncp_story", "All of it: sheets + synopses + last 2 chapters", "what NCP gives a writer, minus the next chapter's synopsis"),
+        ("charmem&ncp_story", "The same with charmem sheets", ""),
+        ("ncp_next", "Oracle: synopsis of the passage's own chapter", "NCP's writing target; it describes the passage's chapter"),
+        ("v2&ncp_next", "Oracle: sheets + that synopsis", ""),
+        ("v2&ncp_storynext", "Oracle: everything + that synopsis", "")]),
     ("Additions to an existing sheet", [
         ("charmem+last1", "charmem + gpt-oss notes on the last chapter", ""), ("charmem+last2", "charmem + notes on the last 2 chapters", ""),
         ("charmem+index", "charmem + 40 distinctive names", "non-principal names in the character's notes"), ("index_lgp", "the 40 names alone", ""),
@@ -154,10 +171,44 @@ LABEL.update({
     **{f"summary@500&book_last{k}": f"Character summaries' first 500 words + last {k:,} words" for k in (1000, 1500)},
     **{f"charmem&book_last{k}": f"charmem + last {k:,} words" for k in (500, 1000, 2000)},
     "v2&book_last1000": "v2 + last 1,000 words",
-    "book_last500": "Book text, last 500 words", "book_last1000": "Book text, last 1,000 words"})
+    "book_last500": "Book text, last 500 words", "book_last1000": "Book text, last 1,000 words",
+    "legacy_noprev": "Llama notes without the previous chapter", "legacy_r6000": "Llama notes, last 6,000 words",
+    "legacy_r1000": "Llama notes, last 1,000 words", "legacy_r2000": "Llama notes, last 2,000 words",
+    "ncp_plot": "NCP chapter synopses so far (SuperSummary)", "ncp_plot@last1000": "NCP chapter synopses, last 1,000 words",
+    "ncp_story": "NCP Story Information without sheets (synopses + last 2 chapters)",
+    "v2&ncp_story": "NCP Story Information: v2 sheets + synopses + last 2 chapters",
+    "charmem&ncp_story": "charmem + synopses + last 2 chapters", "v2&book_ch2": "v2 + last 2 chapters (no synopses)",
+    "v2&ncp_plot": "v2 + chapter synopses (no raw chapters)", "charmem&ncp_plot": "charmem + chapter synopses",
+    "summary&ncp_plot": "Character summaries + chapter synopses", "charmem&ncp_plot@last1000": "charmem + last 1,000 words of the synopses",
+    "ncp_next": "Oracle: NCP synopsis of the passage's chapter", "v2&ncp_next": "Oracle: v2 + synopsis of the passage's chapter",
+    "v2&ncp_storynext": "Oracle: all NCP Story Information + synopsis of the passage's chapter",
+    "charmem&plot_global_1000": "charmem + 1,000-word plot summary", "summary&plot_global_1000": "Character summaries + 1,000-word plot summary",
+    "legacy&plot_global_1000": "Llama summary + 1,000-word plot summary", "summary&plot_global_500": "Character summaries + 500-word plot summary",
+    "v2&plot_global_1000": "v2 + 1,000-word plot summary"})
 for _g, _items in NEW_ROWS:
     for _c, _n, _ in _items:
         LABEL.setdefault(_c, _n)
+BEST_GROUP = "Best at each length, by kind"
+_ORACLE = ("oracle", "manual", "swap", "ncp_next", "ncp_storynext", "gender", "index")
+_LLAMA = lambda c: c.split("@")[0] in ("legacy", "legacy_full", "legacy_nofill", "legacy_match", "legacy_noprev", "legacy_inter",
+                                      "legacy_nointer") or re.fullmatch(r"legacy_r\d+", c) is not None or c.startswith("sheet_bible_leg") \
+                   or c.startswith("sheet_chiron_leg")
+_GPT = lambda c: (c.split("@")[0] in ("charmem", "summary", "summary_h", "chiron", "chiron_h", "chapnotes", "chapnotes_h", "chapnotes_h_long")
+                  or c.startswith(("chiron_r", "chiron_h_r", "chapnotes_h_long_", "legacy_gptoss", "ledger", "charmem+", "sheet_"))) \
+                 and not _LLAMA(c)
+BEST_CATS = [   # name, colour (follows the generator), dash (+ recent book text), marker, member test
+    ("Llama notes & summaries", 2, None, "diamond", lambda c: "&" not in c and _LLAMA(c)),
+    ("gpt-oss notes & sheets", 1, None, "square", lambda c: "&" not in c and _GPT(c)),
+    ("v2 sheet", 0, None, "circle", lambda c: c.split("@")[0] == "v2"),
+    ("Plot summary only", 6, None, "triangle", lambda c: "&" not in c and c.startswith(("plot_", "ncp_plot"))),
+    ("Book text only", 4, None, "down", lambda c: "&" not in c and c.startswith("book") and not re.fullmatch(r"book_prefix|book_ch\d+p", c)),
+    ("Llama summary + recent text", 2, "6 4", "star", lambda c: "&book_last" in c and _LLAMA(c.split("&")[0])),
+    ("gpt-oss sheet + recent text", 1, "6 4", "star", lambda c: "&book_last" in c and not _LLAMA(c.split("&")[0])),
+    ("Sheet + plot summary", 7, None, "pentagon", lambda c: "&plot_" in c or "&ncp_plot" in c),
+    ("NCP Story Information", 5, None, "hexagon", lambda c: c.startswith("ncp_story") or c.endswith(("&ncp_story", "&book_ch2"))),
+]
+BEST_CATS = [(n, col, dash, sh, (lambda c, f=f: not c.startswith(_ORACLE) and not any(o in c for o in ("swap", "+index", "index_")) and f(c)))
+             for n, col, dash, sh, f in BEST_CATS]
 REASON_ROWS = ["noinfo", "v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_ROWS = ["noinfo", "gender", "v2", "charmem", "summary", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_COLS = [("Qwen3.8-27B_nothink", "27B, sections"), ("Qwen3.8-27B_think", "27B thinking, sections"),
@@ -581,6 +632,16 @@ def main():
             f"from {v('charmem', qt)} to {v('charmem&book_last500', qt)}% with 500 words (full Llama notes {v('legacy_full', qt)}%). "
             f"charmem plus the last 500 to 1,000 words is the choice that holds on every model; with the chapter so far as well, "
             f"Qwen3.8-27B reaches {v('charmem&book_last1000+pre')}% at {tk('charmem&book_last1000+pre')} tokens.",
+            f"<b>Plot summaries and NCP's Story Information.</b> The dataset's own chapter synopses (SuperSummary, every earlier "
+            f"chapter) score {v('ncp_plot')}% alone at {tk('ncp_plot')} tokens, above any gpt-oss plot summary ({v('plot_global_1000')}% "
+            f"at {tk('plot_global_1000')}). With character sheets: charmem + synopses {v('charmem&ncp_plot')}% at {tk('charmem&ncp_plot')}, "
+            f"character summaries + synopses {v('summary&ncp_plot')}%, v2 + synopses {v('v2&ncp_plot')}%; charmem + a 1,000-word gpt-oss "
+            f"plot summary {v('charmem&plot_global_1000')}% at {tk('charmem&plot_global_1000')}. NCP's whole Story Information (v2 "
+            f"sheets + synopses + the last two chapters) gives {v('v2&ncp_story')}% at {tk('v2&ncp_story')} tokens; without the sheets "
+            f"{v('ncp_story')}%, without the synopses (v2 + last two chapters) {v('v2&book_ch2')}%, without the last two chapters "
+            f"{v('v2&ncp_plot')}%, the sheets alone {v('v2')}%. NCP also gives the writer a one-line synopsis of the chapter being "
+            f"written; it describes the passage's own chapter, so it is an oracle here: alone {v('ncp_next')}%, with everything "
+            f"{v('v2&ncp_storynext')}%.",
             f"<b>The Llama notes, redone with gpt-oss, now nearly match.</b> The archive's own extraction prompt, run with gpt-oss "
             f"(one call per chapter, character and question): {v('legacy_gptoss')}% at {tk('legacy_gptoss')}; without “the "
             f"section never mentions X” filler {v('legacy_gptoss_nofill')}%; kept only where gpt-oss rates the sentence fully "
@@ -705,6 +766,35 @@ def main():
         return out
 
     length = length_data(LENGTH_FAMILIES, LENGTH_SINGLES)
+
+    def best_data():
+        """Per model, one line per kind of method through its non-dominated points (median whole-prompt tokens)."""
+        fams = {}
+        for m, name in CHART_MODELS:
+            a = A[("main", m)]
+            if not a:
+                continue
+            rows = a["rows"]
+            conds = [c for c in rows if not c.endswith("+pre") and rows[c]["tokens_q"] and get("main", m, c) and c != "noinfo"]
+            for cat, col, dash, shape, pred in BEST_CATS:
+                pts = sorted((rows[c]["tokens_q"][2], -get("main", m, c)["macro"], c) for c in conds if pred(c))
+                front, top = [], -1
+                for x, ny, c in pts:
+                    if -ny > top:
+                        front.append(c)
+                        top = -ny
+                fams.setdefault(name, []).append((cat, front, col, dash, shape, False, BEST_GROUP))
+        out = {}
+        for m, name in CHART_MODELS:
+            if name in fams:
+                d = length_data([f for f in fams[name] if f[1]], [])
+                if name in d:
+                    for ser in d[name]["series"]:
+                        for pnt in ser["points"]:
+                            pnt["label"] = LABEL.get(pnt["label"], pnt["label"])
+                    out[name] = d[name]
+        return out
+    best = best_data()
     passage = {}
     for m, name in CHART_MODELS:
         series = [{"name": n, "color": col, "dash": dash, "shape": shape, "hollow": hol, "group": grp,
@@ -789,8 +879,8 @@ def main():
                  "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
                  "PRON_TABLE": small_table(A[("pron", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "book_last8000"]),
-                 "LENGTH_DATA": json.dumps(length), "PASSAGE_DATA": json.dumps(passage),
-                 "LENGTH_ROWS": table_rows(length), "PASSAGE_ROWS": table_rows(passage),
+                 "LENGTH_DATA": json.dumps(length), "PASSAGE_DATA": json.dumps(passage), "BEST_DATA": json.dumps(best),
+                 "LENGTH_ROWS": table_rows(length), "PASSAGE_ROWS": table_rows(passage), "BEST_ROWS": table_rows(best),
                  "EXAMPLE": ex, "EXAMPLE_KEY": names, "EXAMPLE_BOOK": html.escape(it["book"]) if it else "",
                  "N_MAIN": f"{counts['main'][0]:,}", "N_SHORT": f"{counts['short'][0]:,}", "N_WINDOW": f"{counts['window'][0]:,}",
                  "N_BOOKS": str(len(A[("main", q27)]["books"])), "LEG_RATIO": leg_ratio, "REPS_TABLE": reps_table(), "REP_WHO": f"{rep_label} in {rep_book} before chapter {rep_b}", "LEG_LONGER": leg_longer}.items():
@@ -944,6 +1034,18 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       <div class="tip" hidden></div>
     </div>
     <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{LENGTH_ROWS}}</tbody></table></div></details>
+  </section>
+
+  <section aria-labelledby="best">
+    <h2 id="best">Best of each kind</h2>
+    <p class="muted">The same axes, condensed: one line per kind of method, through the representations of that kind that no shorter one of the same kind beats (the most accurate at each length). Oracles, name swaps, gender only and name lists are left out. The switches work as above; the lines are chosen on median whole-prompt length without the chapter so far. Hover a point for the representation; the table below lists them.</p>
+    <div class="chart" id="bestbox">
+      <div class="controls" data-controls></div>
+      <div class="plot-scroll"><svg viewBox="0 0 760 440" role="img" aria-label="Best accuracy against prompt length by kind of method"></svg></div>
+      <div class="key" data-legend></div>
+      <div class="tip" hidden></div>
+    </div>
+    <details><summary>Chart data</summary><div class="table-wrap" style="margin-top:0.6rem"><table><tbody>{{BEST_ROWS}}</tbody></table></div></details>
   </section>
 
   <section aria-labelledby="plt">
@@ -1313,6 +1415,10 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] },
                                     { key: "bars", label: "Bars", choices: [["mid", "middle half"], ["p90", "10th–90th"], ["none", "off"]] },
                                     { key: "labels", label: "Point labels", choices: [["off", "off"], ["on", "on"]] }]);
+  mount("bestbox", {{BEST_DATA}}, [{ key: "pre", label: "This chapter so far", choices: [["off", "off"], ["on", "on"]] },
+                                   { key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
+                                   { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] },
+                                   { key: "bars", label: "Bars", choices: [["none", "off"], ["mid", "middle half"], ["p90", "10th–90th"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
 })();
 </script>
