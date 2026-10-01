@@ -13,6 +13,7 @@ One record per (condition, book, boundary, label); every source is built from ch
   chapnotes_h_long  gpt-oss chapter notes asked for thorough answers (gen_chapnotes.py --headings --long)
   legacy_gptoss  gpt-oss with the Llama notes' own extraction prompt (gen_legacy_gptoss.py), no splitting or filtering
   legacy_match   Llama notes without filler, each chapter's answer cut to gpt-oss's answer length for that chapter and question
+ sheet_<variant> gpt-oss character sheets compressed from chapter notes (gen_sheet.py, outputs/sheets/<variant>)
   gender         "Gender: female." / "Gender: male." only (common.genders, from the v2 and charmem sheets)
 Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.py --split test
 """
@@ -24,9 +25,6 @@ import os
 import pickle
 import re
 from pathlib import Path
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 
 from build_items import alias_regex
 from common import COHORTS, DATA, OUT, REPO, SENT, genders, read_jsonl
@@ -41,6 +39,8 @@ LEGACY_LABEL = {"Rohan": "Rohanc", "Michael Bradshaw": "Michael BradshaDavinaw"}
 
 
 def dedup(statements, threshold=0.9):
+    from sklearn.feature_extraction.text import TfidfVectorizer       # imported here so gen_sheet can use this module
+    from sklearn.metrics.pairwise import cosine_similarity
     if len(statements) < 2:
         return statements
     sims = cosine_similarity(TfidfVectorizer().fit_transform(statements))
@@ -249,6 +249,11 @@ def main():
                     if body:
                         parts.append(head + "\n\n" + "\n".join(body))
                 add("legacy_match", book, b, l, "\n\n".join(parts))
+    for d in sorted((OUT / "sheets").glob("*")):                # new gpt-oss sheets, one condition per variant
+        sh = {(r["book"], r["boundary"], r["label"]): re.sub(r"^(#+) ", r"#\1 ", r["text"], flags=re.M)   # nest under the name
+              for f in d.glob("*.jsonl") for r in read_jsonl(f)}
+        for k in keys:
+            add(f"sheet_{d.name}", *k, sh.get(k))
     for book, b, l in keys:
         p = CHARMEM / f"{book}__{b:04d}.json"
         if p.exists():

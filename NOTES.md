@@ -235,3 +235,17 @@ with the entire book, reasoning on short spans and dense windows.
   format, not the model. Narrator fix (claims with headings) does not move accuracy (4B 45.2 vs 45.3, 9B 59.8 vs 57.3).
 - Queued: legacy_match (Llama notes cut answer by answer to gpt-oss chapter notes' length; median ~3.1k vs 3.3k words)
   and chapnotes_h_long (gpt-oss asked for thorough answers), to separate model from volume.
+
+### 2026-10-01 02:00- UTC: new gpt-oss sheets (compressed notes), aiming past charmem at ~5k tokens
+
+- Goal: a gpt-oss-120b character sheet that beats every non-oracle representation at its length (charmem 71.9 at
+  4.4k mean prompt tokens on the 27B; v2 68.8 at 4.1k), ideally near the Llama notes (80.3 at 59k).
+- Design: two stages. Exhaustive per-chapter notes (as the Llama notes are made), then one gpt-oss call per (book,
+  boundary, principal) compresses every earlier chapter's notes into a ~1,000-word sheet (chiron/gen_sheet.py). The
+  brief is a writer's character bible; it never mentions masking or identification. 1,000 words x 3 characters is about
+  4.4k sheet tokens, i.e. ~5k per prompt.
+- Round 1 (27B first, then every model for finalists): bible / chrono / dossier layouts from the thorough gpt-oss chapter
+  notes (chapnotes_h_long), bible from the short gpt-oss notes (chapnotes), and bible from the Llama notes (a control on
+  compression). legacy_gptoss (the Llama extraction prompt run with gpt-oss) is still generating.
+- Ops: demoted the with-headings thinking evals (chiron_h, chapnotes_h) to priority 4 (scripts/demote_jobs.py) to free
+  GPUs for generation.

@@ -21,6 +21,8 @@
   python3 scripts/queue_jobs.py legacy_gptoss   the Llama notes' extraction prompt run with gpt-oss
   python3 scripts/queue_jobs.py long_notes      thorough gpt-oss chapter notes (with headings)
   python3 scripts/queue_jobs.py eval_conds TAG LONG COND...   evaluate conditions on every model
+  python3 scripts/queue_jobs.py sheet VARIANT SOURCE WORDS STYLE NJOBS [--limit N]   new gpt-oss sheets (gen_sheet.py)
+  python3 scripts/queue_jobs.py eval27 TAG LONG COND...   Qwen3.8-27B without thinking only (fast iteration)
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
@@ -346,6 +348,21 @@ def main():
         for k in range(8):
             addraw(f"leggpt_{k}", 1, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "65536",
                                      "--", "python3", "-u", f"{REPO}/chiron/gen_legacy_gptoss.py", "--books", *books[k::8], "--workers", "96"], -2)
+    elif what == "sheet":
+        # one sheet variant, NJOBS book groups; the Llama notes need 131k context on 2 GPUs
+        variant, source, words, style, nj = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], int(sys.argv[6])
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        g, ml = (2, "131072") if source == "legacy" else (1, "65536")
+        for k in range(nj):
+            addraw(f"sheet_{variant}_{k}", g, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", ml,
+                                               "--", "python3", "-u", f"{REPO}/chiron/gen_sheet.py", "--variant", variant, "--source", source,
+                                               "--words", words, "--style", style, "--books", *books[k::nj], *sys.argv[7:]], -3)
+    elif what == "eval27":
+        tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
+        for split in ("test", "val", "train"):
+            n = 2 if split == "train" else 1
+            for k in range(n):
+                addraw(f"e27_{tag}_{split}_s{k}of{n}", 2 if lng else 1, env(CHIRON_THINKING=0) + srv("qwen27", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, k, n, ["--rotations"]), -3)
     elif what == "eval_conds":
         # evaluate the given conditions on every model: queue_jobs.py eval_conds <tag> <long 0|1> COND...
         tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
