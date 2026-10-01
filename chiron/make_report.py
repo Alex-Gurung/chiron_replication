@@ -476,10 +476,11 @@ def main():
 
             def one(c):
                 r = rows[c]
-                xs = {"all": {"med": r["tokens_q"][2], "mean": r["mean_tokens"], "lo": r["tokens_q"][1], "hi": r["tokens_q"][3]}}
+                t = r["tokens_q"]
+                xs = {"all": {"med": t[2], "mean": r["mean_tokens"], "lo": t[1], "hi": t[3], "lo90": t[0], "hi90": t[4]}}
                 if r.get("rep_tokens_q"):
                     q = r["rep_tokens_q"]
-                    xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3]}
+                    xs["rep"] = {"med": q[2], "mean": r["rep_tokens_mean"], "lo": max(q[1], 1), "hi": q[3], "lo90": max(q[0], 1), "hi90": q[4]}
                 return {"xs": xs, "y": 100 * get("main", m, c)["macro"], "cov": r["items"] / r["items_total"]}
             ok = lambda c: c in rows and rows[c]["tokens_q"] and get("main", m, c)
 
@@ -941,12 +942,12 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
       hit.addEventListener("mouseenter", show); hit.addEventListener("focus", show);
       hit.addEventListener("mouseleave", () => tip.hidden = true); hit.addEventListener("blur", () => tip.hidden = true);
     };
-    const whisker = (p, c, parent) => {
+    const whisker = (p, c, parent) => {                         // drawn over the marker so a short spread still shows
       if (!p.lo) return;
-      const y = Y(p.y), a = { stroke: c, "stroke-width": 1.4, opacity: 0.45 };
+      const y = Y(p.y), a = { stroke: c, "stroke-width": 1.5, opacity: 0.75 };
       el("line", { x1: X(p.lo), x2: X(p.hi), y1: y, y2: y, ...a }, parent);
-      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 3.5, y2: y + 3.5, ...a }, parent);
-      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 3.5, y2: y + 3.5, ...a }, parent);
+      el("line", { x1: X(p.lo), x2: X(p.lo), y1: y - 5, y2: y + 5, ...a }, parent);
+      el("line", { x1: X(p.hi), x2: X(p.hi), y1: y - 5, y2: y + 5, ...a }, parent);
     };
     const mark = (p, it, parent, r) => el("path", { transform: `translate(${X(p.x)},${Y(p.y)})`, d: SHAPES[it.shape || "circle"](r || 4.6),
       fill: it.hollow ? "var(--surface)" : it.c, stroke: it.hollow ? it.c : "var(--surface)", "stroke-width": it.hollow ? 2 : 1.5 }, parent);
@@ -965,16 +966,15 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     }
     series.filter(s => on(s.name)).forEach(s => {
       const g = gOf(s.name);
-      s.points.forEach(p => whisker(p, s.c, g));
       el("polyline", { points: s.points.map(p => X(p.x) + "," + Y(p.y)).join(" "), fill: "none", stroke: s.c, "stroke-width": 2, "stroke-linejoin": "round",
                        ...(s.dash ? { "stroke-dasharray": s.dash } : {}) }, g);
-      s.points.forEach(p => { mark(p, s, g); hover(p, `${s.name} · ${p.label}: ${desc(p)}`, g); });
+      s.points.forEach(p => { mark(p, s, g); whisker(p, s.c, g); hover(p, `${s.name} · ${p.label}: ${desc(p)}`, g); });
       const last = s.points.filter(inside).pop(); if (last) labels.push({ y: Y(last.y), text: s.name, c: s.c });
     });
     const tags = [];
     singles.filter(p => on(p.name)).forEach(p => {
       const g = gOf(p.name);
-      whisker(p, p.c, g); mark(p, p, g, 5.4); hover(p, `${p.name}: ${desc(p)}`, g);
+      mark(p, p, g, 5.4); whisker(p, p.c, g); hover(p, `${p.name}: ${desc(p)}`, g);
       if (spec.labels === "on" && inside(p)) {
         const w = 6.2 * p.name.length, right = X(p.hi || p.x) + 9;
         const m = { mx: X(p.x), my: Y(p.y) };
@@ -1042,11 +1042,14 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     if (!st.basis) return { ...spec, scale: st.scale, labels: st.labels };
     const pick = p => {
       const v = p.xs[st.basis];
-      return v ? { ...p, x: v[st.stat], lo: v.lo, hi: v.hi } : null;
+      if (!v) return null;
+      const b = st.bars === "p90" ? { lo: v.lo90, hi: v.hi90 } : st.bars === "none" ? { lo: undefined, hi: undefined } : { lo: v.lo, hi: v.hi };
+      return { ...p, x: v[st.stat], ...b };
     };
     return { ...spec, series: spec.series.map(s => ({ ...s, points: s.points.map(pick).filter(Boolean) })),
              singles: (spec.singles || []).map(pick).filter(Boolean),
-             scale: st.scale, labels: st.labels, xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}; bars span the middle half` };
+             scale: st.scale, labels: st.labels,
+             xlabel: `${st.stat === "med" ? "median" : "mean"} ${XLABEL[st.basis]}` + ({ mid: "; bars span the middle half", p90: "; bars span the 10th to 90th percentile", none: "" })[st.bars] };
   }
   function segment(box, label, choices, current, onPick) {
     const wrap = document.createElement("div"); wrap.className = "ctl";
@@ -1091,6 +1094,7 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   mount("lenbox", {{LENGTH_DATA}}, [{ key: "pre", label: "This chapter so far", choices: [["off", "off"], ["on", "on"]] },
                                     { key: "basis", label: "Length of", choices: [["all", "whole prompt"], ["rep", "representation only"]] },
                                     { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] },
+                                    { key: "bars", label: "Bars", choices: [["mid", "middle half"], ["p90", "10th–90th"], ["none", "off"]] },
                                     { key: "labels", label: "Point labels", choices: [["off", "off"], ["on", "on"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
 })();
