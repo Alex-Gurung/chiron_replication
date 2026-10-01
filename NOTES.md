@@ -383,3 +383,7 @@ with the entire book, reasoning on short spans and dense windows.
   chapters 83.8 at 72k; filtered gpt-oss notes + Story Information 82.3 at 53k (the partial 83.3 settled down), + last
   1,000 words 80.3 at 42k. The Llama notes cut to 3k words in the package (82.9 at 28k) gets within a point at 40% of
   the tokens.
+- 22:50 thinking-on results for the new conditions (27B): everything with recent text or synopses sits at 95.6-97.0
+  (charmem alone 94.5); the dataset's synopses alone 96.9 at 5.7k; Llama summary + last 1,000 words 96.2 at 4.1k;
+  charmem + Story Information 97.0 at 17k; Llama 3k cut / gpt-oss chapter notes + Story Information 96.8-96.9. With
+  thinking, the plot synopses alone are as good as any package: the reasoning model needs the plot, not the sheets.
