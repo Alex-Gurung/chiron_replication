@@ -354,3 +354,12 @@ with the entire book, reasoning on short spans and dense windows.
 - Smaller models: 9B base Story Information 65.0 (charmem 61.2, charmem + last 1,000 words 66.7); 4B 44.3, below
   charmem alone (45.2): long context hurts the 4B; charmem + last 1,000 words is best there (49.1).
 - Report: "Best of each kind" chart (Pareto line per kind of method) and a Story Information table group.
+- Story Information from chosen parts (eval condition <sheet>&si-<plot>-<recent>, 27B thinking off): with synopses +
+  last 2 chapters, sheets v2 79.5 / charmem 79.8 / gpt-oss summaries 79.1 / gpt-oss Llama-style summary 79.3 / Llama
+  summary 80.3 (= full Llama notes at 15.4k vs 59k tokens) / none 74.8. Plot part with v2 + last 2 chapters: SuperSummary
+  synopses 79.5, gpt-oss ~1k-word plot 78.2, gpt-oss ~4k-word plot 76.4, none 77.6. Recent part with synopses: last
+  1,000 words instead of 2 chapters costs ~1 point, saves ~6k tokens (charmem 78.9 at 10.7k, Llama summary 79.1 at
+  9.1k). Fully generated (gpt-oss sheet + gpt-oss plot ~1k + last 1,000 words): charmem 76.4 at 7.6k, gpt-oss
+  Llama-style summary 75.6 at 6.1k: the gpt-oss plot summary adds ~0 over sheet + recent text; the synopses add 2-3.
+  With the chapter so far: v2 + last 2 chapters 83.6 at 13.8k; full Story Information 83.3-83.6; the Llama-style
+  hybrids 81-82 at 6-7k.

@@ -664,6 +664,18 @@ def main():
             f"{v('v2&ncp_plot')}%, the sheets alone {v('v2')}%. NCP also gives the writer a one-line synopsis of the chapter being "
             f"written; it describes the passage's own chapter, so it is an oracle here: alone {v('ncp_next')}%, with everything "
             f"{v('v2&ncp_storynext')}%.",
+            f"<b>Story Information from other parts.</b> With the synopses and the last two chapters in place, the kind of sheet "
+            f"matters little: v2 {v('v2&ncp_story')}%, charmem {v('charmem&ncp_story')}%, gpt-oss character summaries "
+            f"{v('summary&si-ncp-ch2')}%, the gpt-oss Llama-style summary {v('sheet_legsum_ent_500_flat&si-ncp-ch2')}%, the Llama summary "
+            f"{v('legacy&si-ncp-ch2')}% (as good as the full Llama notes at a quarter of the tokens); no sheet {v('ncp_story')}%. "
+            f"The plot summary matters more: with v2 and the last two chapters, the dataset's synopses {v('v2&ncp_story')}%, a gpt-oss "
+            f"plot summary of ~1,000 words {v('v2&si-plot_global_1000-ch2')}%, of ~4,000 words {v('v2&si-plot_hier_4000-ch2')}%, none "
+            f"{v('v2&book_ch2')}%. Only the last 1,000 words instead of the last two chapters costs about a point and saves about 6k "
+            f"tokens (charmem {v('charmem&si-ncp-last1000')}% at {tk('charmem&si-ncp-last1000')}, Llama summary {v('legacy&si-ncp-last1000')}% at "
+            f"{tk('legacy&si-ncp-last1000')}). Fully generated (gpt-oss sheet + gpt-oss plot summary + last 1,000 words): charmem "
+            f"{v('charmem&si-plot_global_1000-last1000')}% at {tk('charmem&si-plot_global_1000-last1000')}, the gpt-oss Llama-style summary "
+            f"{v('sheet_legsum_ent_500_flat&si-plot_global_1000-last1000')}% at {tk('sheet_legsum_ent_500_flat&si-plot_global_1000-last1000')}: "
+            f"the gpt-oss plot summary adds about nothing on top of the recent text, where the dataset's synopses add 2 to 3 points.",
             f"<b>The Llama notes, redone with gpt-oss, now nearly match.</b> The archive's own extraction prompt, run with gpt-oss "
             f"(one call per chapter, character and question): {v('legacy_gptoss')}% at {tk('legacy_gptoss')}; without “the "
             f"section never mentions X” filler {v('legacy_gptoss_nofill')}%; kept only where gpt-oss rates the sentence fully "
