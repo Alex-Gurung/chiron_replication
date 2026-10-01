@@ -321,8 +321,8 @@ with the entire book, reasoning on short spans and dense windows.
   (CHIRON layout from Llama notes, as written) -0.2 [-2.3, +1.7]; filtered gpt-oss Llama-pipeline notes +5.5 [+2.0, +8.5].
 - Report v21 published (same URL) at 07:22 with a "New gpt-oss sheets (Oct 1)" section and the hybrids on the chart.
 - 08:40 gpt-oss redo of the Llama summary step held to ~400 words (gen_legsum --words 500 with rewrite-to-length):
-  69.9 at 2.8k tokens alone (Llama's own summary 70.4 at 2.7k), 75.5 at 4.2k with the last 1,000 words, ~77.6 with
-  1,500 (partial). Llama summary + last 1,500 words 77.1 at 4.7k ties the Llama notes cut to 3k words (77.3 at 15k).
+  69.9 at 2.8k tokens alone (Llama's own summary 70.4 at 2.7k), 75.5 at 4.2k with the last 1,000 words, 76.0 at 4.8k
+  with 1,500, 81.0 at 6.3k with 1,000 words and the chapter so far. Llama summary + last 1,500 words 77.1 at 4.7k ties the Llama notes cut to 3k words (77.3 at 15k).
 
 ### Summary of the Oct 1 campaign (for the 11:00 check-in)
 
