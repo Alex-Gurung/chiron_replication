@@ -32,10 +32,22 @@ def question(names, order):
             f"name to its ID, in the form {{{example}}}.")
 
 
+def budget(msgs):
+    """Reasoning budget: 32,768 tokens, or what the served context leaves after a long prompt (counted with /tokenize)."""
+    if sum(len(m["content"]) for m in msgs) < 60000:              # under ~15k tokens: always fits
+        return 32768
+    body = json.dumps({"model": MODEL, "messages": msgs, "add_generation_prompt": True,
+                       "chat_template_kwargs": {"enable_thinking": True}}).encode()
+    req = urlrequest.Request(API.rsplit("/v1", 1)[0] + "/tokenize", data=body, headers={"Content-Type": "application/json"})
+    with urlrequest.urlopen(req, timeout=600) as r:
+        t = json.loads(r.read().decode())
+    return max(256, min(32768, t["max_model_len"] - t["count"] - 64))
+
+
 def ask(text, names, order):
     msgs = [{"role": "user", "content": text}]
     for attempt in range(2):
-        body = json.dumps({"model": MODEL, "messages": msgs, "max_tokens": 32768, "temperature": 0.6, "top_p": 0.95,
+        body = json.dumps({"model": MODEL, "messages": msgs, "max_tokens": budget(msgs), "temperature": 0.6, "top_p": 0.95,
                            "top_k": 20, "chat_template_kwargs": {"enable_thinking": True}}).encode()
         req = urlrequest.Request(API + "/chat/completions", data=body, headers={"Content-Type": "application/json"})
         with urlrequest.urlopen(req, timeout=7200) as r:
