@@ -56,9 +56,54 @@ SHEET_SECTIONS = [("relationships", "Relationships"), ("history", "History"), ("
                   ("dialogue", "Dialogue"), ("knowledge", "Knowledge")]
 NEW_TEXT = "<p class='muted'>(filled in at the end of the run)</p>"
 NEW_ROWS = [
-    ("References", [("charmem", "charmem", "the Sep 8 gpt-oss rebuild of v2: quote-verified chapter ledgers, then one synthesis per boundary"),
-                    ("v2", "v2 sheet", "current dataset"), ("legacy", "Llama notes, summarized", "Llama-3.3-70B, ~500 words"),
-                    ("legacy_full", "Llama notes, full", "Llama-3.3-70B, per chapter and question, entailment-filtered")]),
+    ("References", [
+        ("charmem", "charmem sheet", "Sep 8 gpt-oss pipeline: quote-verified chapter ledgers, one synthesis per boundary (published sample)"),
+        ("v2", "v2 sheet", "current dataset"), ("legacy", "Llama notes, summarized", "Llama-3.3-70B summary of its notes (~500 words)"),
+        ("legacy_full", "Llama notes, full", "Llama-3.3-70B, per chapter and question, entailment-filtered")]),
+    ("The Llama notes redone with gpt-oss", [
+        ("legacy_gptoss", "Llama extraction prompt", "the archive's prompt, one call per chapter, character and question; unfiltered"),
+        ("legacy_gptoss_nofill", "… without filler", "sentences saying the chapter does not mention the character removed"),
+        ("legacy_gptoss_ent", "… entailment-filtered", "gpt-oss rates each sentence against the chapter; only 5/5 kept (the archive's rule)"),
+        ("chapnotes", "earlier redo (one call, 8 questions)", "short answers per chapter")]),
+    ("gpt-oss summary of those notes (the archive's last step)", [
+        ("sheet_legsum_nofill", "Llama summary prompt, from unfiltered notes", "gpt-oss writes ~1,800 words where Llama wrote ~500"),
+        ("sheet_legsum_ent", "Llama summary prompt, from filtered notes", ""),
+        ("sheet_legsum_nofill_w800", "… asked for about 800 words", ""), ("sheet_legsum_ent_w800", "… from filtered notes, about 800 words", "")]),
+    ("charmem's own synthesis, re-run", [
+        ("sheet_csyn_ldg", "same code, same ledgers, new sample", "prompts byte-identical to the published run"),
+        ("sheet_csyn_ldg_r2", "second new sample", ""), ("sheet_csyn_ldg_r3", "third new sample", ""),
+        ("sheet_csyn_ldg_cons", "consensus of the three samples", "gpt-oss keeps notes at least two samples share"),
+        ("sheet_csyn_ldg_w1400", "same, asked for 1,400 words", ""),
+        ("sheet_csyn_ent", "same synthesis on the filtered gpt-oss notes", "")]),
+    ("One-call sheets from chapter notes (~1,000 words)", [
+        ("sheet_bible_leg", "Writer's bible, from Llama notes", "identity, names used, relationships, appearance, voice, story, now"),
+        ("sheet_bible_cnl", "Writer's bible, from thorough gpt-oss notes", ""), ("sheet_bible_lgp", "Writer's bible, from Llama-prompt gpt-oss notes", ""),
+        ("sheet_bible_cn", "Writer's bible, from short gpt-oss notes", ""),
+        ("sheet_bible_cnl_w500", "… 500 words", ""), ("sheet_bible_cnl_w2000", "… 2,000 words", ""),
+        ("sheet_chrono_cnl", "Profile + one line per chapter", ""), ("sheet_dossier_cnl", "Terse bullet lists", ""),
+        ("sheet_distinct_cnl", "Chapter lines + what sets the character apart", ""), ("sheet_inner_lgp", "Inner life, voice, arc", ""),
+        ("sheet_chiron_leg", "CHIRON / v2 sections, from Llama notes", "with chapter citations"),
+        ("sheet_chiron_cnl", "CHIRON sections, from thorough gpt-oss notes", ""), ("sheet_chiron_lgp", "CHIRON sections, from Llama-prompt gpt-oss notes", ""),
+        ("sheet_chiron_ldg", "CHIRON sections, from charmem's ledgers", ""),
+        ("sheet_chiron_ldg_rv", "… plus a review pass", "a second call fixes unsupported, misattributed and generic notes"),
+        ("sheet_chiron_lgp_rv", "… Llama-prompt notes plus a review pass", ""),
+        ("sheet_chironnow_lgp", "CHIRON sections + header + latest chapters", ""),
+        ("sheet_charmemst_ldg", "charmem's rules + a status block, from ledgers", ""), ("sheet_charmemst_ent", "… from filtered gpt-oss notes", ""),
+        ("sheet_cast_cnl", "Joint: the three sheets in one call", "who did what in shared events goes only to that character"),
+        ("sheet_castst_ldg", "Joint, charmem's rules + status, from ledgers", "")]),
+    ("Additions to an existing sheet", [
+        ("charmem+last1", "charmem + gpt-oss notes on the last chapter", ""), ("charmem+last2", "charmem + notes on the last 2 chapters", ""),
+        ("charmem+index", "charmem + 40 distinctive names", "non-principal names in the character's notes"), ("index_lgp", "the 40 names alone", ""),
+        ("charmem&book_last500", "charmem + the last 500 words of the book so far", "book text shown once, before the sheets"),
+        ("charmem&book_last1000", "charmem + the last 1,000 words", ""), ("charmem&book_last2000", "charmem + the last 2,000 words", ""),
+        ("v2&book_last1000", "v2 + the last 1,000 words", "")]),
+    ("Cuts of notes, no generation", [
+        ("legacy_r1000", "Llama notes, last 1,000 words", ""), ("legacy_r2000", "Llama notes, last 2,000 words", ""),
+        ("legacy_r3000", "Llama notes, last 3,000 words", ""), ("chapnotes_h_long_r1000", "thorough gpt-oss notes, last 1,000 words", ""),
+        ("chapnotes_h_long_r2000", "thorough gpt-oss notes, last 2,000 words", ""), ("chapnotes_h_long_s1", "thorough gpt-oss notes, first sentence of each answer", ""),
+        ("legacy_gptoss_nofill_s1", "Llama-prompt gpt-oss notes, first sentence of each answer", ""),
+        ("ledger_full", "charmem's ledgers, every claim", ""), ("ledger_c4", "charmem's ledgers, 4 claims per chapter", ""),
+        ("ledger_c2", "charmem's ledgers, 2 claims per chapter", "")]),
 ]
 REASON_ROWS = ["noinfo", "v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_ROWS = ["noinfo", "gender", "v2", "charmem", "summary", "book_last8000", "legacy_full", "swapname_v2"]
@@ -671,6 +716,7 @@ th, td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--rule); text-ali
 thead th { font: 600 0.72rem/1.3 var(--body); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 tbody tr:last-child th, tbody tr:last-child td { border-bottom: 0; }
 tbody th { font-weight: 500; }
+tr.group th { padding-top: 1.1em; font-size: 0.74rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1px solid var(--rule); }
 .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .strong { font-weight: 600; }
 code { font: 0.85em var(--mono); }

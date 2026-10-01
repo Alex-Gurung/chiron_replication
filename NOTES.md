@@ -289,3 +289,10 @@ with the entire book, reasoning on short spans and dense windows.
   pass on ledger sheets 69.1 (vs 68.6), on Llama-prompt-notes sheets 68.3 (vs 67.8); gpt-oss Llama summary of the gpt-oss
   Llama-prompt notes (exact Llama summary prompt; gpt-oss writes ~1,800 words) 71.6 at 10k tokens, 80.3 with the chapter
   so far (partial). Entailment filter (gen_entail.py, gpt-oss, batches of 35): keeps 60% of sentences.
+- 05:50 BIG: the sheets and recent story text are complementary. charmem plus the last k words of the book before the
+  passage's chapter (shown once, before the character blocks; eval condition "charmem&book_last<k>"): k=500 74.9 at
+  5.0k tokens (n=756, +4.6 vs charmem, 14/18 books), k=1000 77.3 at 5.5k (n=258 so far), k=2000 82.9 (n=77 so far).
+  book_last2000 alone is 67.0. Queued on every model (eval_conds hybrid), plus the same add-on for v2, the Llama summary,
+  character summaries, the re-run charmem and the gpt-oss Llama summary, and a plot-summary tail instead of raw text.
+- Filtered gpt-oss Llama-pipeline notes (legacy_gptoss_ent): 77.9 at 38.6k tokens (n=751), on the frontier between
+  legacy_r6000 (77.4 at 23k) and legacy_full (80.3 at 59k).

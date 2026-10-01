@@ -176,8 +176,8 @@ def main():
     principals = json.load(open(DATA / "principals.json"))
     reps = load_reps(args.split)
     item_reps = {(r["condition"], r["item_id"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_item_{args.split}.jsonl")}
-    chapters = load_chapters() if any(c.startswith("book") for c in args.conditions) else None
-    plots = load_plots(args.split) if any(c.startswith("plot_") for c in args.conditions) else None
+    chapters = load_chapters() if any(c.startswith("book") or "&book" in c for c in args.conditions) else None
+    plots = load_plots(args.split) if any(c.startswith("plot_") or "&plot_" in c for c in args.conditions) else None
     prefixes = load_prefixes(args.split) if any(c == "book_prefix" or c.endswith("+pre") or re.match(r"book_ch\d+p$", c) for c in args.conditions) else None
     model_tag = MODEL.split("/")[-1] + args.tag + ("_prefix" if PREFIX else "") + {None: "", "0": "_nothink", "1": "_think"}[THINKING]
     aliases = {}
@@ -195,13 +195,16 @@ def main():
             book, b, labels = it["book"], it["chapter_index"], it["labels"]
             names = {l: principals[book]["eval_names"][l][str(b)] for l in labels}
             book_text, blocks = None, None
-            if cond.startswith(("book", "plot_")):
-                book_text = book_context(cond, it, chapters, prefixes, plots)
+            rep, _, extra = cond.partition("&")                  # <rep>&<book cond>: character blocks plus book text
+            if extra:
+                book_text = book_context(extra, it, chapters, prefixes, plots)
+            if rep.startswith(("book", "plot_")):
+                book_text = book_context(rep, it, chapters, prefixes, plots)
                 if book_text is None:
                     missing += 1
                     continue
-            elif cond != "noinfo":
-                base, k = (cond.split("@") + [None])[:2]
+            elif rep != "noinfo":
+                base, k = (rep.split("@") + [None])[:2]
                 swapname = base.startswith("swapname:")
                 swap = base.startswith("swap:") or swapname
                 base = base.split(":")[-1]
