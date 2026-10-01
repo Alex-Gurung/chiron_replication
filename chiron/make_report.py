@@ -54,6 +54,12 @@ REP_INFO = [
 ]
 SHEET_SECTIONS = [("relationships", "Relationships"), ("history", "History"), ("goals", "Goals"), ("physical", "Physical"),
                   ("dialogue", "Dialogue"), ("knowledge", "Knowledge")]
+NEW_TEXT = "<p class='muted'>(filled in at the end of the run)</p>"
+NEW_ROWS = [
+    ("References", [("charmem", "charmem", "the Sep 8 gpt-oss rebuild of v2: quote-verified chapter ledgers, then one synthesis per boundary"),
+                    ("v2", "v2 sheet", "current dataset"), ("legacy", "Llama notes, summarized", "Llama-3.3-70B, ~500 words"),
+                    ("legacy_full", "Llama notes, full", "Llama-3.3-70B, per chapter and question, entailment-filtered")]),
+]
 REASON_ROWS = ["noinfo", "v2", "charmem", "summary", "legacy", "chiron_r2000", "chiron", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_ROWS = ["noinfo", "gender", "v2", "charmem", "summary", "book_last8000", "legacy_full", "swapname_v2"]
 GENDER_COLS = [("Qwen3.8-27B_nothink", "27B, sections"), ("Qwen3.8-27B_think", "27B thinking, sections"),
@@ -205,7 +211,12 @@ def main():
     macro = lambda s, m, c: (get(s, m, c) or {}).get("macro")
     words = collections.defaultdict(list)
     for s in ("test", "val", "train"):
+        fast = read_jsonl(DATA / f"reps_sheets_{s}.jsonl")            # rebuilt often; wins over stale copies in the big file
+        have = {r["condition"] for r in fast}
         for r in read_jsonl(DATA / f"reps_{s}.jsonl"):
+            if r["condition"] not in have:
+                words[r["condition"]].append(r["words"])
+        for r in fast:
             words[r["condition"]].append(r["words"])
     medw = {k: int(st.median(v)) for k, v in words.items()}
     passage_words, passage_q, counts = {}, {}, {}
@@ -382,6 +393,31 @@ def main():
            ("book_last8000", "Book, last 8,000 words"), ("book_noprev8000", "Book, last 8,000 words before the previous chapter"),
            ("book_prevonly", "Book, previous chapter only"), ("combo_short", "v2 + charmem + summary"),
            ("combo_legacy_v2", "Llama notes without filler + v2"), ("combo_all", "All four combined")]
+
+    def vs_charmem(c):
+        a = A.get(("main", q27)) or {}
+        pb, books = a.get("per_book_joint", {}), a.get("books", [])
+        d = [pb[c][b] - pb["charmem"][b] for b in books if b in pb.get(c, {}) and b in pb.get("charmem", {})]
+        if not d or not get("main", q27, c):
+            return ""
+        return f'<span class="num">{100 * sum(d) / len(d):+.1f}</span> <span class="sub">{sum(x > 0 for x in d)}/{len(d)}</span>'
+
+    def new_table():
+        rows = []
+        for group, items in NEW_ROWS:
+            rows.append(f"<tr class='group'><th scope='rowgroup' colspan='8'>{group}</th></tr>")
+            for c, n, how in items:
+                r = get("main", q27, c)
+                if not r:
+                    continue
+                rows.append(f"<tr><th scope='row'>{n}<br><span class='sub'>{how}</span></th><td class='num'>{medw.get(c, 0):,}</td>"
+                            f"<td class='num'>{r['mean_tokens'] / 1000:.1f}k</td><td class='num strong'>{pct(macro('main', q27, c))}</td>"
+                            f"<td>{vs_charmem(c)}</td><td class='num'>{pct(macro('main', q27, c + '+pre'))}</td>"
+                            f"<td class='num'>{pct(macro('main', 'Qwen3.5-9B-Base', c))}</td><td class='num'>{pct(macro('main', q4, c))}</td></tr>")
+        return ("<thead><tr><th scope='col'>Representation</th><th scope='col' class='num'>Words per character</th>"
+                "<th scope='col' class='num'>27B prompt tokens</th><th scope='col' class='num'>27B</th><th scope='col'>Δ vs charmem "
+                "<span class='sub'>books better</span></th><th scope='col' class='num'>27B + chapter so far</th>"
+                f"<th scope='col' class='num'>9B base</th><th scope='col' class='num'>4B</th></tr></thead><tbody>{''.join(rows)}</tbody>")
 
     def ablation_table():
         rows = "".join(f"<tr><th scope='row'>{n}</th><td class='num'>{medw.get(c, 0):,}</td><td class='num strong'>{pct(macro('main', q27, c))}</td>"
@@ -574,7 +610,7 @@ def main():
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
     for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
-                 "ABLATION_TABLE": ablation_table(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
+                 "ABLATION_TABLE": ablation_table(), "NEW_TABLE": new_table(), "NEW_TEXT": NEW_TEXT, "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
                  "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
                  "TWO_TABLE": small_table(A[("two", q4)], ["noinfo", "summary", "v2", "chiron", "charmem", "legacy_full", "book"]),
@@ -703,6 +739,12 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
   <section aria-labelledby="find">
     <h2 id="find">Findings</h2>
     <ul class="findings">{{FINDINGS}}</ul>
+  </section>
+
+  <section aria-labelledby="new">
+    <h2 id="new">New gpt-oss sheets (Oct 1)</h2>
+    {{NEW_TEXT}}
+    <div class="table-wrap"><table>{{NEW_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="scr">

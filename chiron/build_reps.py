@@ -22,6 +22,7 @@ Run with the repo venv (needs scikit-learn): .venv/bin/python chiron/build_reps.
 import argparse
 import collections
 import glob
+import itertools
 import json
 import os
 import pickle
@@ -232,6 +233,49 @@ def add_cuts(add, keys):
             add(f"{cond}_s1", book, b, l, "\n\n".join(parts))
 
 
+def add_ledger(add, keys):
+    """charmem's verified chapter ledgers as notes: every claim (ledger_full), or k claims per chapter taken round-robin
+    across the six sections (ledger_c<k>), chapter by chapter."""
+    from gen_sheet import LEDGERS, tagged
+    per = collections.defaultdict(dict)
+    for f in LEDGERS.glob("*.json"):
+        d = json.load(open(f))
+        for pc in d["principal_characters"]:
+            secs = [[tagged(c) for c in v] for v in pc["sections"].values()]
+            per[(d["book_id"], pc["character"])][d["chapter_index"]] = [x for row in itertools.zip_longest(*secs) for x in row if x]
+    for book, b, l in keys:
+        have = per.get((book, l), {})
+        chs = [c for c in sorted(have) if c < b and have[c]]
+        if not have:
+            continue
+        for name, k in (("ledger_full", None), ("ledger_c2", 2), ("ledger_c4", 4)):
+            add(name, book, b, l, "\n\n".join(f"Chapter {c + 1}:\n" + "\n".join(f"- {x}" for x in have[c][:k]) for c in chs))
+
+
+def add_entailed(add, keys):
+    """gpt-oss Llama-prompt notes after gpt-oss's entailment ratings (gen_entail.py), in the Llama layout: sentences rated
+    5 (legacy_gptoss_ent, the archive's rule) or at least 4 (legacy_gptoss_ent4)."""
+    rated = collections.defaultdict(dict)
+    for f in glob.glob(str(OUT / "legacy_gptoss_ent" / "*.jsonl")):
+        for r in read_jsonl(f):
+            rated[(r["book"], r["label"])][r["chapter_index"]] = r["rated"]
+    for book, b, l in keys:
+        have = rated.get((book, l), {})
+        chs = [c for c in sorted(have) if c < b]
+        if not chs or len(chs) != b:
+            continue
+        for name, lo in (("legacy_gptoss_ent", 5), ("legacy_gptoss_ent4", 4)):
+            parts = []
+            for head, qs in CHAPNOTE_LAYOUT:
+                parts.append(f"## {head}")
+                for q in qs:
+                    body = [(c, " ".join(x for x, r in have[c].get(q, []) if r >= lo)) for c in chs]
+                    body = "\n".join(f"<snippet {c}>\n{t}" for c, t in body if t)
+                    if body:
+                        parts.append(f"Question: {QUESTIONS[q][1]}\n\n{body}")
+            add(name, book, b, l, "\n\n".join(parts))
+
+
 def save(recs, split, keys):
     tmp = DATA / f"reps_{split}.jsonl.tmp"                    # atomic swap: running jobs never read a half-written file
     with open(tmp, "w") as f:
@@ -264,6 +308,8 @@ def main():
     add_sheets(add, keys)                                         # sheets live in their own small file (rebuilt often)
     idx = add_index(add, keys)
     add_cuts(add, keys)
+    add_ledger(add, keys)
+    add_entailed(add, keys)
     base = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")
             if r["condition"] in ("v2", "charmem")} if args.sheets_only else {}
     base.update({(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs if r["condition"].startswith("sheet_")})

@@ -279,3 +279,13 @@ with the entire book, reasoning on short spans and dense windows.
 - So: the notes' attribution quality, not the sheet layout, is the gap. Round 4: compress charmem's own verified ledgers
   (with their claim/belief/flashback/state-change tags) with charmem's synthesis rules plus a Status block; the same
   jointly for the three principals (cast); a review pass; joint cast sheets from thorough notes.
+- 05:25: charmem's exact principal synthesis (charmem_synth.py, copied verbatim; gen_charsynth.py) re-run on charmem's
+  own reviewed ledgers reproduces the stored prompts byte for byte (messages_sha256 matches the run's synth records), yet
+  the regenerated sheets score 68.2 on the 27B (n=1057) against 71.9 for the published charmem sheets. Same code,
+  same inputs, same sampling settings (temperature 0.1, reasoning medium): a resample moves accuracy by ~3.7 points, so
+  gaps of 2-3 points between single-sample sheet variants are within generation noise. Resampling two variants
+  (csyn_ldg_r2, chiron_cnl_r2) to measure it directly.
+- Other round-4 results: my approximation of charmem's rules + a Status block 67.9; joint (cast) version 67.8; review
+  pass on ledger sheets 69.1 (vs 68.6), on Llama-prompt-notes sheets 68.3 (vs 67.8); gpt-oss Llama summary of the gpt-oss
+  Llama-prompt notes (exact Llama summary prompt; gpt-oss writes ~1,800 words) 71.6 at 10k tokens, 80.3 with the chapter
+  so far (partial). Entailment filter (gen_entail.py, gpt-oss, batches of 35): keeps 60% of sentences.

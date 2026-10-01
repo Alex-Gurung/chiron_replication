@@ -6,6 +6,7 @@ Sources (notes on chapters before the boundary only, in chapter order):
   chapnotes         the short gpt-oss chapter notes (gen_chapnotes.py)
   legacy_gptoss     gpt-oss with the Llama notes' extraction prompt (gen_legacy_gptoss.py)
   legacy            the Llama-3.3-70B notes from the NCP archive, filler removed (a control on the compression step)
+  legacy_gptoss_ent(4)  legacy_gptoss after gpt-oss's entailment ratings (gen_entail.py), sentences rated 5 (or >= 4)
   ledger            charmem's source-reviewed per-chapter ledgers (gpt-oss claims, each kept only with an exact supporting quote)
 One call per (book, boundary, principal). The brief (STYLES) is a writer's character bible and says nothing about
 how sheets are evaluated: bible (identity, names used, relationships, appearance, voice, story, now), chrono (a short
@@ -215,6 +216,12 @@ def load_notes(source, keys):
         for (b, l, c), d in tmp.items():
             ans = [gclean(d.get(q, "")) for q in QUESTIONS]
             per[(b, l)][c] = "\n".join(f"- {a}" for a in ans if a)
+    elif source in ("legacy_gptoss_ent", "legacy_gptoss_ent4"):    # entailment-filtered (gen_entail.py)
+        lo = 5 if source == "legacy_gptoss_ent" else 4
+        for f in (OUT / "legacy_gptoss_ent").glob("*.jsonl"):
+            for r in read_jsonl(f):
+                ans = [" ".join(x for x, s in r["rated"].get(q, []) if s >= lo) for q in QUESTIONS]
+                per[(r["book"], r["label"])][r["chapter_index"]] = "\n".join(f"- {a}" for a in ans if a) or "- (nothing supported)"
     elif source == "ledger":                                      # charmem's source-reviewed chapter ledgers (quote-grounded claims)
         for f in LEDGERS.glob("*.json"):
             d = json.load(open(f))
@@ -247,7 +254,7 @@ def load_notes(source, keys):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant", required=True)
-    ap.add_argument("--source", required=True, choices=["chapnotes_h_long", "chapnotes", "legacy_gptoss", "legacy", "ledger"])
+    ap.add_argument("--source", required=True, choices=["chapnotes_h_long", "chapnotes", "legacy_gptoss", "legacy", "ledger", "legacy_gptoss_ent", "legacy_gptoss_ent4"])
     ap.add_argument("--words", type=int, default=1000)
     ap.add_argument("--style", default="bible")
     ap.add_argument("--books", nargs="+", required=True)

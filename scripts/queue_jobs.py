@@ -23,6 +23,10 @@
   python3 scripts/queue_jobs.py eval_conds TAG LONG COND...   evaluate conditions on every model
   python3 scripts/queue_jobs.py sheet VARIANT SOURCE WORDS STYLE NJOBS [--limit N]   new gpt-oss sheets (gen_sheet.py)
   python3 scripts/queue_jobs.py eval27 TAG LONG COND...   Qwen3.8-27B without thinking only (fast iteration)
+  python3 scripts/queue_jobs.py legsum VARIANT SOURCE [WORDS]   the Llama notes' summary step with gpt-oss (gen_legsum.py)
+  python3 scripts/queue_jobs.py charsynth VARIANT SOURCE [WORDS]   charmem's exact synthesis on other notes (gen_charsynth.py)
+  python3 scripts/queue_jobs.py evalsmall TAG LONG COND...   Qwen3.5-9B base and Qwen3-4B only
+  python3 scripts/queue_jobs.py entail          gpt-oss entailment ratings for the gpt-oss Llama-prompt notes (gen_entail.py)
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
   python3 scripts/queue_jobs.py gender_think    only the thinking-on gender-only shards, split wide
@@ -356,6 +360,34 @@ def main():
             addraw(f"sheet_{variant}_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
                                                "--", "python3", "-u", f"{REPO}/chiron/gen_sheet.py", "--variant", variant, "--source", source,
                                                "--words", words, "--style", style, "--books", *books[k::nj], "--workers", "128", *sys.argv[7:]], -3)
+    elif what == "entail":
+        # the Llama notes' entailment filter, with gpt-oss, on the gpt-oss Llama-prompt notes (6 book groups, 2 GPUs each)
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(6):
+            addraw(f"entail_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
+                                      "--", "python3", "-u", f"{REPO}/chiron/gen_entail.py", "--books", *books[k::6], "--workers", "128"], -3)
+    elif what == "legsum":
+        # the Llama notes' summary step with gpt-oss: legsum VARIANT SOURCE [WORDS]
+        variant, source, words = sys.argv[2], sys.argv[3], (sys.argv[4] if len(sys.argv) > 4 else "0")
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(2):
+            addraw(f"sheet_{variant}_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
+                                               "--", "python3", "-u", f"{REPO}/chiron/gen_legsum.py", "--source", source, "--variant", variant,
+                                               "--words", words, "--books", *books[k::2]], -3)
+    elif what == "charsynth":
+        # charmem's exact principal synthesis on other notes: charsynth VARIANT SOURCE
+        variant, source, words = sys.argv[2], sys.argv[3], (sys.argv[4] if len(sys.argv) > 4 else "900")
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(3):
+            addraw(f"sheet_{variant}_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
+                                               "--", "python3", "-u", f"{REPO}/chiron/gen_charsynth.py", "--source", source, "--variant", variant,
+                                               "--words", words, "--books", *books[k::3]], -3)
+    elif what == "evalsmall":
+        # Qwen3.5-9B base and Qwen3-4B only: evalsmall TAG LONG COND...
+        tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
+        for split in ("test", "val", "train"):
+            addraw(f"es_{tag}_{split}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", lng) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), -2)
+            addraw(f"es_{tag}_{split}_q4b", 1, srv("qwen4b", lng) + ev("eval_mcp.py", split, f"items_{split}", conds), -2)
     elif what == "eval27":
         tag, lng, conds = sys.argv[2], sys.argv[3] == "1", sys.argv[4:]
         for split in ("test", "val", "train"):

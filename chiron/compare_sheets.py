@@ -12,7 +12,7 @@ from common import OUT
 REF = ["noinfo", "gender", "v2", "charmem", "summary", "legacy", "plot_global_1000", "plot_hier_4000", "chiron_r2000",
        "book_last8000", "chapnotes", "chapnotes_h_long", "legacy_match", "legacy_r6000", "legacy_full", "legacy_gptoss",
        "legacy_gptoss_nofill", "legacy_r1000", "legacy_r2000", "legacy_r3000", "chapnotes_h_long_r1000", "chapnotes_h_long_r2000",
-       "index_lgp", "v2+index", "charmem+index", "charmem+last1", "charmem+last2", "v2+last1", "v2+last2", "chapnotes_h_long_s1", "legacy_gptoss_nofill_s1"]
+       "index_lgp", "v2+index", "charmem+index", "charmem+last1", "charmem+last2", "v2+last1", "v2+last2", "chapnotes_h_long_s1", "legacy_gptoss_nofill_s1", "ledger_full", "ledger_c2", "ledger_c4"]
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="Qwen3.8-27B_nothink")
@@ -29,4 +29,5 @@ base = pbj.get("charmem" + suf, {})
 for c in sorted(conds, key=lambda c: tok[c]):
     diffs = [pbj[c][b] - base[b] for b in d["books"] if b in pbj.get(c, {}) and b in base]
     vs = f"{100 * sum(diffs) / len(diffs):+5.1f} ({sum(x > 0 for x in diffs)}/{len(diffs)})" if diffs else ""
-    print(f"{'*' if c in front else ' '} {c:28s} {100 * acc[c]:5.1f}  b{rows[c]['joint']['books']:<3d} {tok[c]:7.0f} tok   vs charmem {vs}")
+    print(f"{'*' if c in front else ' '} {c:28s} {100 * acc[c]:5.1f}  b{rows[c]['joint']['books']:<3d} n{rows[c]['items']:<5d}"
+          f"{tok[c]:7.0f} tok   vs charmem {vs}")
