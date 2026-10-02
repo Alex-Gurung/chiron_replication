@@ -292,12 +292,20 @@ def archive_layout(have, b):
     return ("-" * 100 + "\n").join(secs).strip()
 
 
-def exact_notes(root="legacy_gptoss_x"):
+def name_subject(x, name):
+    """A leading She/He becomes the character's name and Her/His its possessive (the Llama notes name the character in 47%
+    of statements, the gpt-oss notes in 28%)."""
+    n = re.sub(r"\s*\(.*?\)|\s*“.*?”", "", name.split(" / ")[0]).strip()
+    return re.sub(r"^(?:Her|His)\b", n + "’s", re.sub(r"^(?:She|He)\b", n, x))
+
+
+def exact_notes(root="legacy_gptoss_x", named=False):
     """(book, label) -> chapter -> question -> the gen_legacy_exact.py statements rated 5, joined."""
     have = collections.defaultdict(dict)
     for f in glob.glob(str(OUT / root / "*.jsonl")):
         for r in read_jsonl(f):
-            have[(r["book"], r["label"])].setdefault(r["chapter_index"], {})[r["q"]] = " ".join(x["statement"] for x in r["sentences"] if x["rating"] == 5)
+            have[(r["book"], r["label"])].setdefault(r["chapter_index"], {})[r["q"]] = " ".join(
+                name_subject(x["statement"], r["name"]) if named else x["statement"] for x in r["sentences"] if x["rating"] == 5)
     return have
 
 
@@ -309,6 +317,11 @@ def add_exact(add, keys):
         h = have.get((book, l), {})
         if all(c in h for c in range(b)):
             add("legacy_gptoss_x", book, b, l, archive_layout(h, b))
+    have = exact_notes(named=True)
+    for book, b, l in keys:
+        h = have.get((book, l), {})
+        if all(c in h for c in range(b)):
+            add("legacy_gptoss_x_named", book, b, l, archive_layout(h, b))
     have = exact_notes("legacy_llama_xf")
     books = {k[0] for k in have}
     for book, b, l in keys:

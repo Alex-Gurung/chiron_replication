@@ -410,3 +410,13 @@ with the entire book, reasoning on short spans and dense windows.
   Early: 63% of statements rated 5, 26% rated 1; ~12% of compound sentences split. Also queued: notes without the
   chapters the character is absent from (legacy_full_pres, legacy_gptoss_ent_pres; legacy_full_rr = layout control).
   spaCy lives in .pylib (uv pip install --target; appended to sys.path by the script only).
+- 17:40 exact redo results (27B thinking off, 21 books, paired): legacy_gptoss_x 75.9 at 41.5k vs Llama full 80.3 at
+  59k (-4.4, 3/21 books better) and vs my batch filter 77.4 (-1.5). +pre 84.0 vs 85.7; + last 1,000 words 80.2 vs 83.6;
+  + Story Information 81.7 vs 83.8. Summary (~400 words) 68.8 vs Llama 70.4 (-1.6), and -0.6 to -2.1 in every package.
+  9B base: notes -2.1, summary -4.9; 4B: notes -3.1, summary -2.2. Copying the archive's later steps exactly does not
+  close the gap; it is slightly worse than my filter.
+  Wrong-chapter notes are not the cause: dropping the chapters a character is absent from gives Llama +0.5 over the
+  layout control (12/21 books) and gpt-oss +0.9 (15/21).
+  Kept statements look alike (8.3 vs 8.4 words; quotes 3.5% gpt-oss vs 1.9% Llama; 1.36M vs 1.40M words kept). The
+  difference: Llama names the character in 47% of kept statements, gpt-oss in 28% (68% of gpt-oss statements start
+  with a pronoun vs 50%). The gpt-oss judge passes 80% of Llama's statements and 65% of its own.

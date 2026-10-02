@@ -129,14 +129,16 @@ def rate(chapter, character, statement):
 def llama_answers(book):
     """The archive's Llama notes as per-(chapter, label, question) answers, from each label's longest cumulative sheet."""
     names = {(r["label"], r["chapter_index"]): r["name"] for r in read_jsonl(OUT / "legacy_gptoss" / f"{book}.jsonl")}
+    labels = {l for l, _ in names}
     unlabel = {v: k for k, v in LEGACY_LABEL.items()}
     q_of = {v[1]: k for k, v in QUESTIONS.items()}
     best = {}
     for s in ("test", "val", "train"):
         for k, t in pickle.load(open(LEGACY / f"{s}_long_story_storycharchap_to_csheet.pkl", "rb")).items():
-            b, rest = k.split("_", 1)
-            l, bd = rest.rsplit("_", 1)
-            if b == book and int(bd) > best.get(l, (-1,))[0]:
+            if not k.startswith(book + "_"):                           # book ids contain underscores (tainted_cup)
+                continue
+            l, bd = k[len(book) + 1:].rsplit("_", 1)
+            if unlabel.get(l, l) in labels and int(bd) > best.get(l, (-1,))[0]:
                 best[l] = (int(bd), t)
     out = []
     for l, (_, t) in best.items():
