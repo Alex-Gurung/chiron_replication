@@ -284,11 +284,12 @@ def add_entailed(add, keys):
             add(name, book, b, l, "\n\n".join(parts))
 
 
-def archive_layout(have, b):
-    """The archive's cumulative-sheet layout, as stored in the Llama notes: every chapter listed under every question."""
+def archive_layout(have, b, only=None):
+    """The archive's cumulative-sheet layout, as stored in the Llama notes: every chapter listed under every question
+    (only: keep just that section)."""
     secs = [f"## {head}\n\n" + "\n".join(f"Question: {QUESTIONS[q][1]}\n\n" + "".join(f"<snippet {c}>\n{have.get(c, {}).get(q, '')}\n"
                                                                                      for c in range(b)) for q in qs)
-            for head, qs in CHAPNOTE_LAYOUT]
+            for head, qs in CHAPNOTE_LAYOUT if only in (None, head)]
     return ("-" * 100 + "\n").join(secs).strip()
 
 
@@ -317,6 +318,8 @@ def add_exact(add, keys):
         h = have.get((book, l), {})
         if all(c in h for c in range(b)):
             add("legacy_gptoss_x", book, b, l, archive_layout(h, b))
+            for i, (head, _) in enumerate(CHAPNOTE_LAYOUT):              # one section at a time (vs legacy_full_xf_sec<i>)
+                add(f"legacy_gptoss_x_sec{i}", book, b, l, archive_layout(h, b, head))
     have = exact_notes(named=True)
     for book, b, l in keys:
         h = have.get((book, l), {})
@@ -327,6 +330,8 @@ def add_exact(add, keys):
     for book, b, l in keys:
         if book in books:
             add("legacy_full_xf", book, b, l, archive_layout(have.get((book, l), {}), b))
+            for i, (head, _) in enumerate(CHAPNOTE_LAYOUT):
+                add(f"legacy_full_xf_sec{i}", book, b, l, archive_layout(have.get((book, l), {}), b, head))
 
 
 def add_present(add, recs, keys, split):
