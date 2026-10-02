@@ -431,3 +431,10 @@ with the entire book, reasoning on short spans and dense windows.
   note sets apart (0.405-0.410 slot accuracy, chance 0.33): the difference is not in shared words.
   Bug fixed: the Llama loader split book ids at the first underscore and missed 4 books (rerun).
   Running: the same notes one section at a time (legacy_full_xf_sec<i> vs legacy_gptoss_x_sec<i>).
+- 19:10 per section (both through the same gpt-oss filter and layout; 27B thinking off, 21 books): Llama vs gpt-oss
+  answers: how the character speaks 68.2 vs 60.4 (+7.9, 20/21 books), personality and appearance 74.2 vs 68.9 (+5.2,
+  19/21), plot and motivation 76.0 vs 71.4 (+4.6, 18/21), knowledge 75.2 vs 72.6 (+2.6, 18/21). Llama's speech notes
+  describe attitude ("She is direct and forceful"); gpt-oss's list surface features of lines ("uses the command
+  Look", 27% with a quote vs 13%). Simple specificity counts (names, numbers, quotes) do not separate the two.
+  Report v36. All chiron workers stopped at 19:10 (the supervisor's idle exit never fires: it waits for the shared
+  queue to drain, and other projects' parked jobs stay queued).

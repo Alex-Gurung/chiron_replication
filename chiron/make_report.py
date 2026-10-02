@@ -70,6 +70,18 @@ NEW_ROWS = [
         ("sheet_legsum_ent", "Llama summary prompt, from filtered notes", ""),
         ("sheet_legsum_nofill_w800", "… asked for about 800 words", ""), ("sheet_legsum_ent_w800", "… from filtered notes, about 800 words", ""),
         ("sheet_legsum_ent_500_flat", "… from filtered notes, held to about 500 words", "rewritten shorter until at most 750 words, like Llama's ~500")]),
+    ("The Llama process copied exactly, and controls", [
+        ("legacy_gptoss_x", "gpt-oss answers, the archive's later steps exactly", "spaCy sentences, per-sentence simplification, per-statement entailment with the archive's rubric, 5/5 kept"),
+        ("sheet_legsum_x_500_flat", "… its summary, about 500 words", "the archive's summary prompt, held to about 500 words"),
+        ("legacy_full_xf", "Llama answers through the same gpt-oss filter", "the stored Llama notes re-rated by that step: a harsher judge or weaker answers?"),
+        ("legacy_gptoss_x_named", "gpt-oss, leading She/He replaced by the name", "Llama names the character in 47% of statements, gpt-oss in 28%"),
+        ("legacy_full_rr", "Llama notes re-rendered (layout control)", "empty snippets and section rules dropped"),
+        ("legacy_full_pres", "… only chapters the character is in", "an alias in the chapter or its first-person narrator"),
+        ("legacy_gptoss_ent_pres", "filtered gpt-oss notes, only chapters the character is in", ""),
+        ("legacy_full_xf_sec3", "Llama answers, how the character speaks only", ""), ("legacy_gptoss_x_sec3", "gpt-oss answers, how the character speaks only", ""),
+        ("legacy_full_xf_sec0", "Llama, personality and appearance only", ""), ("legacy_gptoss_x_sec0", "gpt-oss, personality and appearance only", ""),
+        ("legacy_full_xf_sec2", "Llama, plot and motivation only", ""), ("legacy_gptoss_x_sec2", "gpt-oss, plot and motivation only", ""),
+        ("legacy_full_xf_sec1", "Llama, knowledge only", ""), ("legacy_gptoss_x_sec1", "gpt-oss, knowledge only", "")]),
     ("charmem's own synthesis, re-run", [
         ("sheet_csyn_ldg", "same code, same ledgers, new sample", "prompts byte-identical to the published run"),
         ("sheet_csyn_ldg_r2", "second new sample", ""), ("sheet_csyn_ldg_r3", "third new sample", ""),
@@ -197,7 +209,9 @@ NEW_ROWS = [
 ]
 LABEL.update({
     "legacy_gptoss": "gpt-oss notes, Llama prompt", "legacy_gptoss_nofill": "gpt-oss notes, Llama prompt, no filler",
-    "legacy_gptoss_ent": "gpt-oss notes, Llama prompt, entailment-filtered", "sheet_legsum_ent": "gpt-oss summary of the filtered notes",
+    "legacy_gptoss_ent": "gpt-oss notes, Llama prompt, entailment-filtered",
+    "legacy_gptoss_x": "gpt-oss answers, Llama process exactly", "sheet_legsum_x_500_flat": "its summary, ~500 words",
+    "legacy_full_xf": "Llama answers, gpt-oss filter", "sheet_legsum_ent": "gpt-oss summary of the filtered notes",
     "sheet_csyn_ldg": "charmem's synthesis, re-run (nested)", "sheet_cast_cnl": "gpt-oss joint sheets (nested)",
     "sheet_csyn_ldg_flat": "charmem's synthesis, re-run", "sheet_cast_cnl_flat": "gpt-oss joint sheets (one call for all three)",
     **{f"summary&book_last{k}": f"Character summaries + last {k:,} words" for k in (500, 1000, 2000)},
@@ -328,8 +342,9 @@ FINDINGS = [
     "New (Oct 1): at about 5k prompt tokens the best option is not a better sheet but a sheet plus the last 1,000 words "
     "of the story, shown once: charmem {hyb_cm}% (alone {charmem27}%), gpt-oss character summaries {hyb_sum}%, the Llama "
     "summary {hyb_leg}% at {hyb_leg_tok} tokens, on Qwen3.8-27B without thinking; the Llama notes cut to 3k words reach "
-    "{legmatch27}% with three times the tokens. Redone with gpt-oss the archive's way (its extraction prompt, filler "
-    "removed, gpt-oss entailment filter), the Llama notes reach {gpt_ent}% against {legfull27}%. See New gpt-oss sheets.",
+    "{legmatch27}% with three times the tokens. The Llama notes redone with gpt-oss exactly the archive's way reach "
+    "{gpt_x}% against {legfull27}%; the same gpt-oss filter on Llama's answers keeps {xf27}%, so the gap is in gpt-oss's "
+    "answers, mostly to the speech and personality questions. See New gpt-oss sheets.",
     "Scoring changes the thinking-off results. Asked about one character at a time, Qwen3.8-27B without thinking almost "
     "never answers 0: with names only it gets {zero27}% of the characters whose id is [CHAR 0], which caps it near two "
     "thirds whatever it is told (the verbatim-quote oracle scores {quote27a}% that way). Taking the best one-to-one mapping "
@@ -691,11 +706,22 @@ def main():
             f"{v('charmem&si-plot_global_1000-last1000')}% at {tk('charmem&si-plot_global_1000-last1000')}, the gpt-oss Llama-style summary "
             f"{v('sheet_legsum_ent_500_flat&si-plot_global_1000-last1000')}% at {tk('sheet_legsum_ent_500_flat&si-plot_global_1000-last1000')}: "
             f"the gpt-oss plot summary adds about nothing on top of the recent text, where the dataset's synopses add 2 to 3 points.",
-            f"<b>The Llama notes, redone with gpt-oss, now nearly match.</b> The archive's own extraction prompt, run with gpt-oss "
-            f"(one call per chapter, character and question): {v('legacy_gptoss')}% at {tk('legacy_gptoss')}; without “the "
-            f"section never mentions X” filler {v('legacy_gptoss_nofill')}%; kept only where gpt-oss rates the sentence fully "
-            f"supported by the chapter (the archive's entailment rule) {v('legacy_gptoss_ent')}% at {tk('legacy_gptoss_ent')}, "
-            f"against {v('legacy_full')}% for Llama at {tk('legacy_full')}. Before, gpt-oss chapter notes reached {v('chapnotes')}%.",
+            f"<b>Why gpt-oss done the Llama way trails the Llama notes.</b> The archive's extraction prompt run with gpt-oss "
+            f"(one call per chapter, character and question) gives {v('legacy_gptoss')}% at {tk('legacy_gptoss')}; without “the section "
+            f"never mentions X” filler {v('legacy_gptoss_nofill')}%; with a batched gpt-oss entailment filter {v('legacy_gptoss_ent')}% "
+            f"at {tk('legacy_gptoss_ent')}. Copying every later step exactly (spaCy sentences, the archive's simplification prompt per "
+            f"sentence, its entailment rubric per statement, only 5/5 kept, its layout) gives {v('legacy_gptoss_x')}% at "
+            f"{tk('legacy_gptoss_x')}, and its ~500-word summary {v('sheet_legsum_x_500_flat')}% against Llama's {v('legacy')}%. The later "
+            f"steps are not the cause: the stored Llama notes put through the same gpt-oss filter keep {v('legacy_full_xf')}% at "
+            f"{tk('legacy_full_xf')} (as stored: {v('legacy_full')}% at {tk('legacy_full')}). Neither are notes from chapters the character "
+            f"is absent from (removing them: Llama {v('legacy_full_pres')}% vs {v('legacy_full_rr')}% re-rendered, gpt-oss "
+            f"{v('legacy_gptoss_ent_pres')}% vs {v('legacy_gptoss_ent')}%) or how often the notes name the character (She/He replaced by "
+            f"the name: {v('legacy_gptoss_x_named')}%). The gap is in gpt-oss's answers, most of all to the speech and personality "
+            f"questions. One section at a time, Llama vs gpt-oss answers: how the character speaks {v('legacy_full_xf_sec3')} vs "
+            f"{v('legacy_gptoss_x_sec3')}%, personality and appearance {v('legacy_full_xf_sec0')} vs {v('legacy_gptoss_x_sec0')}%, plot and "
+            f"motivation {v('legacy_full_xf_sec2')} vs {v('legacy_gptoss_x_sec2')}%, knowledge {v('legacy_full_xf_sec1')} vs "
+            f"{v('legacy_gptoss_x_sec1')}%. Llama describes attitude and temperament (“She is direct and forceful”); gpt-oss lists "
+            f"surface features of particular lines (“He uses the command Look”). Before, gpt-oss chapter notes reached {v('chapnotes')}%.",
         ]
         return "".join(f"<p class='muted'>{x}</p>" for x in paras)
 
@@ -871,6 +897,7 @@ def main():
         hyb_leg=pct(macro("main", q27, "legacy&book_last1000")),
         hyb_leg_tok=f"{(get('main', q27, 'legacy&book_last1000') or {}).get('mean_tokens', 0) / 1000:.1f}k",
         legmatch27=pct(macro("main", q27, "legacy_match")), gpt_ent=pct(macro("main", q27, "legacy_gptoss_ent")),
+        gpt_x=pct(macro("main", q27, "legacy_gptoss_x")), xf27=pct(macro("main", q27, "legacy_full_xf")),
         g27_lo=f"{100 * min(get('main', q27, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full') if get('main', q27, c)):.0f}",
         g27_hi=f"{100 * max(get('main', q27, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full') if get('main', q27, c)):.0f}",
         swap27=pct(macro("main", q27, "swapname_v2")), noinfo27=pct(macro("main", q27, "noinfo")),
