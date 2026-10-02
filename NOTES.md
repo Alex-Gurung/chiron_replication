@@ -420,3 +420,14 @@ with the entire book, reasoning on short spans and dense windows.
   Kept statements look alike (8.3 vs 8.4 words; quotes 3.5% gpt-oss vs 1.9% Llama; 1.36M vs 1.40M words kept). The
   difference: Llama names the character in 47% of kept statements, gpt-oss in 28% (68% of gpt-oss statements start
   with a pronoun vs 50%). The gpt-oss judge passes 80% of Llama's statements and 65% of its own.
+- 18:30 judge control: the Llama notes re-rated by the same exact gpt-oss entailment step (legacy_full_xf) 80.2 at
+  46.8k vs Llama full 80.3 at 59k (8/21 books; +pre 85.7 vs 85.7), and +4.3 over legacy_gptoss_x (18/21 books). The
+  gpt-oss judge keeps 80% of Llama's statements and costs nothing; the gap is in gpt-oss's extracted answers, not the
+  later steps. (Side result: the gpt-oss re-rating trims the Llama notes by 21% at no cost.)
+  Ruled out: chapter misalignment (Llama and gpt-oss notes both match their own chapter, 0.88 / 0.78 name overlap vs
+  0.43 / 0.37 for neighbours, every book); outside knowledge (93-94% of names in kept statements occur in the chapter,
+  most of the rest are the asked name used before the text uses it); naming the subject (She/He -> name: +0.3 alone,
+  -0.9 with the last 1,000 words); wrong-chapter notes (+0.5 / +0.9). A TF-IDF slot-matching proxy cannot tell the
+  note sets apart (0.405-0.410 slot accuracy, chance 0.33): the difference is not in shared words.
+  Bug fixed: the Llama loader split book ids at the first underscore and missed 4 books (rerun).
+  Running: the same notes one section at a time (legacy_full_xf_sec<i> vs legacy_gptoss_x_sec<i>).
