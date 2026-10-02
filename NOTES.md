@@ -387,3 +387,7 @@ with the entire book, reasoning on short spans and dense windows.
   (charmem alone 94.5); the dataset's synopses alone 96.9 at 5.7k; Llama summary + last 1,000 words 96.2 at 4.1k;
   charmem + Story Information 97.0 at 17k; Llama 3k cut / gpt-oss chapter notes + Story Information 96.8-96.9. With
   thinking, the plot synopses alone are as good as any package: the reasoning model needs the plot, not the sheets.
+- 00:20 Oct 2: all first-priority thinking runs done. Thinking on, every package with recent text or synopses is at
+  95.6-97.0 (rich notes + Story Information 96.8-96.9); with the chapter so far everything is 97.6-98.1 (charmem + the
+  chapter so far alone 97.7). Thinking saturates: the representation barely matters once the plot is there.
+  Remaining: second-tier thinking fill-ins (short cuts with the chapter so far) and one Qwen3-4B long job.
