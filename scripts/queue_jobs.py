@@ -28,6 +28,7 @@
   python3 scripts/queue_jobs.py evalsmall TAG LONG COND...   Qwen3.5-9B base and Qwen3-4B only
   python3 scripts/queue_jobs.py merge VARIANT WORDS V1 V2 V3...   consensus of sheet samples (gen_merge.py)
   python3 scripts/queue_jobs.py recap WORDS SOURCE_WORDS   gpt-oss recap of the last words before the chapter (gen_recap.py)
+  python3 scripts/queue_jobs.py exact           the Llama notes' later steps redone exactly with gpt-oss (gen_legacy_exact.py + summary)
   python3 scripts/queue_jobs.py entail          gpt-oss entailment ratings for the gpt-oss Llama-prompt notes (gen_entail.py)
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
@@ -368,6 +369,12 @@ def main():
         for k in range(6):
             addraw(f"entail_{k}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
                                       "--", "python3", "-u", f"{REPO}/chiron/gen_entail.py", "--books", *books[k::6], "--workers", "128"], -3)
+    elif what == "exact":
+        # the Llama notes' simplification + entailment + summary steps, with gpt-oss, exactly as the archive ran them (one book a job)
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for b in books:
+            addraw(f"exact_{b}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
+                                     "--", "bash", f"{REPO}/scripts/legacy_exact.sh", b], -3)
     elif what == "legsum":
         # the Llama notes' summary step with gpt-oss: legsum VARIANT SOURCE [WORDS]
         variant, source, words = sys.argv[2], sys.argv[3], (sys.argv[4] if len(sys.argv) > 4 else "0")

@@ -16,9 +16,9 @@ REASONING_EFFORT = "medium"
 ATTEMPTS = 3
 
 
-def chat(messages, max_tokens, temperature, timeout=3600):
+def chat(messages, max_tokens, temperature, timeout=3600, top_p=1.0, effort=None):
     body = json.dumps({"model": MODEL, "messages": messages, "max_tokens": max_tokens,
-                       "temperature": temperature, "top_p": 1.0, "reasoning_effort": REASONING_EFFORT}).encode()
+                       "temperature": temperature, "top_p": top_p, "reasoning_effort": effort or REASONING_EFFORT}).encode()
     req = urlrequest.Request(API_BASE + "/chat/completions", data=body,
                              headers={"Content-Type": "application/json", "Authorization": "Bearer EMPTY"})
     last = None

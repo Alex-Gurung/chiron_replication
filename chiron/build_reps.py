@@ -150,7 +150,7 @@ def render(rows, only=None):
 
 # Nesting the sheets' "## Section" headings under the "## Name" block (###) costs 1.5-2.5 points on the 27B (charmem
 # 71.9 -> 69.4 nested; re-run charmem 69.3 nested -> 70.7 as written), so these variants are also kept as written.
-FLAT = {"legsum_ent_500", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
+FLAT = {"legsum_ent_500", "legsum_x_500", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
         "csyn_ldg_cons", "csyn_ent", "legsum_ent_w800", "charmemst_ent", "chiron_lgp_rv", "dossier_cnl", "distinct_cnl"}
 SHEET_ABLATE = {"refer": "how others refer", "voice": "voice", "story": "story so far", "rel": "relationships"}
 
@@ -284,6 +284,48 @@ def add_entailed(add, keys):
             add(name, book, b, l, "\n\n".join(parts))
 
 
+def archive_layout(have, b):
+    """The archive's cumulative-sheet layout, as stored in the Llama notes: every chapter listed under every question."""
+    secs = [f"## {head}\n\n" + "\n".join(f"Question: {QUESTIONS[q][1]}\n\n" + "".join(f"<snippet {c}>\n{have.get(c, {}).get(q, '')}\n"
+                                                                                     for c in range(b)) for q in qs)
+            for head, qs in CHAPNOTE_LAYOUT]
+    return ("-" * 100 + "\n").join(secs).strip()
+
+
+def exact_notes():
+    """(book, label) -> chapter -> question -> the gen_legacy_exact.py statements rated 5, joined."""
+    have = collections.defaultdict(dict)
+    for f in glob.glob(str(OUT / "legacy_gptoss_x" / "*.jsonl")):
+        for r in read_jsonl(f):
+            have[(r["book"], r["label"])].setdefault(r["chapter_index"], {})[r["q"]] = " ".join(x["statement"] for x in r["sentences"] if x["rating"] == 5)
+    return have
+
+
+def add_exact(add, keys):
+    """gpt-oss notes through the archive's own simplification and entailment steps (gen_legacy_exact.py), Llama layout."""
+    have = exact_notes()
+    for book, b, l in keys:
+        h = have.get((book, l), {})
+        if all(c in h for c in range(b)):
+            add("legacy_gptoss_x", book, b, l, archive_layout(h, b))
+
+
+def add_present(add, recs, keys, split):
+    """Notes without the chapters the character is not in (presence.present: an alias in the chapter or its first-person
+    narrator), for the Llama notes and the gpt-oss redos; legacy_full_rr is the Llama notes re-rendered the same way with
+    every chapter kept (the layout control: empty snippets and section rules dropped)."""
+    from presence import present
+    pres = present()
+    full = pickle.load(open(LEGACY / f"{split}_long_story_storycharchap_to_csheet.pkl", "rb"))
+    src = [("legacy_full", b, bd, l, full.get(f"{b}_{LEGACY_LABEL.get(l, l)}_{bd}")) for b, bd, l in keys]
+    src += [(r["condition"], r["book"], r["boundary"], r["label"], r["text"]) for r in recs if r["condition"] in ("legacy_gptoss_ent", "legacy_gptoss_x")]
+    for c, b, bd, l, t in src:
+        if t and all((b, ch) in pres for ch in range(bd)):
+            add(f"{c}_pres", b, bd, l, legacy_render(t, lambda ch: l in pres[(b, ch)]))
+            if c == "legacy_full":
+                add("legacy_full_rr", b, bd, l, legacy_render(t, lambda ch: True))
+
+
 def save(recs, split, keys):
     tmp = DATA / f"reps_{split}.jsonl.tmp"                    # atomic swap: running jobs never read a half-written file
     with open(tmp, "w") as f:
@@ -329,6 +371,8 @@ def main():
     add_cuts(add, keys)
     add_ledger(add, keys)
     add_entailed(add, keys)
+    add_exact(add, keys)
+    add_present(add, recs, keys, args.split)
     base = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")
             if r["condition"] in ("v2", "charmem")} if args.sheets_only else {}
     base.update({(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs if r["condition"].startswith("sheet_")})

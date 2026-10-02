@@ -396,3 +396,17 @@ with the entire book, reasoning on short spans and dense windows.
   the synopses + last 2 chapters drops to 63-66. 4B best = one-call sheet + last 1,000 words 50.5 at 7.7k (Llama full
   alone 49.1); Story Information packages 43-44. The small models want character notes + a little recent text; long
   plot/chapter context hurts them, while the 27B gains from it.
+- 15:40 Oct 2: why gpt-oss "done the Llama way" (77.4) trails the Llama notes (80.3). Side by side (witch, Fern, ch 10):
+  Llama writes traits and quotes ("supernatural vomit from beyond the stars"); gpt-oss lists events, objects and style
+  labels ("uses exclamation marks"), and my batch-of-35 filter dropped correct specifics (Pine-Sol, Turnabout) while
+  keeping wrong-chapter "She ..." sentences. Words from chapters the character is not in: Llama 7.7%, gpt-oss 15.8%
+  (10.8% after my filter), ~60% of them pronoun-led. The redo also skipped the archive's simplification step and used a
+  different filter rubric, so it was not the same process.
+  Now: chiron/gen_legacy_exact.py redoes everything after extraction exactly as the archive (via the diversity repo's
+  gpt-oss replay): spaCy en_core_web_md sentences (fixes the "Dr." split), one simplification call per sentence, one
+  entailment call per statement with the archive's role/rubric, low reasoning, keep only 5s, archive layout
+  (legacy_gptoss_x); then the archive summary guided to ~500 words (sheet_legsum_x_500_flat). Fixes only: filler
+  sentences dropped before simplification, 1,024-token allowance (the replay's 256 + stop "\n" ends inside reasoning).
+  Early: 63% of statements rated 5, 26% rated 1; ~12% of compound sentences split. Also queued: notes without the
+  chapters the character is absent from (legacy_full_pres, legacy_gptoss_ent_pres; legacy_full_rr = layout control).
+  spaCy lives in .pylib (uv pip install --target; appended to sys.path by the script only).
