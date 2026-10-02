@@ -391,3 +391,8 @@ with the entire book, reasoning on short spans and dense windows.
   95.6-97.0 (rich notes + Story Information 96.8-96.9); with the chapter so far everything is 97.6-98.1 (charmem + the
   chapter so far alone 97.7). Thinking saturates: the representation barely matters once the plot is there.
   Remaining: second-tier thinking fill-ins (short cuts with the chapter so far) and one Qwen3-4B long job.
+- 00:50 rich notes on the smaller models: 9B base best = full Llama notes + last 1,000 words 70.5 (Llama full alone
+  67.8); Llama last-3k + last 1,000 words 68.2 at 13k; filtered gpt-oss notes + last 1,000 words 68.0; any package with
+  the synopses + last 2 chapters drops to 63-66. 4B best = one-call sheet + last 1,000 words 50.5 at 7.7k (Llama full
+  alone 49.1); Story Information packages 43-44. The small models want character notes + a little recent text; long
+  plot/chapter context hurts them, while the 27B gains from it.
