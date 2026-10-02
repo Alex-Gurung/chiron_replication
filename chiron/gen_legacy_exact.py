@@ -16,11 +16,14 @@ Departures, both fixes: the archive's replay capped simplification at 256 tokens
 gpt-oss's hidden reasoning and silently drop the sentence; here it gets 1,024 tokens and an empty reply keeps the
 sentence as it was. Filler sentences are removed before step 2.
 
-  python3 chiron/gen_legacy_exact.py --books B... [--workers 64]
-Output: outputs/legacy_gptoss_x/<book>.jsonl, one record per (chapter, label, question):
-  {book, chapter_index, label, name, q, sentences: [{source, statement, rating}]}. Resumable.
+  python3 chiron/gen_legacy_exact.py --books B... [--source gptoss|llama] [--workers 64]
+--source llama (the judge control): the archive's Llama notes (already simplified and filtered by Llama) re-rated by
+gpt-oss with step 3 only, to tell a harsher gpt-oss judge from weaker gpt-oss answers.
+Output: outputs/legacy_gptoss_x/<book>.jsonl (gptoss) or outputs/legacy_llama_xf/<book>.jsonl (llama), one record per
+(chapter, label, question): {book, chapter_index, label, name, q, sentences: [{source, statement, rating}]}. Resumable.
 """
 import argparse
+import pickle
 import re
 import sys
 import threading
@@ -30,10 +33,10 @@ sys.path.append("/home/toolkit/chiron_replication/.pylib")        # spaCy + en_c
 import spacy  # noqa: E402
 
 import llm  # noqa: E402
-from build_reps import GABOUT, GMETA, GNEG  # noqa: E402
+from build_reps import GABOUT, GMETA, GNEG, LEGACY, LEGACY_LABEL, legacy_blocks  # noqa: E402
+from gen_chiron import QUESTIONS  # noqa: E402
 from common import OUT, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
 
-ROOT = OUT / "legacy_gptoss_x"
 NLP = spacy.load("en_core_web_md")
 NLP_LOCK = threading.Lock()
 SIMPLIFICATION_EXAMPLES = (
@@ -123,24 +126,51 @@ def rate(chapter, character, statement):
     return int(m[-1]) if m else 1
 
 
+def llama_answers(book):
+    """The archive's Llama notes as per-(chapter, label, question) answers, from each label's longest cumulative sheet."""
+    names = {(r["label"], r["chapter_index"]): r["name"] for r in read_jsonl(OUT / "legacy_gptoss" / f"{book}.jsonl")}
+    unlabel = {v: k for k, v in LEGACY_LABEL.items()}
+    q_of = {v[1]: k for k, v in QUESTIONS.items()}
+    best = {}
+    for s in ("test", "val", "train"):
+        for k, t in pickle.load(open(LEGACY / f"{s}_long_story_storycharchap_to_csheet.pkl", "rb")).items():
+            b, rest = k.split("_", 1)
+            l, bd = rest.rsplit("_", 1)
+            if b == book and int(bd) > best.get(l, (-1,))[0]:
+                best[l] = (int(bd), t)
+    out = []
+    for l, (_, t) in best.items():
+        label = unlabel.get(l, l)
+        for head, blocks in legacy_blocks(t):
+            if head.startswith("Question: "):
+                for c, x in blocks:
+                    if x.strip():
+                        out.append({"book": book, "chapter_index": c, "label": label, "name": names.get((label, c), label),
+                                    "q": q_of[head[len("Question: "):].strip()], "answer": x.strip()})
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--books", nargs="+", required=True)
+    ap.add_argument("--source", default="gptoss", choices=["gptoss", "llama"])
     ap.add_argument("--workers", type=int, default=64)
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
+    ROOT = OUT / {"gptoss": "legacy_gptoss_x", "llama": "legacy_llama_xf"}[args.source]
     ROOT.mkdir(parents=True, exist_ok=True)
     chapters = load_chapters()
     calls = ThreadPoolExecutor(6 * args.workers)
     for b in args.books:
         text = {c["chapter_index"]: clean_text(c["chapter_text_normalized"]) for c in chapters[b]}
         done = {(r["chapter_index"], r["label"], r["q"]) for r in read_jsonl(ROOT / f"{b}.jsonl")}
-        todo = [r for r in read_jsonl(OUT / "legacy_gptoss" / f"{b}.jsonl") if (r["chapter_index"], r["label"], r["q"]) not in done]
+        src = read_jsonl(OUT / "legacy_gptoss" / f"{b}.jsonl") if args.source == "gptoss" else llama_answers(b)
+        todo = [r for r in src if (r["chapter_index"], r["label"], r["q"]) not in done]
         print(b, len(todo), "answers to do", flush=True)
 
         def one(r):
             src = [x for x in sentences(r["answer"]) if not (GNEG.search(x) and GMETA.search(x)) and not GABOUT.search(x)]
-            split = list(calls.map(simplify, src))
+            split = list(calls.map(simplify, src)) if args.source == "gptoss" else [[x] for x in src]
             pairs = [(s, x) for s, xs in zip(src, split) for x in xs]
             ratings = list(calls.map(lambda p: rate(text[r["chapter_index"]], r["name"], p[1]), pairs))
             append_jsonl(ROOT / f"{b}.jsonl", {**{k: r[k] for k in ("book", "chapter_index", "label", "name", "q")},

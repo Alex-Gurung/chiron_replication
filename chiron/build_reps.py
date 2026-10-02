@@ -292,22 +292,28 @@ def archive_layout(have, b):
     return ("-" * 100 + "\n").join(secs).strip()
 
 
-def exact_notes():
+def exact_notes(root="legacy_gptoss_x"):
     """(book, label) -> chapter -> question -> the gen_legacy_exact.py statements rated 5, joined."""
     have = collections.defaultdict(dict)
-    for f in glob.glob(str(OUT / "legacy_gptoss_x" / "*.jsonl")):
+    for f in glob.glob(str(OUT / root / "*.jsonl")):
         for r in read_jsonl(f):
             have[(r["book"], r["label"])].setdefault(r["chapter_index"], {})[r["q"]] = " ".join(x["statement"] for x in r["sentences"] if x["rating"] == 5)
     return have
 
 
 def add_exact(add, keys):
-    """gpt-oss notes through the archive's own simplification and entailment steps (gen_legacy_exact.py), Llama layout."""
+    """gpt-oss notes through the archive's own simplification and entailment steps (gen_legacy_exact.py), Llama layout;
+    legacy_full_xf: the Llama notes re-rated by the same gpt-oss judge (a chapter with no Llama notes counts as empty)."""
     have = exact_notes()
     for book, b, l in keys:
         h = have.get((book, l), {})
         if all(c in h for c in range(b)):
             add("legacy_gptoss_x", book, b, l, archive_layout(h, b))
+    have = exact_notes("legacy_llama_xf")
+    books = {k[0] for k in have}
+    for book, b, l in keys:
+        if book in books:
+            add("legacy_full_xf", book, b, l, archive_layout(have.get((book, l), {}), b))
 
 
 def add_present(add, recs, keys, split):
