@@ -449,3 +449,11 @@ with the entire book, reasoning on short spans and dense windows.
   79.8 vs 80.2 with the last 1,000 words; their ~500-word summary 68.2 vs 68.8, and a second sample of the original
   summary 67.9 (with the last 1,000 words 75.0 / 74.7 / 74.8). The +3.2 on the speech section alone does not survive in
   the full notes: within noise. Summary resampling moves ~1 point. Workers stopped. Report v37.
+- 13:00 Oct 3 style vs content for the ~500-word summaries (2 x 2, every cell rewritten by gpt-oss: Llama or gpt-oss
+  summary x prose or bullets; 27B thinking off). Alone: Llama content prose 67.6 / bullets 67.0, gpt-oss content prose
+  66.3 / bullets 67.8 (originals: Llama 70.4, gpt-oss 68.8: rewriting itself costs 1-3 points). With the last 1,000
+  words (Llama bullets on 20 books, its test shard hung): Llama content 75.5 prose / 78.3 bullets, gpt-oss 73.8 / 75.1.
+  Prose does not help (bullets are equal or better); Llama's content wins in 3 of 4 pairings (+1.3 to +2.3). The
+  styles differ a lot but the style is not what costs gpt-oss.
+  Ops: one restyle eval (test split) hung ~03:00-12:55 with two workers held; no hang watchdog was running. Requeued on
+  one 2-GPU worker with the watchdog on; always run hang_watchdog with eval batches.
