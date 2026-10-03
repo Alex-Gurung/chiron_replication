@@ -438,3 +438,10 @@ with the entire book, reasoning on short spans and dense windows.
   Look", 27% with a quote vs 13%). Simple specificity counts (names, numbers, quotes) do not separate the two.
   Report v36. All chiron workers stopped at 19:10 (the supervisor's idle exit never fires: it waits for the shared
   queue to drain, and other projects' parked jobs stay queued).
+- 01:00 Oct 3: gpt-oss extraction prompt variants on the personality/appearance and speech questions (same exact filter,
+  27B thinking off, per section, 21 books). Speech (Llama 68.2, gpt-oss 60.4): questions worded as a writer's brief
+  (manner, attitude, how they talk to whom; not features of single lines) 63.6 (+3.2, 16/21 books); low reasoning 62.0;
+  both 62.1. Personality/appearance (Llama 74.2, gpt-oss 68.9): low 69.1, brief 67.4, both 68.8: no gain, although the
+  brief answers read like Llama's ("exuberant, impulsive, rebellious toward authority"). Rewording recovers about a
+  third of the speech gap and none of the personality gap; the remaining difference is not the question wording.
+  Workers stopped.
