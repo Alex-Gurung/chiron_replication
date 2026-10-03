@@ -92,6 +92,11 @@ NEW_ROWS = [
         ("legacy_gptoss_xs", "full gpt-oss notes, speech answers from the brief", "the only change that helped its own section"),
         ("sheet_legsum_xs_500_flat", "… their summary, about 500 words", ""),
         ("sheet_legsum_x_500b_flat", "second sample of the original summary", "summary sampling noise")]),
+    ("Summary style vs content (each rewritten by gpt-oss, facts kept)", [
+        ("sheet_restyle_leg_prose_flat", "Llama summary as prose", "rewrite-only control (Llama wrote prose)"),
+        ("sheet_restyle_leg_bullets_flat", "Llama summary as bullets", "gpt-oss's style, Llama's content"),
+        ("sheet_restyle_lsx_prose_flat", "gpt-oss summary as prose", "Llama's style, gpt-oss's content"),
+        ("sheet_restyle_lsx_bullets_flat", "gpt-oss summary as bullets", "rewrite-only control (gpt-oss wrote bullets)")]),
     ("charmem's own synthesis, re-run", [
         ("sheet_csyn_ldg", "same code, same ledgers, new sample", "prompts byte-identical to the published run"),
         ("sheet_csyn_ldg_r2", "second new sample", ""), ("sheet_csyn_ldg_r3", "third new sample", ""),
@@ -736,7 +741,13 @@ def main():
             f"{v('legacy_gptoss_brief_x_sec0')}% vs {v('legacy_gptoss_x_sec0')}%; low reasoning {v('legacy_gptoss_low_x_sec3')} and "
             f"{v('legacy_gptoss_low_x_sec0')}%), and in the full notes it is within noise ({v('legacy_gptoss_xs')}% vs "
             f"{v('legacy_gptoss_x')}%; summary {v('sheet_legsum_xs_500_flat')}% vs {v('sheet_legsum_x_500_flat')}% and a second sample "
-            f"of it {v('sheet_legsum_x_500b_flat')}%). Before, gpt-oss chapter notes reached {v('chapnotes')}%.",
+            f"of it {v('sheet_legsum_x_500b_flat')}%). The summaries look very different (Llama: prose that names and interprets the "
+            f"character; gpt-oss: telegraphic bullets under bold headings), but rewriting each into the other's style moves little: "
+            f"Llama's summary as prose {v('sheet_restyle_leg_prose_flat')}% / as bullets {v('sheet_restyle_leg_bullets_flat')}%, gpt-oss's "
+            f"as prose {v('sheet_restyle_lsx_prose_flat')}% / as bullets {v('sheet_restyle_lsx_bullets_flat')}% (with the last 1,000 words "
+            f"{v('sheet_restyle_leg_prose_flat&book_last1000')} / {v('sheet_restyle_leg_bullets_flat&book_last1000')} and "
+            f"{v('sheet_restyle_lsx_prose_flat&book_last1000')} / {v('sheet_restyle_lsx_bullets_flat&book_last1000')}%). Prose never helps. "
+            f"Before, gpt-oss chapter notes reached {v('chapnotes')}%.",
         ]
         return "".join(f"<p class='muted'>{x}</p>" for x in paras)
 
