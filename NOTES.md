@@ -445,3 +445,7 @@ with the entire book, reasoning on short spans and dense windows.
   brief answers read like Llama's ("exuberant, impulsive, rebellious toward authority"). Rewording recovers about a
   third of the speech gap and none of the personality gap; the remaining difference is not the question wording.
   Workers stopped.
+- 02:00 the reworded speech answers in the full gpt-oss notes (legacy_gptoss_xs): 76.4 vs 75.9 alone (12/21 books),
+  79.8 vs 80.2 with the last 1,000 words; their ~500-word summary 68.2 vs 68.8, and a second sample of the original
+  summary 67.9 (with the last 1,000 words 75.0 / 74.7 / 74.8). The +3.2 on the speech section alone does not survive in
+  the full notes: within noise. Summary resampling moves ~1 point. Workers stopped. Report v37.

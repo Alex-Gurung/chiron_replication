@@ -82,6 +82,16 @@ NEW_ROWS = [
         ("legacy_full_xf_sec0", "Llama, personality and appearance only", ""), ("legacy_gptoss_x_sec0", "gpt-oss, personality and appearance only", ""),
         ("legacy_full_xf_sec2", "Llama, plot and motivation only", ""), ("legacy_gptoss_x_sec2", "gpt-oss, plot and motivation only", ""),
         ("legacy_full_xf_sec1", "Llama, knowledge only", ""), ("legacy_gptoss_x_sec1", "gpt-oss, knowledge only", "")]),
+    ("gpt-oss extraction prompt variants (same filter)", [
+        ("legacy_gptoss_low_x_sec3", "speech only, low reasoning", "the reasoning effort the diversity repo's gpt-oss replay used"),
+        ("legacy_gptoss_brief_x_sec3", "speech only, question worded as a brief", "manner, attitude, how they talk to whom; not features of single lines"),
+        ("legacy_gptoss_brieflow_x_sec3", "speech only, both", ""),
+        ("legacy_gptoss_low_x_sec0", "personality and appearance only, low reasoning", ""),
+        ("legacy_gptoss_brief_x_sec0", "personality and appearance only, brief", "temperament, attitudes, habits, as general traits"),
+        ("legacy_gptoss_brieflow_x_sec0", "personality and appearance only, both", ""),
+        ("legacy_gptoss_xs", "full gpt-oss notes, speech answers from the brief", "the only change that helped its own section"),
+        ("sheet_legsum_xs_500_flat", "… their summary, about 500 words", ""),
+        ("sheet_legsum_x_500b_flat", "second sample of the original summary", "summary sampling noise")]),
     ("charmem's own synthesis, re-run", [
         ("sheet_csyn_ldg", "same code, same ledgers, new sample", "prompts byte-identical to the published run"),
         ("sheet_csyn_ldg_r2", "second new sample", ""), ("sheet_csyn_ldg_r3", "third new sample", ""),
@@ -721,7 +731,12 @@ def main():
             f"{v('legacy_gptoss_x_sec3')}%, personality and appearance {v('legacy_full_xf_sec0')} vs {v('legacy_gptoss_x_sec0')}%, plot and "
             f"motivation {v('legacy_full_xf_sec2')} vs {v('legacy_gptoss_x_sec2')}%, knowledge {v('legacy_full_xf_sec1')} vs "
             f"{v('legacy_gptoss_x_sec1')}%. Llama describes attitude and temperament (“She is direct and forceful”); gpt-oss lists "
-            f"surface features of particular lines (“He uses the command Look”). Before, gpt-oss chapter notes reached {v('chapnotes')}%.",
+            f"surface features of particular lines (“He uses the command Look”). Rewording gpt-oss's questions helps only the speech "
+            f"section on its own ({v('legacy_gptoss_brief_x_sec3')}% vs {v('legacy_gptoss_x_sec3')}%; personality and appearance "
+            f"{v('legacy_gptoss_brief_x_sec0')}% vs {v('legacy_gptoss_x_sec0')}%; low reasoning {v('legacy_gptoss_low_x_sec3')} and "
+            f"{v('legacy_gptoss_low_x_sec0')}%), and in the full notes it is within noise ({v('legacy_gptoss_xs')}% vs "
+            f"{v('legacy_gptoss_x')}%; summary {v('sheet_legsum_xs_500_flat')}% vs {v('sheet_legsum_x_500_flat')}% and a second sample "
+            f"of it {v('sheet_legsum_x_500b_flat')}%). Before, gpt-oss chapter notes reached {v('chapnotes')}%.",
         ]
         return "".join(f"<p class='muted'>{x}</p>" for x in paras)
 
