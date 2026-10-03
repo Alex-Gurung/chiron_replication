@@ -16,7 +16,7 @@ Departures, both fixes: the archive's replay capped simplification at 256 tokens
 gpt-oss's hidden reasoning and silently drop the sentence; here it gets 1,024 tokens and an empty reply keeps the
 sentence as it was. Filler sentences are removed before step 2.
 
-  python3 chiron/gen_legacy_exact.py --books B... [--source gptoss|llama] [--workers 64]
+  python3 chiron/gen_legacy_exact.py --books B... [--source gptoss|llama] [--variant V] [--workers 64]
 --source llama (the judge control): the archive's Llama notes (already simplified and filtered by Llama) re-rated by
 gpt-oss with step 3 only, to tell a harsher gpt-oss judge from weaker gpt-oss answers.
 Output: outputs/legacy_gptoss_x/<book>.jsonl (gptoss) or outputs/legacy_llama_xf/<book>.jsonl (llama), one record per
@@ -156,17 +156,19 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--source", default="gptoss", choices=["gptoss", "llama"])
+    ap.add_argument("--variant", default="", help="gptoss only: read outputs/legacy_gptoss_V, write outputs/legacy_gptoss_V_x")
     ap.add_argument("--workers", type=int, default=64)
     args = ap.parse_args()
     assert llm.server_up(), "gpt-oss server not reachable"
-    ROOT = OUT / {"gptoss": "legacy_gptoss_x", "llama": "legacy_llama_xf"}[args.source]
+    SRC = "legacy_gptoss" + (f"_{args.variant}" if args.variant else "")
+    ROOT = OUT / {"gptoss": SRC + "_x", "llama": "legacy_llama_xf"}[args.source]
     ROOT.mkdir(parents=True, exist_ok=True)
     chapters = load_chapters()
     calls = ThreadPoolExecutor(6 * args.workers)
     for b in args.books:
         text = {c["chapter_index"]: clean_text(c["chapter_text_normalized"]) for c in chapters[b]}
         done = {(r["chapter_index"], r["label"], r["q"]) for r in read_jsonl(ROOT / f"{b}.jsonl")}
-        src = read_jsonl(OUT / "legacy_gptoss" / f"{b}.jsonl") if args.source == "gptoss" else llama_answers(b)
+        src = read_jsonl(OUT / SRC / f"{b}.jsonl") if args.source == "gptoss" else llama_answers(b)
         todo = [r for r in src if (r["chapter_index"], r["label"], r["q"]) not in done]
         print(b, len(todo), "answers to do", flush=True)
 

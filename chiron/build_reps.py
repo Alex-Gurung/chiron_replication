@@ -325,6 +325,13 @@ def add_exact(add, keys):
         h = have.get((book, l), {})
         if all(c in h for c in range(b)):
             add("legacy_gptoss_x_named", book, b, l, archive_layout(h, b))
+    for v in ("low", "brief", "brieflow"):                           # extraction prompt variants (personality/speech only)
+        have = exact_notes(f"legacy_gptoss_{v}_x")
+        for book, b, l in keys:
+            h = have.get((book, l), {})
+            if h and all(c in h for c in range(b)):
+                for i in (0, 3):
+                    add(f"legacy_gptoss_{v}_x_sec{i}", book, b, l, archive_layout(h, b, CHAPNOTE_LAYOUT[i][0]))
     have = exact_notes("legacy_llama_xf")
     books = {k[0] for k in have}
     for book, b, l in keys:

@@ -30,6 +30,7 @@
   python3 scripts/queue_jobs.py recap WORDS SOURCE_WORDS   gpt-oss recap of the last words before the chapter (gen_recap.py)
   python3 scripts/queue_jobs.py exact           the Llama notes' later steps redone exactly with gpt-oss (gen_legacy_exact.py + summary)
   python3 scripts/queue_jobs.py exact_llama     judge control: the Llama notes re-rated by that exact gpt-oss entailment step
+  python3 scripts/queue_jobs.py prompt_test     gpt-oss extraction prompt variants on the personality and speech questions (scripts/prompt_test.sh)
   python3 scripts/queue_jobs.py entail          gpt-oss entailment ratings for the gpt-oss Llama-prompt notes (gen_entail.py)
   python3 scripts/queue_jobs.py plot            plot summaries with gpt-oss (one pass; chapter by chapter), 6 book groups each
   python3 scripts/queue_jobs.py oracle_shards   thinking-on prior-facts oracle on train, split 8 ways
@@ -382,6 +383,12 @@ def main():
         for b in books:
             addraw(f"exactL_{b}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
                                       "--", "python3", "-u", f"{REPO}/chiron/gen_legacy_exact.py", "--source", "llama", "--books", b], -3)
+    elif what == "prompt_test":
+        # extraction prompt variants for gpt-oss on the personality and speech questions, then the exact filter (2 books a job)
+        books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
+        for k in range(0, len(books), 2):
+            addraw(f"ptest_{k // 2}", 2, ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", "131072",
+                                          "--", "bash", f"{REPO}/scripts/prompt_test.sh", *books[k:k + 2]], -3)
     elif what == "legsum":
         # the Llama notes' summary step with gpt-oss: legsum VARIANT SOURCE [WORDS]
         variant, source, words = sys.argv[2], sys.argv[3], (sys.argv[4] if len(sys.argv) > 4 else "0")
