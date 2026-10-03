@@ -150,7 +150,7 @@ def render(rows, only=None):
 
 # Nesting the sheets' "## Section" headings under the "## Name" block (###) costs 1.5-2.5 points on the 27B (charmem
 # 71.9 -> 69.4 nested; re-run charmem 69.3 nested -> 70.7 as written), so these variants are also kept as written.
-FLAT = {"legsum_ent_500", "legsum_x_500", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
+FLAT = {"legsum_ent_500", "legsum_x_500", "legsum_xs_500", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
         "csyn_ldg_cons", "csyn_ent", "legsum_ent_w800", "charmemst_ent", "chiron_lgp_rv", "dossier_cnl", "distinct_cnl"}
 SHEET_ABLATE = {"refer": "how others refer", "voice": "voice", "story": "story so far", "rel": "relationships"}
 
@@ -310,6 +310,17 @@ def exact_notes(root="legacy_gptoss_x", named=False):
     return have
 
 
+def exact_notes_xs():
+    """exact_notes() with the speech answers from the writer's-brief question (gen_legacy_gptoss.py --brief), which scored
+    +3.2 on its own section."""
+    have, brief = exact_notes(), exact_notes("legacy_gptoss_brief_x")
+    for k, chs in have.items():
+        for c, qs in chs.items():
+            if "dialogue" in brief.get(k, {}).get(c, {}):
+                qs["dialogue"] = brief[k][c]["dialogue"]
+    return have
+
+
 def add_exact(add, keys):
     """gpt-oss notes through the archive's own simplification and entailment steps (gen_legacy_exact.py), Llama layout;
     legacy_full_xf: the Llama notes re-rated by the same gpt-oss judge (a chapter with no Llama notes counts as empty)."""
@@ -320,6 +331,11 @@ def add_exact(add, keys):
             add("legacy_gptoss_x", book, b, l, archive_layout(h, b))
             for i, (head, _) in enumerate(CHAPNOTE_LAYOUT):              # one section at a time (vs legacy_full_xf_sec<i>)
                 add(f"legacy_gptoss_x_sec{i}", book, b, l, archive_layout(h, b, head))
+    have = exact_notes_xs()
+    for book, b, l in keys:
+        h = have.get((book, l), {})
+        if all(c in h for c in range(b)):
+            add("legacy_gptoss_xs", book, b, l, archive_layout(h, b))
     have = exact_notes(named=True)
     for book, b, l in keys:
         h = have.get((book, l), {})

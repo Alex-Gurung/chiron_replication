@@ -3,7 +3,7 @@ the archive's own prompt (SUMMARY_ROLE / SUMMARY_QUERY / SUMMARY_INSTRUCTION, co
 ncp_eval/data_creation/legacy_character_replay.py). The archive's Llama summary of the Llama notes is the "legacy"
 condition (~500 words, 70.4 on the 27B at 2.7k prompt tokens).
 
-  python3 chiron/gen_legsum.py --source legacy_gptoss_ent|legacy_gptoss_nofill|legacy_gptoss_x --variant NAME --books B... [--words W]
+  python3 chiron/gen_legsum.py --source legacy_gptoss_ent|legacy_gptoss_nofill|legacy_gptoss_x|legacy_gptoss_xs --variant NAME --books B... [--words W]
 The input is the source's Llama-layout notes (build_reps: questions grouped by section, one <snippet c> per chapter).
 --words W appends "Use about W words." to the instruction (none by default: the archive gave no length, only a token cap)
 and, since gpt-oss writes ~2x that, sends longer summaries back to be rewritten shorter (gen_sheet.write, <= 1.5 x W).
@@ -15,7 +15,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 
 import llm
-from build_reps import CHAPNOTE_LAYOUT, archive_layout, exact_notes, gclean
+from build_reps import CHAPNOTE_LAYOUT, archive_layout, exact_notes, exact_notes_xs, gclean
 from common import DATA, OUT, append_jsonl, read_jsonl
 from gen_chiron import QUESTIONS
 from gen_sheet import write
@@ -44,8 +44,8 @@ SUMMARY_QUERY = (
 
 def layouts(source, keys):
     """(book, boundary, label) -> the Llama-layout notes text, as build_reps renders the source."""
-    if source == "legacy_gptoss_x":                               # the archive's own layout, every chapter listed
-        have = exact_notes()
+    if source in ("legacy_gptoss_x", "legacy_gptoss_xs"):        # the archive's own layout, every chapter listed
+        have = exact_notes() if source == "legacy_gptoss_x" else exact_notes_xs()
         return {(b, bd, l): archive_layout(have[(b, l)], bd) for b, bd, l in keys if all(c in have.get((b, l), {}) for c in range(bd))}
     ans = collections.defaultdict(dict)                           # (book, label) -> chapter -> q -> text
     if source == "legacy_gptoss_ent":
@@ -75,7 +75,7 @@ def layouts(source, keys):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", required=True, choices=["legacy_gptoss_ent", "legacy_gptoss_nofill", "legacy_gptoss_x"])
+    ap.add_argument("--source", required=True, choices=["legacy_gptoss_ent", "legacy_gptoss_nofill", "legacy_gptoss_x", "legacy_gptoss_xs"])
     ap.add_argument("--variant", required=True)
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--words", type=int, default=0)
