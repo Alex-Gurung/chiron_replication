@@ -150,7 +150,7 @@ def render(rows, only=None):
 
 # Nesting the sheets' "## Section" headings under the "## Name" block (###) costs 1.5-2.5 points on the 27B (charmem
 # 71.9 -> 69.4 nested; re-run charmem 69.3 nested -> 70.7 as written), so these variants are also kept as written.
-FLAT = {"legsum_ent_500", "restyle_leg_prose", "restyle_leg_bullets", "restyle_lsx_prose", "restyle_lsx_bullets", "legsum_x_500", "legsum_xs_500", "legsum_x_500b", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
+FLAT = {"legsum_ent_500", "csum", "csum_f", "restyle_leg_prose", "restyle_leg_bullets", "restyle_lsx_prose", "restyle_lsx_bullets", "legsum_x_500", "legsum_xs_500", "legsum_x_500b", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
         "csyn_ldg_cons", "csyn_ent", "legsum_ent_w800", "charmemst_ent", "chiron_lgp_rv", "dossier_cnl", "distinct_cnl"}
 SHEET_ABLATE = {"refer": "how others refer", "voice": "voice", "story": "story so far", "rel": "relationships"}
 
