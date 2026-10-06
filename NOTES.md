@@ -459,3 +459,11 @@ with the entire book, reasoning on short spans and dense windows.
   gap is in the full notes, where the format is identical.
   Ops: one restyle eval (test split) hung ~03:00-12:55 with two workers held; no hang watchdog was running. Requeued on
   one 2-GPU worker with the watchdog on; always run hang_watchdog with eval batches.
+- 16:10 Oct 6: the CHIRON paper's Character-Summary baseline, done the paper's way (chiron/gen_csum.py: the whole story
+  so far in the generation module's prompt with its summarize_story question, greedy, then the entailment filter;
+  gpt-oss for Mistral 7B, last 88k words when longer). ~160 words (129 filtered). 27B thinking off: 62.5 at 1.2k tokens
+  (filtered 62.7), vs our rolling ~700-word summary 69.6 at 4.0k and the same cut to 250 words 60.6 (+1.9, 16/21
+  books); + last 1,000 words 73.1 (filtered 72.3) vs 76.7. 9B base 54.4 / 54.2 (rolling 58.9), 4B 39.4 / 39.8 (40.9).
+  The filter changes nothing. Against this baseline every sheet wins (CHIRON condensed 70.4 at 2.7k, full 80.3), like
+  the paper's gap (44.9 vs 47.6-58.5); our rolling summary is a much stronger baseline because it is 4x longer.
+  Run on one 8-GPU worker after the first ~20 min (user: fewer GPUs). Report v39.

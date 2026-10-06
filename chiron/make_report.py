@@ -70,6 +70,10 @@ NEW_ROWS = [
         ("sheet_legsum_ent", "Llama summary prompt, from filtered notes", ""),
         ("sheet_legsum_nofill_w800", "… asked for about 800 words", ""), ("sheet_legsum_ent_w800", "… from filtered notes, about 800 words", ""),
         ("sheet_legsum_ent_500_flat", "… from filtered notes, held to about 500 words", "rewritten shorter until at most 750 words, like Llama's ~500")]),
+    ("The CHIRON paper's Character-Summary baseline", [
+        ("sheet_csum_flat", "whole story so far -> character summary", "the paper's prompt and greedy decoding (github.com/Alex-Gurung/CHIRON), gpt-oss for Mistral 7B; last 88k words when longer"),
+        ("sheet_csum_f_flat", "… entailment-filtered, as in the paper", "each sentence rated against the same text, 5/5 kept"),
+        ("summary@250", "our rolling summary, first 250 words", "for comparison at a similar length")]),
     ("The Llama process copied exactly, and controls", [
         ("legacy_gptoss_x", "gpt-oss answers, the archive's later steps exactly", "spaCy sentences, per-sentence simplification, per-statement entailment with the archive's rubric, 5/5 kept"),
         ("sheet_legsum_x_500_flat", "… its summary, about 500 words", "the archive's summary prompt, held to about 500 words"),
@@ -226,7 +230,8 @@ LABEL.update({
     "legacy_gptoss": "gpt-oss notes, Llama prompt", "legacy_gptoss_nofill": "gpt-oss notes, Llama prompt, no filler",
     "legacy_gptoss_ent": "gpt-oss notes, Llama prompt, entailment-filtered",
     "legacy_gptoss_x": "gpt-oss answers, Llama process exactly", "sheet_legsum_x_500_flat": "its summary, ~500 words",
-    "legacy_full_xf": "Llama answers, gpt-oss filter", "sheet_legsum_ent": "gpt-oss summary of the filtered notes",
+    "legacy_full_xf": "Llama answers, gpt-oss filter",
+    "sheet_csum_flat": "CHIRON paper's character summary", "sheet_csum_f_flat": "CHIRON paper's character summary, filtered", "sheet_legsum_ent": "gpt-oss summary of the filtered notes",
     "sheet_csyn_ldg": "charmem's synthesis, re-run (nested)", "sheet_cast_cnl": "gpt-oss joint sheets (nested)",
     "sheet_csyn_ldg_flat": "charmem's synthesis, re-run", "sheet_cast_cnl_flat": "gpt-oss joint sheets (one call for all three)",
     **{f"summary&book_last{k}": f"Character summaries + last {k:,} words" for k in (500, 1000, 2000)},
