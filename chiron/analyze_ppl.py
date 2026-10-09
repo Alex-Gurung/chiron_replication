@@ -11,6 +11,7 @@ import json
 import math
 import os
 import random
+import re
 
 from common import OUT, read_jsonl, write_json
 
@@ -30,9 +31,10 @@ def main():
             if f.endswith(".errors.jsonl"):
                 continue
             ctx, rep = os.path.basename(f)[:-6].split("__")
+            rep = re.sub(r"\.s\d+of\d+$", "", rep)                 # shard files of one representation
             for r in read_jsonl(f):
                 rows[(ctx, rep)][r["item_id"]] = (r["book"], r["nll"], r["tokens"])
-        for ctx in ("none", "story"):
+        for ctx in sorted({c for c, _ in rows}):
             base = rows.get((ctx, "names"))
             if not base:
                 continue
