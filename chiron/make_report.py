@@ -359,6 +359,11 @@ PASSAGE_SERIES = [
 ]
 SETS = [("short", "Short spans"), ("main", "Sections"), ("window", "Dense windows")]
 FINDINGS = [
+    "New (Oct 9): inside the NCP task's own prompt, scored with the project's own likelihood scorer (Qwen3-4B, 3,703 sections, 29 "
+    "books), the Llama summary is the best character sheet: {ncp_leg_none} nats per token over no sheets (B {ncp_leg_B}%) and "
+    "{ncp_leg_v2} over the shipped v2 sheets, better than v2 in {ncp_leg_books} books. charmem and v2 are about level; the "
+    "non-CHIRON character summaries are below v2 (rolling gpt-oss {ncp_sum_v2}, the CHIRON paper's own {ncp_csum_v2}). See "
+    "Inside the NCP prompt.",
     "New (Oct 1): at about 5k prompt tokens the best option is not a better sheet but a sheet plus the last 1,000 words "
     "of the story, shown once: charmem {hyb_cm}% (alone {charmem27}%), gpt-oss character summaries {hyb_sum}%, the Llama "
     "summary {hyb_leg}% at {hyb_leg_tok} tokens, on Qwen3.8-27B without thinking; the Llama notes cut to 3k words reach "
@@ -478,6 +483,7 @@ def main():
     items9 = json.load(open(OUT / "analysis_items_Qwen3.5-9B-Base.json"))
     gender = json.load(open(OUT / "analysis_gender.json"))["acc"]
     ppl = json.load(open(OUT / "analysis_ppl.json")) if (OUT / "analysis_ppl.json").exists() else {}
+    ncp = json.load(open(OUT / "analysis_ncp_ruler_Qwen3-4B-Instruct-2507.json")) if (OUT / "analysis_ncp_ruler_Qwen3-4B-Instruct-2507.json").exists() else {}
     rep_book, rep_b, rep_label = "dark", 14, "Liska Radost"
     rep_example = {r["condition"]: r["text"] for r in read_jsonl(DATA / "reps_test.jsonl")
                    if (r["book"], r["boundary"], r["label"]) == (rep_book, rep_b, rep_label)}
@@ -579,6 +585,23 @@ def main():
         head = "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in cols)
         rows = "".join(f"<tr><th scope='row'>{names[r]}</th>" + "".join(cell(k, r) for k, _ in cols) + "</tr>" for r in reps)
         return f"<thead><tr><th scope='col'>Character notes</th>{head}</tr></thead><tbody>{rows}</tbody>"
+
+    def ncp_table():
+        names = [("legacy", "Llama notes, summarized (CHIRON condensed)"), ("charmem", "charmem sheet"), ("v2", "v2 sheet (as shipped)"),
+                 ("summary", "Character summaries (gpt-oss, rolling, ~700 words)"), ("sheet_legsum_x_500_flat", "gpt-oss CHIRON-style summary"),
+                 ("sheet_csum_flat", "CHIRON paper's character summary (~160 words)"), ("cast", "Supporting cast only"), ("none", "No character sheets")]
+        al, te = ncp.get("all books", {}), ncp.get("canonical test cohort, reported sections", {})
+        def cells(t, c, ref, b=True):
+            v = t.get(f"{c}|{ref}")
+            if not v:
+                return "<td class='num'>—</td>" * (3 if b else 2)
+            return (f"<td class='num'>{v['delta']:+.4f}</td>" + (f"<td class='num'>{v['B']:+.2f}</td>" if b else "")
+                    + f"<td class='num'>{v['books_better']}/{v['books']}</td>")
+        rows = "".join(f"<tr><th scope='row'>{n}</th>{cells(al, c, 'none')}{cells(al, c, 'v2', False)}{cells(te, c, 'v2', False)}</tr>" for c, n in names)
+        return ("<thead><tr><th scope='col'>Character sheets in the prompt</th><th scope='col' class='num'>vs no sheets, nats/token</th>"
+                "<th scope='col' class='num'>B%</th><th scope='col' class='num'>books better</th><th scope='col' class='num'>vs shipped v2, nats/token</th>"
+                "<th scope='col' class='num'>books better</th><th scope='col' class='num'>test cohort vs v2, nats/token</th>"
+                f"<th scope='col' class='num'>books better</th></tr></thead><tbody>{rows}</tbody>")
 
     def traces_table():
         st_ = traces.get("stats", {})
@@ -928,6 +951,12 @@ def main():
         hyb_leg=pct(macro("main", q27, "legacy&book_last1000")),
         hyb_leg_tok=f"{(get('main', q27, 'legacy&book_last1000') or {}).get('mean_tokens', 0) / 1000:.1f}k",
         legmatch27=pct(macro("main", q27, "legacy_match")), gpt_ent=pct(macro("main", q27, "legacy_gptoss_ent")),
+        ncp_leg_none=f"{ncp.get('all books', {}).get('legacy|none', {}).get('delta', 0):+.4f}",
+        ncp_leg_B=f"{ncp.get('all books', {}).get('legacy|none', {}).get('B', 0):+.2f}",
+        ncp_leg_v2=f"{ncp.get('all books', {}).get('legacy|v2', {}).get('delta', 0):+.4f}",
+        ncp_leg_books=f"{ncp.get('all books', {}).get('legacy|v2', {}).get('books_better', 0)} of {ncp.get('all books', {}).get('legacy|v2', {}).get('books', 0)}",
+        ncp_sum_v2=f"{ncp.get('all books', {}).get('summary|v2', {}).get('delta', 0):+.4f}",
+        ncp_csum_v2=f"{ncp.get('all books', {}).get('sheet_csum_flat|v2', {}).get('delta', 0):+.4f}",
         gpt_x=pct(macro("main", q27, "legacy_gptoss_x")), xf27=pct(macro("main", q27, "legacy_full_xf")),
         g27_lo=f"{100 * min(get('main', q27, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full') if get('main', q27, c)):.0f}",
         g27_hi=f"{100 * max(get('main', q27, c)['vs_noinfo']['mean'] for c in ('legacy', 'chiron_r2000', 'v2', 'chiron', 'charmem', 'summary', 'legacy_full') if get('main', q27, c)):.0f}",
@@ -980,7 +1009,7 @@ def main():
     ex = re.sub(r"\[CHAR (\d)\]", r'<mark class="m\1">[CHAR \1]</mark>', ex)
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
-    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "TRACES_TABLE": traces_table(),
+    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "NCP_TABLE": ncp_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "NEW_TABLE": new_table(), "NEW_TEXT": new_text(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
                  "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
@@ -1218,6 +1247,12 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h2 id="ppl">Does character information make the real next passage more likely?</h2>
     <p class="muted">Change in perplexity of the real passage (names unmasked) against a prompt that only lists the characters' names. Qwen3.5-9B base reads a plain-text prompt; Qwen3.8-27B reads the notes as a chat request to write the next passage and is scored on the passage as its reply. "Story" adds the 4,000 words right before the passage. Negative is better; every value covering all passages is negative in all 21 books.</p>
     <div class="table-wrap"><table>{{PPL_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="ncp">
+    <h2 id="ncp">Inside the NCP prompt: which character sheet makes the real next section most likely?</h2>
+    <p class="muted">The diversity project's own NCP likelihood scorer (the writer ruler: its v16 writing prompt, the real next section scored as the assistant's reply after &lt;answer&gt;, mean log-probability per token, frozen Qwen3-4B with a 57,344-token window; helpers imported from the project's frozen code). Only the <code>character_sheets</code> field changes: the three principals' sheets are swapped, the &ldquo;Supporting cast&rdquo; entry and everything else (summary of written chapters, previous two chapters, the chapter so far, section synopsis and length) stay as shipped. 3,703 of the dataset's sections in 29 books have every variant; 652 are reported sections of the canonical test cohort (3 of its 4 books). Positive is better. B% = 100 &times; (1 &minus; e<sup>&minus;d</sup>), the project's unit: the percent drop in per-token perplexity. The unchanged-sheet scores reproduce the project's stored controls (mean |difference| 0.00005 nats).</p>
+    <div class="table-wrap"><table>{{NCP_TABLE}}</table></div>
   </section>
 
   <section aria-labelledby="why">

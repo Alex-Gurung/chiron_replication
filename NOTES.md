@@ -467,3 +467,22 @@ with the entire book, reasoning on short spans and dense windows.
   The filter changes nothing. Against this baseline every sheet wins (CHIRON condensed 70.4 at 2.7k, full 80.3), like
   the paper's gap (44.9 vs 47.6-58.5); our rolling summary is a much stronger baseline because it is 4x longer.
   Run on one 8-GPU worker after the first ~20 min (user: fewer GPUs). Report v39.
+- 23:40 Oct 9: perplexity inside the full Story Information, swapping only the character sheets.
+  First attempts (chiron/ppl_eval.py ncp_storynext / ncp_full, my own prompt on our 1,087 passages) were stopped: with
+  the notes placed after the story text every sheet raised the 4B's perplexity (+1 to +8%), a layout artefact; and vLLM
+  does not read the prefix cache for prompt-logprob requests, so every row costs its whole prompt.
+  Final: the diversity project's own NCP scorer (chiron/ncp_ruler_sheets.py, modelled on ncp_eval/v70_score_writer.py
+  with its helpers imported from the frozen q4v2 code: v16_writing_messages, target after "<answer>\n", mean logprob per
+  token, frozen Qwen3-4B, 57,344 window) with only example["character_sheets"] changed (principals swapped,
+  "Supporting cast" kept). 3,703 sections / 29 books have every variant (664 test sections in dark, mercy, witch; god
+  has no sheets); none skipped. The unchanged condition reproduces the stored controls (3,573 sections, mean |diff|
+  5.5e-05 nats, max 8.4e-03).
+  Over no sheets (nats/token, B%, books better): Llama summary +0.0248 / +2.43 / 29 of 29; charmem +0.0160 / +1.56 /
+  29; v2 +0.0149 / +1.45 / 29; rolling summary +0.0132 / +1.28 / 26; gpt-oss CHIRON-style summary +0.0116 / +1.12 /
+  25; the CHIRON paper's character summary +0.0076 / +0.74 / 26; supporting cast only +0.0057 / +0.56 / 25.
+  Over shipped v2: Llama summary +0.0100 (29/29 books; test cohort +0.0093, 3/3), charmem +0.0012 (18/29), rolling
+  summary -0.0016 (11/29), gpt-oss CHIRON-style -0.0032 (6/29), paper's summary -0.0072 (1/29).
+  Llama summary vs rolling summary +0.0116 (28/29 books), vs the paper's summary +0.0172 (29/29), vs gpt-oss
+  CHIRON-style +0.0132 (29/29). One 8-GPU worker, ~45 min; stopped. Report v40.
+  Ops: the pod was preempted and restarted once (22:12); hang_watchdog false-killed three restarted jobs because
+  vllm.log is appended across restarts (fixed: only lines after the last "Application startup complete").
