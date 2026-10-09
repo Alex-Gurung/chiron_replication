@@ -30,7 +30,9 @@ def hung(name, stale):
     if not log.exists() or "READY" not in (RUNS / f"{name}.tmp" / "worker.log").read_text(errors="ignore"):
         return False
     last = None
-    for m in LINE.finditer(log.read_text(errors="ignore")[-200000:]):
+    text = log.read_text(errors="ignore")
+    text = text[text.rfind("Application startup complete"):]       # vllm.log is appended across restarts (a preempted pod
+    for m in LINE.finditer(text[-200000:]):                         # restarts its jobs): only this server's lines count
         last = m
     if not last or int(last.group(3)) + int(last.group(4)) == 0:
         return False
