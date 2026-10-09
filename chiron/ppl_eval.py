@@ -4,15 +4,12 @@ Prompt (raw text, no chat template):
   [Character notes for the novel's main characters: one block per principal]      (unless rep == "names")
   [The story so far: the STORY_WORDS words right before the passage]                (context "story" only)
   The next passage of the novel:\n\n<the real passage, names unmasked>
-Story Information contexts (--context ncp_story | ncp_storynext, optionally +pre, comma-separated): the prompt is
-  [# Story information: eval_mcp.book_context: synopses of the chapters so far, the last two chapters, and for
-   ncp_storynext the next chapter's synopsis]
-  [Character notes ... | the names line]
-  [The chapter so far: the passage's chapter up to the passage]                    (+pre only)
-  The next passage of the novel:\n\n<the real passage>
-Only the character-notes block changes between representations, so this asks what a sheet adds inside the full NCP
-prompt. Story Information comes first and each passage's requests run in sequence, so the server's prefix cache computes
-it once per passage; --shard/--nshards split the passages (files get a .s<k>of<n> suffix).
+Story Information contexts (--context ncp_full; run_si): the NCP prompt's own Story Information in its order and headings
+  ### Summary of Already Written Chapters / ### Character Sheets (or the names) / ### Previous 2 Chapters /
+  ### Next Chapter Text Already Written (the passage's chapter up to the passage) / ### Next Chapter Synopsis
+Only the Character Sheets block changes between representations: what does a sheet add inside the full NCP prompt?
+--shard/--nshards split the passages (files get a .s<k>of<n> suffix). The server does not reuse cached prefixes for
+prompt-logprob requests, so every row costs its whole prompt.
 Scores the passage tokens with the completions endpoint (echo + logprobs). Main-set passages.
 Output: outputs/ppl/<model>/<split>/<context>__<rep>.jsonl with {item_id, book, nll, tokens}; resumable.
 """
@@ -27,7 +24,7 @@ from urllib import request as urlrequest
 
 sys.path.insert(0, os.path.dirname(__file__))
 from common import COHORTS, DATA, OUT, append_jsonl, clean_text, load_chapters, load_reps, read_jsonl  # noqa: E402
-from eval_mcp import book_context, load_prefixes  # noqa: E402
+from eval_mcp import book_context, load_prefixes, ncp_story  # noqa: E402
 
 API = os.environ.get("CHIRON_API_BASE", "http://127.0.0.1:8000/v1")
 MODEL = os.environ.get("CHIRON_MODEL", "Qwen/Qwen3.5-9B-Base")
@@ -73,6 +70,11 @@ def score(prefix, target):
 
 
 def run_si(args, items, principals, reps, model_tag):
+    """ncp_full: the NCP prompt's own Story Information, in its order and headings (diversity repo, ncp_eval/prompts.py
+    _story_information + _task_prompt): summary of already written chapters, character sheets, previous chapters, next
+    chapter text already written, next chapter synopsis. ncp_storynext[+pre] (first attempt, eval_mcp.book_context
+    order): Story Information, then the notes, then the chapter so far; the notes then sit between the story text and
+    the passage and every sheet raises the 4B's perplexity, so it is kept only for reference."""
     contexts = args.context.split(",")
     chapters, prefixes = load_chapters(), load_prefixes(args.split)
     suffix = f".s{args.shard}of{args.nshards}" if args.nshards > 1 else ""
@@ -81,6 +83,26 @@ def run_si(args, items, principals, reps, model_tag):
                        for r in read_jsonl(f)} for c in contexts for rep in args.reps}
     lock = threading.Lock()
 
+    def prompt(c, it, rep, names, blocks):
+        book, b = it["book"], it["chapter_index"]
+        pre = prefixes.get((book, b, it["chunk_index"]))
+        if c == "ncp_full":
+            r = ncp_story(it)
+            if r is None:
+                return None
+            sheets = ("### Characters: ###\n" + ", ".join(names.values()) if rep == "names" else
+                      "### Character Sheets: ###\n" + "\n".join(f"## Character Sheet ({names[l]}): ##\n{blocks[l].strip()}\n" for l in it["labels"]))
+            parts = [f"### Summary of Already Written Chapters: ###\n{r['plot']}", sheets.strip(), f"### Previous 2 Chapters: ###\n{r['raw']}"]
+            if pre:
+                parts.append(f"### Next Chapter Text Already Written: ###\n{pre}")
+            return "\n\n".join(parts + [f"### Next Chapter Synopsis: ###\n{r['next']}"])
+        ctx = book_context(c.removesuffix("+pre"), it, chapters, None)
+        if ctx is None:
+            return None
+        notes = ("The novel's main characters: " + ", ".join(names.values()) + "." if rep == "names" else
+                 "Character notes for the novel's main characters:\n\n" + "\n\n".join(f"## {names[l]}\n{blocks[l].strip()}" for l in it["labels"]))
+        return "\n\n".join([f"# {ctx[0]}\n\n{ctx[1]}", notes] + (["The chapter so far:\n\n" + pre] if c.endswith("+pre") and pre else []))
+
     def do_item(it):
         book, b = it["book"], it["chapter_index"]
         names = {l: principals[book]["eval_names"][l][str(b)] for l in it["labels"]}
@@ -88,18 +110,13 @@ def run_si(args, items, principals, reps, model_tag):
             blocks = {l: reps.get((rep, book, b, l)) for l in it["labels"]}
             if rep != "names" and any(v is None for v in blocks.values()):
                 continue
-            notes = ("The novel's main characters: " + ", ".join(names.values()) + "." if rep == "names" else
-                     "Character notes for the novel's main characters:\n\n" + "\n\n".join(f"## {names[l]}\n{blocks[l].strip()}" for l in it["labels"]))
             for c in contexts:
-                ctx = book_context(c.removesuffix("+pre"), it, chapters, None)
-                if ctx is None or it["item_id"] in done[(c, rep)]:
+                text = None if it["item_id"] in done[(c, rep)] else prompt(c, it, rep, names, blocks)
+                if text is None:
                     continue
-                parts = [f"# {ctx[0]}\n\n{ctx[1]}", notes]
-                if c.endswith("+pre") and prefixes.get((book, b, it["chunk_index"])):
-                    parts.append("The chapter so far:\n\n" + prefixes[(book, b, it["chunk_index"])])
                 out = root / f"{c}__{rep}{suffix}.jsonl"
                 try:
-                    nll, n = score("\n\n".join(parts) + "\n\nThe next passage of the novel:\n\n", it["original"])
+                    nll, n = score(text + "\n\nThe next passage of the novel:\n\n", it["original"])
                 except Exception as e:                    # e.g. HTTP 400: prompt longer than the served context
                     with lock:
                         append_jsonl(out.with_suffix(".errors.jsonl"), {"item_id": it["item_id"], "error": str(e)[:300]})
