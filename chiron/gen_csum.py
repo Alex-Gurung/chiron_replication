@@ -61,11 +61,17 @@ def main():
         b, bd, l = k
         story = " ".join("\n\n".join(clean_text(c["chapter_text_normalized"]) for c in chapters[b] if c["chapter_index"] < bd).split(" ")[-MAX_WORDS:])
         name = principals[b]["gen_names"][l][bd - 1]
-        try:
-            text, meta = llm.ask(messages(story, name), lambda x: x, max_tokens=8000 if GEN == "gptoss" else 1500, temperature=0.0, as_json=False)   # no hidden reasoning: leave the 131k window to the story
-        except ValueError as e:
-            print("FAILED", *k, str(e)[:200], flush=True)
-            return
+        if GEN == "gptoss":
+            try:
+                text, meta = llm.ask(messages(story, name), lambda x: x, max_tokens=8000, temperature=0.0, as_json=False)
+            except ValueError as e:
+                print("FAILED", *k, str(e)[:200], flush=True)
+                return
+        else:                                             # no hidden reasoning: 1,500 tokens leave the 131k window to the story
+            c = llm.chat(messages(story, name), 1500, 0.0)["choices"][0]
+            text, meta = (c["message"].get("content") or "").strip(), {"finish_reason": c.get("finish_reason")}
+            if c.get("finish_reason") == "length":        # a summary that never stops is kept up to its last full sentence
+                text = text[:max(text.rfind(". "), text.rfind(".\n")) + 1]
         src = [x for x in sentences(text) if not (GNEG.search(x) and GMETA.search(x)) and not GABOUT.search(x)]
         ratings = list(calls.map(lambda x: rate(story, name, x), src))
         rec = {"book": b, "boundary": bd, "label": l, "name": name, "story_words": len(story.split()), **meta}
