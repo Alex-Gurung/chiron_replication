@@ -525,3 +525,21 @@ with the entire book, reasoning on short spans and dense windows.
   charmem +0.0039, v2 +0.0031, paper's summary +0.0016. The 4B's "sheets alone are flat" and "gpt-oss plot summary
   hurts" do not show on the 27B. Report v43.
   q4b: 500-word CHIRON condensed done (legsum_q4b_x_500); top-up of csum/plot nearly done (csum 1,277/1,314).
+- 00:00 Oct 11: grid mostly scored. Pods: 8-GPU pods were preempted within minutes (account occupancy ~16 > 8.6 nodes),
+  so node B became 1-GPU pods (w101-w116, 16 after the user added a node); w97 (8 GPUs) comes and goes for the Llama
+  judge. Judges added: Llama-3.3-70B and Mistral-7B (the paper's judge, "[CHAR " prefix).
+  Character identification, accuracy (27B / 9B base / Mistral-7B / 4B), names only 48.2 / 50.7 / 40.7 / 38.2:
+    Llama-70B writes:  CHIRON condensed 70.4 / 63.1 / 54.0 / 42.2; rolling 72.8 / 63.7 / 54.3 / 41.4; paper-style 65.5 /
+                       60.1 / 50.5 / 39.9; plot ~1k 67.2 / 63.7 / 55.6 / 41.5
+    gpt-oss writes:    CHIRON 68.8 / 58.2 / 51.2 / 40.0; rolling 69.6 / 58.9 / 53.8 / 40.9; paper-style 62.5 / 54.4 / 49.5
+                       / 39.4; plot 68.2 / 59.3 / 54.1 / 39.9   (Llama judge: 80.5 / 82.9 / 76.8 / 81.8)
+    Qwen3-4B writes:   CHIRON (500 words) 67.3 / 59.5 / 53.9 / 40.6; rolling 65.7 / 55.1 / 51.8 / 39.6; paper-style 59.7 /
+                       50.2 / 46.6 / 37.7; plot 66.8 / 63.5 / 55.9 / 40.5
+  CHIRON condensed beats the paper's summary in every generator x judge cell (+3 to +9); beats the rolling summary only
+  with the 4B generator (all four judges, +1.0 to +4.4, fewer tokens); about ties a matched plot summary (plot better
+  on the 9B base and Mistral judges). CHIRON's score barely depends on the generator (67.3-70.4 on the 27B); rolling
+  summaries range 65.7-72.8.
+  NCP wave 2, canonical 4B judge (1,861 sections), in the full prompt over no sheets: Llama CHIRON +0.0255 (29/29),
+  Llama rolling +0.0175 (29/29); gpt-oss CHIRON +0.0117, rolling +0.0132; Qwen3-4B-written CHIRON -0.0086 (6/29),
+  rolling -0.0124 (3/29): sheets written by the judge's own model lower the true text's likelihood (27B judge queued).
+  Report v44 (five judges in the grid table).

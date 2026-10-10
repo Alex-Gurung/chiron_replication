@@ -606,16 +606,18 @@ def main():
     GRIDS = [("l70", "Llama-3.3-70B", {"CH": "legacy", "RS": "summary_l70", "PS": "sheet_csum_l70_flat", "PL": "plot_l70_global_1000", "FULL": "legacy_full"}),
              ("gptoss", "gpt-oss-120b", {"CH": "sheet_legsum_x_500_flat", "RS": "summary", "PS": "sheet_csum_flat", "PL": "plot_global_1000", "FULL": "legacy_gptoss_x"}),
              ("q4b", "Qwen3-4B", {"CH": "sheet_legsum_q4b_x_500_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x"})]
-    JUDGES = [("Qwen3.8-27B_nothink", "27B"), ("Llama-3.3-70B-Instruct", "Llama-70B"), ("Qwen3.5-9B-Base", "9B base"), ("Qwen3-4B-Instruct-2507", "4B")]
+    JUDGES = [("Qwen3.8-27B_nothink", "27B"), ("Llama-3.3-70B-Instruct", "Llama-70B"), ("Qwen3.5-9B-Base", "9B base"),
+              ("Mistral-7B-Instruct-v0.2_prefix", "Mistral-7B"), ("Qwen3-4B-Instruct-2507", "4B")]
     GA = {m: load("main", m) for m, _ in JUDGES}
     NG = {m: (load("ncp_grid", m) or {}) for m in ("Qwen3-4B-Instruct-2507", "Qwen3.8-27B")}
 
     def gacc(m, c):                                         # joint macro accuracy of a judge, hidden while under half the books are in
         a = GA.get(m) or {}
         r = (a.get("rows") or {}).get(c)
-        if not r or r["joint"]["books"] < len(a["books"]) / 2:
+        j = r.get("joint") if r else None
+        if not j or j.get("macro") is None or j["books"] < len(a["books"]) / 2:
             return None
-        return r["joint"]["macro"]
+        return j["macro"]
 
     def ngain(m, c, ref):
         return (NG[m].get("rows") or {}).get(f"{c}||{ref}")
@@ -631,7 +633,7 @@ def main():
                  ("PL", "Plot summary, about 1,000 words"), ("CH&PL", "CHIRON sheet + plot summary"), ("RS&PL", "Rolling summary + plot summary"), ("FULL", "CHIRON notes, in full")]
         body = []
         for g, gname, r in GRIDS:
-            body.append(f"<tr class='group'><th scope='row' colspan='10'>Everything written by {gname}</th></tr>")
+            body.append(f"<tr class='group'><th scope='row' colspan='11'>Everything written by {gname}</th></tr>")
             for k, label in kinds:
                 cond = "&".join(r[x] for x in k.split("&"))
                 tok = ((GA["Qwen3.8-27B_nothink"] or {}).get("rows") or {}).get(cond, {}).get("mean_tokens")
@@ -646,7 +648,7 @@ def main():
                     ncp = "<td class='num'>—</td>" * 4
                 body.append(f"<tr><th scope='row'>{label}</th><td class='num'>{'—' if not tok else f'{tok / 1000:.1f}k'}</td>{cells}{ncp}</tr>")
         head = ("<thead><tr><th scope='col' rowspan='2'>Representation</th><th scope='col' class='num' rowspan='2'>Prompt tokens</th>"
-                "<th scope='colgroup' colspan='4'>Character identification, accuracy % by judge</th>"
+                "<th scope='colgroup' colspan='5'>Character identification, accuracy % by judge</th>"
                 "<th scope='colgroup' colspan='2'>Next section, in the full NCP prompt: gain over no sheets</th>"
                 "<th scope='colgroup' colspan='2'>Next section, as the only summary: gain over neither</th></tr><tr>"
                 + "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in JUDGES)
@@ -661,7 +663,7 @@ def main():
             cells = "".join(gcell(gacc(m, cond)) for m, _ in JUDGES)
             ncp = "".join(("<td class='num'>0</td>" if spec is None else ncell(ngain(m, spec, "none|none"))) for m in NG)
             body.append(f"<tr><th scope='row'>{label}</th>{cells}{ncp}</tr>")
-        head = ("<thead><tr><th scope='col' rowspan='2'>What the model is given</th><th scope='colgroup' colspan='4'>Character identification, accuracy % by judge</th>"
+        head = ("<thead><tr><th scope='col' rowspan='2'>What the model is given</th><th scope='colgroup' colspan='5'>Character identification, accuracy % by judge</th>"
                 "<th scope='colgroup' colspan='2'>Writing the next section: log-probability gain, nats per token (books better)</th></tr><tr>"
                 + "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in JUDGES) + "<th scope='col' class='num'>4B judge</th><th scope='col' class='num'>27B judge</th></tr></thead>")
         return head + "<tbody>" + "".join(body) + "</tbody>"
