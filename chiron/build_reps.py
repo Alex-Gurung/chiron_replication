@@ -375,7 +375,9 @@ def add_present(add, recs, keys, split):
 
 def add_generators(add, keys):
     """The same pipelines run by other generators (CHIRON_GEN): CHIRON notes (legacy_<gen>_x) and rolling character
-    summaries (summary_<gen>). Their sheets (legsum_<gen>_x, csum_<gen>, csum_<gen>_f) come in through add_sheets."""
+    summaries (summary_<gen>). Their sheets (legsum_<gen>_x, csum_<gen>, csum_<gen>_f) come in through add_sheets.
+    sheet_csum<gen>_fd_flat: the paper's summary after the entailment filter with repeated sentences kept once (a small
+    model's greedy summary loops: Qwen3-4B repeats itself to the token limit in 78% of them)."""
     for g in ("q4b", "l70"):
         have = exact_notes(f"legacy_{g}_x")
         for book, b, l in keys:
@@ -386,6 +388,12 @@ def add_generators(add, keys):
                 if not f.endswith(".errors.jsonl") for r in read_jsonl(f)}
         for k in keys:
             add(f"summary_{g}", *k, summ.get(k))
+    for g in ("", "_q4b", "_l70"):                                 # the paper's summary, filtered, repeated sentences once
+        for f in glob.glob(str(OUT / "sheets" / f"csum{g}_f" / "*.jsonl")):
+            for r in read_jsonl(f):
+                k = (r["book"], r["boundary"], r["label"])
+                if k in keys:
+                    add(f"sheet_csum{g}_fd_flat", *k, " ".join(dict.fromkeys(x for x, v in r["ratings"] if v == 5)))
 
 
 def save(recs, split, keys):
