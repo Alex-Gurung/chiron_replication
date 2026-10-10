@@ -57,14 +57,17 @@ def principals():
     return json.load(open(f"{REPO}/data/principals.json"))
 
 
+LANE = os.environ.get("CHIRON_LANE", "chiron")       # the worker lane jobs go to (chiron_l70: the node that also serves Llama)
+
+
 def add(name, gpus, model_args, client, priority):
     ok = q.add(BASE, f"chiron_{name}_{STAMP}", SERVE + model_args + ["--", "python3", "-u", *client],
-               gpus=gpus, lane="chiron", priority=priority)
+               gpus=gpus, lane=LANE, priority=priority)
     print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
 
 
 def addraw(name, gpus, cmd, priority):
-    ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane="chiron", priority=priority)
+    ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane=LANE, priority=priority)
     print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
 
 
@@ -132,7 +135,7 @@ def main():
     elif what == "requeue":                        # rerun a job's exact command under a fresh name (outputs resume)
         old = json.load(open(q._path(BASE, sys.argv[2], q._find(BASE, sys.argv[2]))))
         name = old["name"].rsplit("_", 1)[0].replace("chiron_", "", 1)
-        ok = q.add(BASE, f"chiron_{name}_{STAMP}", old["cmd"], gpus=old["gpus"], lane="chiron", priority=old["priority"])
+        ok = q.add(BASE, f"chiron_{name}_{STAMP}", old["cmd"], gpus=old["gpus"], lane=LANE, priority=old["priority"])
         print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
     elif what == "pronouns":
         for split in sys.argv[2:] or ["test"]:
@@ -292,7 +295,7 @@ def main():
         books = sorted({json.loads(l)["book"] for s in ("test", "val", "train") for l in open(f"{REPO}/data/items_{s}.jsonl")})
         oss = lambda n: ["python3", "-u", f"{REPO}/scripts/serve_and_run.py", "--model", "gptoss", "--max-model-len", str(n), "--"]
         def dep(name, gpus, cmd, prio):
-            ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane="chiron", priority=prio, deps=deps)
+            ok = q.add(BASE, f"chiron_{name}_{STAMP}", cmd, gpus=gpus, lane=LANE, priority=prio, deps=deps)
             print(("queued " if ok else "exists ") + f"chiron_{name}_{STAMP}")
         for k in range(8):
             g = books[k::8]
