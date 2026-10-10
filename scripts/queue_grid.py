@@ -22,17 +22,20 @@ from queue_jobs import REPO, addraw, env, ev, srv  # noqa: E402
 GRID = {
     "l70": {"CH": "legacy", "RS": "summary_l70", "PS": "sheet_csum_l70_flat", "PL": "plot_l70_global_1000", "FULL": "legacy_full",
             "PLX": ["plot_l70_hier_1000", "plot_l70_global_2000"]},
-    "gptoss": {"CH": "sheet_legsum_x_500_flat", "RS": "summary", "PS": "sheet_csum_flat", "PL": "plot_global_1000", "FULL": "legacy_gptoss_x",
+    "gptoss": {"CH": "sheet_legsum_x_500_flat", "RS": "summary", "PS": "sheet_csum_flat", "PSF": "sheet_csum_fd_flat", "PL": "plot_global_1000", "FULL": "legacy_gptoss_x",
                "PLX": ["plot_hier_1000", "plot_global_2000"]},
-    "q4b": {"CH": "sheet_legsum_q4b_x_500_flat", "CHL": "sheet_legsum_q4b_x_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x",
+    "q4b": {"CH": "sheet_legsum_q4b_x_500_flat", "CHL": "sheet_legsum_q4b_x_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PSF": "sheet_csum_q4b_fd_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x",
             "PLX": ["plot_q4b_hier_1000", "plot_q4b_global_2000"]},
 }
 REFS = ["ship|v2", "ship|none", "none|v2", "none|none"]
 
 
 def charid_conds(g):
+    """+ the rolling summary cut to 500 words, the paper's summary filtered and de-duplicated (PSF), an uncapped CHIRON
+    condensed sheet (CHL) where they exist."""
     r = GRID[g]
-    return [r["CH"], r["RS"], r["PS"], r["PL"], *r["PLX"], f"{r['CH']}&{r['PL']}", f"{r['RS']}&{r['PL']}"]
+    return ([r["CH"], r["RS"], r["PS"], r["PL"], *r["PLX"], f"{r['CH']}&{r['PL']}", f"{r['RS']}&{r['PL']}", f"{r['RS']}@500"]
+            + [r[k] for k in ("PSF", "CHL") if k in r])
 
 
 def ncp_conds(g):
@@ -52,7 +55,7 @@ def main():
             if "27" in judges:
                 n = 3 if split == "train" else 1
                 for k in range(n):
-                    for part, cs in enumerate((conds[:4], conds[4:])):            # two jobs' worth of short conditions
+                    for part, cs in enumerate([conds[i:i + 4] for i in range(0, len(conds), 4)]):   # short conditions, four a job
                         addraw(f"gc27_{g}_{part}_{split}_s{k}of{n}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False)
                                + ev("eval_mcp.py", split, f"items_{split}", cs, k, n, ["--rotations"]), -3)
                     addraw(f"gc27_{g}_full_{split}_s{k}of{n}", 2, env(CHIRON_THINKING=0) + srv("qwen27", True)
