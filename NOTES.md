@@ -510,3 +510,18 @@ with the entire book, reasoning on short spans and dense windows.
   per-sentence filter (it rereads ~100k tokens per sentence). Ops: pausing in-process scorers left orphan engines
   (scripts/stop_jobs.py now sweeps them); replacing a job's shell script mid-run gives "Stale file handle" at exit.
   Report v42: sections "Is character information needed?" and "Same-model grid".
+- 19:00 Oct 10: both chiron pods keep being preempted (EAI stateInfo: "account occupancy 15.9 > 8.6"; the NCP campaign
+  holds ~65 GPUs running + 44 queued). w98 was out 15:38-18:22, w97 15:38-16:08 and again from 18:22; both queued at
+  18:57. scripts/lane_balance.py moves queued jobs to the lane of whichever pod runs; scripts/grid_pipeline.sh queues
+  each generator's evals when its generation ends. No pods added (would push the account further over share).
+  Llama-fixed character identification (27B / 9B base / 4B, 21 books): CHIRON condensed 70.4 / 63.1 / 42.2 at 2.7k;
+  rolling summary 72.8 / 63.7 / 41.4 at 2.6k (+2.4 on the 27B, 15/21 books); paper-style summary 65.5 / 60.1 / 39.9 at
+  1.2k; plot summary ~1,000 words 67.2-68.7 / 63.7-64.1 / 41.5-43.0; CHIRON + plot 75.4 / 63.9 / 43.5; rolling + plot
+  76.5 / 64.9 / 45.0; CHIRON notes in full 80.3 / 67.8 / 49.1 at 59k. With the generator fixed, the condensed CHIRON
+  sheet does not beat a rolling summary; only the full notes stand out.
+  Second NCP judge (Qwen3.8-27B, 1,213 sections so far, 29 books), gain over neither block: sheets only v2 +0.0130
+  (29/29), Llama CHIRON +0.0139, gpt-oss rolling +0.0167; plot only +0.0230 (shipped), +0.0187 (gpt-oss 1,000 words);
+  both +0.0261. In the full prompt over no sheets: rolling +0.0060, gpt-oss CHIRON-style +0.0050, Llama CHIRON +0.0041,
+  charmem +0.0039, v2 +0.0031, paper's summary +0.0016. The 4B's "sheets alone are flat" and "gpt-oss plot summary
+  hurts" do not show on the 27B. Report v43.
+  q4b: 500-word CHIRON condensed done (legsum_q4b_x_500); top-up of csum/plot nearly done (csum 1,277/1,314).
