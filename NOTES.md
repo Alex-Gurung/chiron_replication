@@ -486,3 +486,13 @@ with the entire book, reasoning on short spans and dense windows.
   CHIRON-style +0.0132 (29/29). One 8-GPU worker, ~45 min; stopped. Report v40.
   Ops: the pod was preempted and restarted once (22:12); hang_watchdog false-killed three restarted jobs because
   vllm.log is appended across restarts (fixed: only lines after the last "Application startup complete").
+- 12:10 Oct 10: same-model grid started (user: model-fixed experiments; claims = (1) character information is needed
+  for character identification and for book writing, (2) CHIRON sheets carry it efficiently and effectively, more than
+  plot summaries and naive character summaries). Two 8-GPU nodes. Generators: l70 = Llama-3.3-70B (downloaded, 132 GB;
+  CHIRON notes from the archive), gptoss (have), q4b = Qwen3-4B-Instruct. CHIRON_GEN switches every gen script
+  (common.GEN / gen()); q4b uses the archive's own decoding (300 tokens, stop at newline; simplification 256 tokens;
+  entailment 16 tokens; summary min(0.8 x input, 2048) tokens). Per generator: CHIRON notes + condensed, rolling
+  summary, the paper's whole-story summary (+ filter), plot summaries (hier, global; 500/1000/2000 words).
+  Evals: character identification (27B, 9B base, 4B, + Llama-3.3-70B judge) and the NCP writer ruler
+  (chiron/ncp_ruler_grid.py: plot slot x character slot; judges Qwen3-4B canonical + Qwen3.8-27B thinking off).
+  Report: floating section bar (v41).
