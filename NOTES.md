@@ -496,3 +496,17 @@ with the entire book, reasoning on short spans and dense windows.
   Evals: character identification (27B, 9B base, 4B, + Llama-3.3-70B judge) and the NCP writer ruler
   (chiron/ncp_ruler_grid.py: plot slot x character slot; judges Qwen3-4B canonical + Qwen3.8-27B thinking off).
   Report: floating section bar (v41).
+- 15:25 Oct 10: NCP grid wave 1 complete on the canonical 4B judge (chiron/ncp_ruler_grid.py, every 2nd section per
+  book: 1,861 sections, 29 books; references repeat bit-exactly). Gain over a prompt with neither block (nats/token):
+  plot summary only (shipped synopses) +0.0237 (23/29 books); v2 sheets only -0.0018 (12/29); both +0.0387 (28/29).
+  Inside the full prompt (over ship|none): Llama CHIRON condensed +0.0255 (29/29), charmem +0.0162 (29/29), v2 +0.0150
+  (29/29), rolling summary +0.0132, gpt-oss CHIRON-style +0.0118, the paper's summary +0.0078. As the only summary
+  block (over none|none): Llama CHIRON +0.0059 (17/29), charmem +0.0009, v2 -0.0018, the paper's summary -0.0036,
+  rolling summary -0.0081, gpt-oss CHIRON-style -0.0137; a gpt-oss plot summary in the plot slot -0.0182 (3/29).
+  So on this judge sheets add only next to the dataset's synopses; alone they are flat. Second judge (Qwen3.8-27B,
+  thinking off) running on 12 core conditions (needs max_num_seqs 32, max_num_batched_tokens 2048, memory 0.85).
+  Generation: q4b CHIRON notes + condensed done (30,864 answers, 1,314 sheets); q4b's paper-style summary loops under
+  greedy decoding in 78% of cases (kept, plus a filtered de-duplicated version); l70 summaries done without the
+  per-sentence filter (it rereads ~100k tokens per sentence). Ops: pausing in-process scorers left orphan engines
+  (scripts/stop_jobs.py now sweeps them); replacing a job's shell script mid-run gives "Stale file handle" at exit.
+  Report v42: sections "Is character information needed?" and "Same-model grid".
