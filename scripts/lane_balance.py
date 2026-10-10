@@ -1,9 +1,9 @@
 """Keep queued chiron jobs on the lane of a worker pod that is actually running.
 
   python3 scripts/lane_balance.py
-The two worker pods serve one lane each (chiron_w97: chiron_l70, chiron_w98: chiron) and the cluster preempts them
-independently. With one pod running, every queued chiron job moves to its lane; with both running, queued jobs are
-split between the lanes (jobs needing 4 GPUs stay together on chiron_l70); with none running nothing changes. Prints one
+The 8-GPU pod chiron_w97 serves lane chiron_l70; every other chiron_w* pod (1-GPU pods, which the cluster preempts far
+less often) serves lane chiron. Jobs needing 2 or more GPUs always go to chiron_l70. 1-GPU jobs go to whichever lane
+has a running pod, split between the two when both do; with none running nothing changes. Prints one
 line when it moves anything.
 """
 import glob
@@ -12,12 +12,12 @@ import os
 import subprocess
 
 Q = "/home/toolkit/eaiexp/state/queue"
-LANES = {"chiron_w97": "chiron_l70", "chiron_w98": "chiron"}
 
 
 def main():
     out = subprocess.run(["eai", "job", "ls", "--me", "--state", "all", "--fields", "name,state"], capture_output=True, text=True).stdout
-    up = sorted({lane for line in out.split("\n") for w, lane in LANES.items() if line.startswith(w) and "RUNNING" in line})
+    up = sorted({("chiron_l70" if line.startswith("chiron_w97") else "chiron") for line in out.split("\n")
+                 if line.startswith("chiron_w") and "RUNNING" in line})
     if not up:
         return
     moved = 0
@@ -27,7 +27,10 @@ def main():
             r = json.load(open(f))
         except (OSError, ValueError):                    # claimed while we looked
             continue
-        want = up[0] if len(up) == 1 else ("chiron_l70" if r["gpus"] >= 4 else up[i % 2])
+        if r["gpus"] >= 2:                               # only the 8-GPU pod (chiron_l70) can run multi-GPU jobs
+            want = "chiron_l70"
+        else:
+            want = up[0] if len(up) == 1 else up[i % 2]
         if r["lane"] != want:
             r["lane"] = want
             json.dump(r, open(f + ".tmp", "w"))

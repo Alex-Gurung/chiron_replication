@@ -7,7 +7,9 @@ N="${1:?usage: runner_chiron_worker.sh <worker-number> [gpus]}"
 G="${2:-8}"
 L="${3:-chiron}"
 STAMP="$(date -u +%m%d%H%M%S)"
-eai job new --gpu "$G" --cpu $(( G * 4 )) --mem $(( G * 32 )) \
+CPU=$(( G * 4 < 8 ? 8 : G * 4 ))            # a 1-GPU pod still loads a 54 GB model: at least 8 CPUs and 64 GB
+MEM=$(( G * 32 < 64 ? 64 : G * 32 ))
+eai job new --gpu "$G" --cpu "$CPU" --mem "$MEM" \
   --data snow.home.alex_gurung:/home/toolkit:rw \
   --data snow.research.rlar.transformers_cache:/transformers_cache:ro \
   --preemptable --restartable --name "chiron_w${N}_${STAMP}" --tag proj=chiron \
