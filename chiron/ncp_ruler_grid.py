@@ -128,7 +128,8 @@ def main():
     if todo and not args.dry:
         from vllm import LLM
         llm = LLM(model=args.model, tensor_parallel_size=1, max_model_len=args.max_model_len,
-                  gpu_memory_utilization=args.gpu_memory_utilization)
+                  gpu_memory_utilization=args.gpu_memory_utilization,
+                  **({} if canonical else {"max_num_seqs": 32}))        # the 27B's Mamba cache holds ~300 sequences, vLLM's default asks for 1,024
 
     def tokenize(conditions, target):
         if canonical:
