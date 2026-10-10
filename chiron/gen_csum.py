@@ -43,6 +43,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--workers", type=int, default=32)
+    ap.add_argument("--no-filter", action="store_true", help="write only the unfiltered summaries (the filter rereads the whole story per sentence)")
     args = ap.parse_args()
     assert llm.server_up(), "generation server not reachable"
     principals = json.load(open(DATA / "principals.json"))
@@ -52,7 +53,7 @@ def main():
     filt.mkdir(parents=True, exist_ok=True)
     keys = sorted({(it["book"], it["chapter_index"], l) for s in ("test", "val", "train") for it in read_jsonl(DATA / f"items_{s}.jsonl")
                    if it["book"] in args.books for l in it["labels"]})
-    done = {(r["book"], r["boundary"], r["label"]) for b in args.books for r in read_jsonl(filt / f"{b}.jsonl")}
+    done = {(r["book"], r["boundary"], r["label"]) for b in args.books for r in read_jsonl((raw if args.no_filter else filt) / f"{b}.jsonl")}
     todo = [k for k in keys if k not in done]
     print(len(todo), "to do", flush=True)
     calls = ThreadPoolExecutor(4 * args.workers)
@@ -72,9 +73,12 @@ def main():
             text, meta = (c["message"].get("content") or "").strip(), {"finish_reason": c.get("finish_reason")}
             if c.get("finish_reason") == "length":        # a summary that never stops is kept up to its last full sentence
                 text = text[:max(text.rfind(". "), text.rfind(".\n")) + 1]
+        rec = {"book": b, "boundary": bd, "label": l, "name": name, "story_words": len(story.split()), **meta}
+        if args.no_filter:
+            append_jsonl(raw / f"{b}.jsonl", {**rec, "text": text, "words": len(text.split())})
+            return
         src = [x for x in sentences(text) if not (GNEG.search(x) and GMETA.search(x)) and not GABOUT.search(x)]
         ratings = list(calls.map(lambda x: rate(story, name, x), src))
-        rec = {"book": b, "boundary": bd, "label": l, "name": name, "story_words": len(story.split()), **meta}
         append_jsonl(raw / f"{b}.jsonl", {**rec, "text": text, "words": len(text.split())})
         kept = " ".join(x for x, v in zip(src, ratings) if v == 5)
         append_jsonl(filt / f"{b}.jsonl", {**rec, "text": kept, "words": len(kept.split()), "ratings": [[x, v] for x, v in zip(src, ratings)]})

@@ -15,6 +15,7 @@ for s in $STAGES; do
              && python3 -u $R/gen_legsum.py --source exact --variant legsum_${G}_x --books "$@") & ;;
     summ) python3 -u $R/gen_summary.py --books "$@" --tag "$1" & ;;
     csum) python3 -u $R/gen_csum.py --books "$@" & ;;
+    csumraw) python3 -u $R/gen_csum.py --no-filter --books "$@" & ;;
     plot) (python3 -u $R/gen_plot.py hier --books "$@" && python3 -u $R/gen_plot.py global --books "$@") & ;;
   esac
   pids+=($!)
