@@ -150,7 +150,7 @@ def render(rows, only=None):
 
 # Nesting the sheets' "## Section" headings under the "## Name" block (###) costs 1.5-2.5 points on the 27B (charmem
 # 71.9 -> 69.4 nested; re-run charmem 69.3 nested -> 70.7 as written), so these variants are also kept as written.
-FLAT = {"legsum_ent_500", "csum", "csum_f", "restyle_leg_prose", "restyle_leg_bullets", "restyle_lsx_prose", "restyle_lsx_bullets", "legsum_x_500", "legsum_xs_500", "legsum_x_500b", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
+FLAT = {"legsum_ent_500", "legsum_q4b_x", "legsum_l70_x", "csum_q4b", "csum_q4b_f", "csum_l70", "csum_l70_f", "csum", "csum_f", "restyle_leg_prose", "restyle_leg_bullets", "restyle_lsx_prose", "restyle_lsx_bullets", "legsum_x_500", "legsum_xs_500", "legsum_x_500b", "chiron_leg", "cast_cnl", "chiron_ldg_rv", "chiron_ldg", "bible_leg", "chrono_cnl", "chiron_cnl", "csyn_ldg_w1400",
         "csyn_ldg_cons", "csyn_ent", "legsum_ent_w800", "charmemst_ent", "chiron_lgp_rv", "dossier_cnl", "distinct_cnl"}
 SHEET_ABLATE = {"refer": "how others refer", "voice": "voice", "story": "story so far", "rel": "relationships"}
 
@@ -373,6 +373,21 @@ def add_present(add, recs, keys, split):
                 add("legacy_full_rr", b, bd, l, legacy_render(t, lambda ch: True))
 
 
+def add_generators(add, keys):
+    """The same pipelines run by other generators (CHIRON_GEN): CHIRON notes (legacy_<gen>_x) and rolling character
+    summaries (summary_<gen>). Their sheets (legsum_<gen>_x, csum_<gen>, csum_<gen>_f) come in through add_sheets."""
+    for g in ("q4b", "l70"):
+        have = exact_notes(f"legacy_{g}_x")
+        for book, b, l in keys:
+            h = have.get((book, l), {})
+            if h and all(c in h for c in range(b)):
+                add(f"legacy_{g}_x", book, b, l, archive_layout(h, b))
+        summ = {(r["book"], r["boundary"], r["label"]): r["summary"] for f in glob.glob(str(OUT / f"summary_{g}" / "*.jsonl"))
+                if not f.endswith(".errors.jsonl") for r in read_jsonl(f)}
+        for k in keys:
+            add(f"summary_{g}", *k, summ.get(k))
+
+
 def save(recs, split, keys):
     tmp = DATA / f"reps_{split}.jsonl.tmp"                    # atomic swap: running jobs never read a half-written file
     with open(tmp, "w") as f:
@@ -420,6 +435,7 @@ def main():
     add_entailed(add, keys)
     add_exact(add, keys)
     add_present(add, recs, keys, args.split)
+    add_generators(add, keys)
     base = {(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in read_jsonl(DATA / f"reps_{args.split}.jsonl")
             if r["condition"] in ("v2", "charmem")} if args.sheets_only else {}
     base.update({(r["condition"], r["book"], r["boundary"], r["label"]): r["text"] for r in recs if r["condition"].startswith("sheet_")})

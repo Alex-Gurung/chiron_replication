@@ -22,6 +22,7 @@ MODELS = {
     "gptoss": ("openai/gpt-oss-120b", HUB / "models--openai--gpt-oss-120b/snapshots/b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
                ["--reasoning-parser", "openai_gptoss"]),
     "qwen4b": ("Qwen/Qwen3-4B-Instruct-2507", None, []),
+    "llama70": ("meta-llama/Llama-3.3-70B-Instruct", None, []),
     "mistral": ("mistralai/Mistral-7B-Instruct-v0.2", None, []),
     "qwen9base": ("Qwen/Qwen3.5-9B-Base", None, ["--limit-mm-per-prompt", '{"image": 0, "video": 0}', "--max-num-seqs", "256"]),
     "qwen27": ("Qwen/Qwen3.8-27B", None, ["--limit-mm-per-prompt", '{"image": 0, "video": 0}', "--reasoning-parser", "qwen3",

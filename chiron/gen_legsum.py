@@ -3,10 +3,12 @@ the archive's own prompt (SUMMARY_ROLE / SUMMARY_QUERY / SUMMARY_INSTRUCTION, co
 ncp_eval/data_creation/legacy_character_replay.py). The archive's Llama summary of the Llama notes is the "legacy"
 condition (~500 words, 70.4 on the 27B at 2.7k prompt tokens).
 
-  python3 chiron/gen_legsum.py --source legacy_gptoss_ent|legacy_gptoss_nofill|legacy_gptoss_x|legacy_gptoss_xs --variant NAME --books B... [--words W]
+  python3 chiron/gen_legsum.py --source legacy_gptoss_ent|legacy_gptoss_nofill|legacy_gptoss_x|legacy_gptoss_xs|exact --variant NAME --books B... [--words W]
 The input is the source's Llama-layout notes (build_reps: questions grouped by section, one <snippet c> per chapter).
 --words W appends "Use about W words." to the instruction (none by default: the archive gave no length, only a token cap)
 and, since gpt-oss writes ~2x that, sends longer summaries back to be rewritten shorter (gen_sheet.write, <= 1.5 x W).
+--source exact reads the current generator's notes (CHIRON_GEN: outputs/legacy_<gen>_x); a generator without hidden
+reasoning is decoded as the archive did (at most min(0.8 x input, 2048) tokens, no length guidance).
 Output: outputs/sheets/<variant>/<book>.jsonl (picked up by build_reps as sheet_<variant>). Resumable.
 """
 import argparse
@@ -16,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import llm
 from build_reps import CHAPNOTE_LAYOUT, archive_layout, exact_notes, exact_notes_xs, gclean
-from common import DATA, OUT, append_jsonl, read_jsonl
+from common import DATA, GEN, OUT, append_jsonl, read_jsonl
 from gen_chiron import QUESTIONS
 from gen_sheet import write
 
@@ -44,8 +46,8 @@ SUMMARY_QUERY = (
 
 def layouts(source, keys):
     """(book, boundary, label) -> the Llama-layout notes text, as build_reps renders the source."""
-    if source in ("legacy_gptoss_x", "legacy_gptoss_xs"):        # the archive's own layout, every chapter listed
-        have = exact_notes() if source == "legacy_gptoss_x" else exact_notes_xs()
+    if source in ("legacy_gptoss_x", "legacy_gptoss_xs", "exact"):   # the archive's own layout, every chapter listed
+        have = exact_notes(f"legacy_{GEN}_x") if source == "exact" else exact_notes() if source == "legacy_gptoss_x" else exact_notes_xs()
         return {(b, bd, l): archive_layout(have[(b, l)], bd) for b, bd, l in keys if all(c in have.get((b, l), {}) for c in range(bd))}
     ans = collections.defaultdict(dict)                           # (book, label) -> chapter -> q -> text
     if source == "legacy_gptoss_ent":
@@ -75,13 +77,13 @@ def layouts(source, keys):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", required=True, choices=["legacy_gptoss_ent", "legacy_gptoss_nofill", "legacy_gptoss_x", "legacy_gptoss_xs"])
+    ap.add_argument("--source", required=True, choices=["legacy_gptoss_ent", "legacy_gptoss_nofill", "legacy_gptoss_x", "legacy_gptoss_xs", "exact"])
     ap.add_argument("--variant", required=True)
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--words", type=int, default=0)
     ap.add_argument("--workers", type=int, default=128)
     args = ap.parse_args()
-    assert llm.server_up(), "gpt-oss server not reachable"
+    assert llm.server_up(), "generation server not reachable"
     items = [it for s in ("test", "val", "train") for it in read_jsonl(DATA / f"items_{s}.jsonl") if it["book"] in args.books]
     keys = {(it["book"], it["chapter_index"], l) for it in items for l in it["labels"]}
     root = OUT / "sheets" / args.variant
@@ -96,7 +98,12 @@ def main():
         msgs = [{"role": "system", "content": SUMMARY_ROLE},
                 {"role": "user", "content": SUMMARY_QUERY.format(character_sheet=sheets[k], instruction=instruction)}]
         try:
-            if args.words:                                        # gpt-oss ignores the length: rewrite until <= 1.5 x W
+            if GEN != "gptoss":                                   # the archive's decoding: min(0.8 x input tokens, 2048) tokens
+                c = llm.chat(msgs, min(int(0.8 * 1.35 * len(sheets[k].split())), 2048), 0.6, top_p=0.9)["choices"][0]
+                text, meta = (c["message"].get("content") or "").strip(), {"finish_reason": c.get("finish_reason")}
+                if not text:
+                    raise ValueError("empty summary")
+            elif args.words:                                      # gpt-oss ignores the length: rewrite until <= 1.5 x W
                 text, meta = write(msgs, args.words, 0)
             else:
                 text, meta = llm.ask(msgs, lambda x: x, max_tokens=24000, temperature=0.6, as_json=False)

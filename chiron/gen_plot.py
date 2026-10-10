@@ -19,12 +19,12 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 
 import llm
-from common import DATA, OUT, append_jsonl, chapter_context, clean_text, load_chapters, load_narrators, read_jsonl
+from common import DATA, GEN, OUT, append_jsonl, chapter_context, clean_text, gen, load_chapters, load_narrators, read_jsonl
 
-TARGETS = (500, 1000, 2000, 4000)
+TARGETS = (500, 1000, 2000, 4000) if GEN == "gptoss" else (500, 1000, 2000)
 CH_WORDS = 250
 MAX_INPUT_WORDS = 85000
-ROOT = OUT / "plot"
+ROOT = OUT / gen("plot")
 SYSTEM = {"role": "system", "content": "You are a helpful and expert writing assistant."}
 ASK = ("Cover the main events in order, who is involved and where things stand at the end. Name the characters. "
        "Plain prose, no headings or lists.")
@@ -116,7 +116,8 @@ def run(kind, books, workers, headings):
                 msgs = [SYSTEM, {"role": "user", "content": f"{body}\n\n{verb} in about {t} words. {ASK}"}]
                 try:
                     # one pass: the prompt can be ~113k tokens, so the output budget must stay within the 131k context
-                    text, meta = summarize(msgs, t, max(12000, 3 * t) if kind == "global" else max(20000, 5 * t))
+                    budget = (max(12000, 3 * t) if kind == "global" else max(20000, 5 * t)) if GEN == "gptoss" else int(2.2 * t) + 300
+                    text, meta = summarize(msgs, t, budget)
                 except ValueError as e:
                     print("FAILED", book, b, t, str(e)[:200], flush=True)
                     return
@@ -135,7 +136,7 @@ def export():
         books = {it["book"] for it in read_jsonl(DATA / f"items_{split}.jsonl")}
         recs = [{"condition": f"{prefix}_{kind}_{r['target']}", "book": r["book"], "boundary": r["boundary"], "text": r["text"],
                  "words": r["words"]}
-                for prefix in ("plot", "plot_h") for kind in ("global", "hier") for b in sorted(books)
+                for prefix in ("plot", "plot_h", "plot_q4b", "plot_l70") for kind in ("global", "hier") for b in sorted(books)
                 for r in read_jsonl(OUT / prefix / kind / f"{b}.jsonl")]
         with open(DATA / f"plot_{split}.jsonl", "w") as f:
             for r in recs:
@@ -152,7 +153,7 @@ def main():
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--headings", action="store_true", help="prefix each chapter with its heading and who narrates it")
     args = ap.parse_args()
-    assert llm.server_up(), "gpt-oss server not reachable"
+    assert llm.server_up(), "generation server not reachable"
     run(args.kind, args.books, args.workers, args.headings)
 
 

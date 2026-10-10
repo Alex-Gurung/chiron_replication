@@ -18,6 +18,13 @@ DATA = REPO / "data"
 OUT = REPO / "outputs"
 CHAPTERS = Path("/home/toolkit/ncp_charmem_v3/chapters.jsonl")
 COHORTS = Path("/home/toolkit/ncp_cohorts_v2")
+GEN = os.environ.get("CHIRON_GEN", "gptoss")           # which model generates: gptoss | q4b (Qwen3-4B-Instruct) | l70 (Llama-3.3-70B)
+
+
+def gen(name):
+    """A generator's own output name: unchanged for gpt-oss (the original runs), suffixed for the other generators."""
+    return name if GEN == "gptoss" else f"{name}_{GEN}"
+
 TEST_BOOKS = ("dark", "god", "mercy", "witch")
 SNIPPET_WORDS = 300
 

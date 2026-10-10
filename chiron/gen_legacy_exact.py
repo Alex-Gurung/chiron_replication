@@ -35,7 +35,7 @@ import spacy  # noqa: E402
 import llm  # noqa: E402
 from build_reps import GABOUT, GMETA, GNEG, LEGACY, LEGACY_LABEL, legacy_blocks  # noqa: E402
 from gen_chiron import QUESTIONS  # noqa: E402
-from common import OUT, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
+from common import GEN, OUT, append_jsonl, clean_text, load_chapters, read_jsonl  # noqa: E402
 
 NLP = spacy.load("en_core_web_md")
 NLP_LOCK = threading.Lock()
@@ -110,25 +110,26 @@ def entailment_messages(chapter, character, statement):
                 f"Question: {ENTAILMENT_QUESTION.format(character=character)}")}]
 
 
-def reply(msgs, temperature, top_p):
-    resp = llm.chat(msgs, 1024, temperature, top_p=top_p, effort="low")
+def reply(msgs, temperature, top_p, short=256, stop=None):
+    """gpt-oss: 1,024 tokens at low reasoning. Other generators (no hidden reasoning): the archive's own limits."""
+    resp = llm.chat(msgs, 1024, temperature, top_p=top_p, effort="low") if GEN == "gptoss" else llm.chat(msgs, short, temperature, top_p=top_p, stop=stop)
     return (resp["choices"][0]["message"].get("content") or "").strip()
 
 
 def simplify(statement):
-    raw = reply(simplification_messages(statement), 0.6, 0.9)
+    raw = reply(simplification_messages(statement), 0.6, 0.9, 256, ["\n"])
     raw = raw.replace("Split Sentences:", "").replace("Split Sentence:", "").replace("</s>", "").strip().split("\n")[0]
     return sentences(raw) or [statement]
 
 
 def rate(chapter, character, statement):
-    m = re.findall(r"(?<!\d)([1-5])(?!\d)", reply(entailment_messages(chapter, character, statement), 0.0, 1.0))
+    m = re.findall(r"(?<!\d)([1-5])(?!\d)", reply(entailment_messages(chapter, character, statement), 0.0, 1.0, 16))
     return int(m[-1]) if m else 1
 
 
 def llama_answers(book):
     """The archive's Llama notes as per-(chapter, label, question) answers, from each label's longest cumulative sheet."""
-    names = {(r["label"], r["chapter_index"]): r["name"] for r in read_jsonl(OUT / "legacy_gptoss" / f"{book}.jsonl")}
+    names = {(r["label"], r["chapter_index"]): r["name"] for r in read_jsonl(OUT / "legacy_gptoss" / f"{book}.jsonl")}   # the names asked about
     labels = {l for l, _ in names}
     unlabel = {v: k for k, v in LEGACY_LABEL.items()}
     q_of = {v[1]: k for k, v in QUESTIONS.items()}
@@ -159,8 +160,8 @@ def main():
     ap.add_argument("--variant", default="", help="gptoss only: read outputs/legacy_gptoss_V, write outputs/legacy_gptoss_V_x")
     ap.add_argument("--workers", type=int, default=64)
     args = ap.parse_args()
-    assert llm.server_up(), "gpt-oss server not reachable"
-    SRC = "legacy_gptoss" + (f"_{args.variant}" if args.variant else "")
+    assert llm.server_up(), "generation server not reachable"
+    SRC = f"legacy_{GEN}" + (f"_{args.variant}" if args.variant else "")
     ROOT = OUT / {"gptoss": SRC + "_x", "llama": "legacy_llama_xf"}[args.source]
     ROOT.mkdir(parents=True, exist_ok=True)
     chapters = load_chapters()

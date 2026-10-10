@@ -20,7 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import llm
 from build_reps import GABOUT, GMETA, GNEG
-from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_jsonl
+from common import DATA, GEN, OUT, append_jsonl, clean_text, gen, load_chapters, read_jsonl
 from gen_legacy_exact import rate, sentences
 
 MAX_WORDS = 88000
@@ -44,10 +44,10 @@ def main():
     ap.add_argument("--books", nargs="+", required=True)
     ap.add_argument("--workers", type=int, default=32)
     args = ap.parse_args()
-    assert llm.server_up(), "gpt-oss server not reachable"
+    assert llm.server_up(), "generation server not reachable"
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
-    raw, filt = OUT / "sheets" / "csum", OUT / "sheets" / "csum_f"
+    raw, filt = OUT / "sheets" / gen("csum"), OUT / "sheets" / (gen("csum") + "_f")
     raw.mkdir(parents=True, exist_ok=True)
     filt.mkdir(parents=True, exist_ok=True)
     keys = sorted({(it["book"], it["chapter_index"], l) for s in ("test", "val", "train") for it in read_jsonl(DATA / f"items_{s}.jsonl")
@@ -62,7 +62,7 @@ def main():
         story = " ".join("\n\n".join(clean_text(c["chapter_text_normalized"]) for c in chapters[b] if c["chapter_index"] < bd).split(" ")[-MAX_WORDS:])
         name = principals[b]["gen_names"][l][bd - 1]
         try:
-            text, meta = llm.ask(messages(story, name), lambda x: x, max_tokens=8000, temperature=0.0, as_json=False)
+            text, meta = llm.ask(messages(story, name), lambda x: x, max_tokens=8000 if GEN == "gptoss" else 1500, temperature=0.0, as_json=False)   # no hidden reasoning: leave the 131k window to the story
         except ValueError as e:
             print("FAILED", *k, str(e)[:200], flush=True)
             return

@@ -20,10 +20,10 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 import llm
-from common import DATA, OUT, append_jsonl, clean_text, load_chapters, read_jsonl
+from common import DATA, GEN, OUT, append_jsonl, clean_text, load_chapters, read_jsonl
 from gen_chiron import QUESTIONS
 
-ROOT = OUT / "legacy_gptoss"
+ROOT = OUT / f"legacy_{GEN}"
 ROLE = ("You are a helpful and expert writing assistant. You will be given a section of a story or screenplay. Please answer "
         "the following questions about the character learned in this story section, and respond in paragraph form.")
 
@@ -61,9 +61,9 @@ def main():
     ap.add_argument("--effort", default="medium", choices=["low", "medium"])
     ap.add_argument("--brief", action="store_true")
     args = ap.parse_args()
-    assert llm.server_up(), "gpt-oss server not reachable"
+    assert llm.server_up(), "generation server not reachable"
     llm.REASONING_EFFORT = args.effort
-    ROOT = OUT / ("legacy_gptoss" + (f"_{args.variant}" if args.variant else ""))
+    ROOT = OUT / (f"legacy_{GEN}" + (f"_{args.variant}" if args.variant else ""))
     ask = {q: (BRIEF.get(q, QUESTIONS[q][1]) if args.brief else QUESTIONS[q][1]) for q in args.questions}
     principals = json.load(open(DATA / "principals.json"))
     chapters = load_chapters()
@@ -82,12 +82,16 @@ def main():
     def one(job):
         book, ch, l, q = job
         name = principals[book]["gen_names"][l][ch["chapter_index"]]
-        try:
-            text, meta = llm.ask(messages(clean_text(ch["chapter_text_normalized"]), name, ask[q]),
-                                 lambda x: x, max_tokens=6000, temperature=0.6, as_json=False)
-        except ValueError as e:
-            print("FAILED", book, ch["chapter_index"], l, q, str(e)[:200], flush=True)
-            return
+        msgs = messages(clean_text(ch["chapter_text_normalized"]), name, ask[q])
+        if GEN != "gptoss":                               # the archive's own decoding: 300 tokens, one paragraph
+            c = llm.chat(msgs, 300, 0.6, top_p=0.9, stop=["\n"])["choices"][0]
+            text, meta = (c["message"].get("content") or "").strip(), {"finish_reason": c.get("finish_reason")}
+        else:
+            try:
+                text, meta = llm.ask(msgs, lambda x: x, max_tokens=6000, temperature=0.6, as_json=False)
+            except ValueError as e:
+                print("FAILED", book, ch["chapter_index"], l, q, str(e)[:200], flush=True)
+                return
         append_jsonl(ROOT / f"{book}.jsonl", {"book": book, "chapter_index": ch["chapter_index"], "label": l, "name": name, "q": q,
                                               "answer": text, **meta})
     with ThreadPoolExecutor(args.workers) as ex:

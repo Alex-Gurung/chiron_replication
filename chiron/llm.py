@@ -16,9 +16,13 @@ REASONING_EFFORT = "medium"
 ATTEMPTS = 3
 
 
-def chat(messages, max_tokens, temperature, timeout=3600, top_p=1.0, effort=None):
-    body = json.dumps({"model": MODEL, "messages": messages, "max_tokens": max_tokens,
-                       "temperature": temperature, "top_p": top_p, "reasoning_effort": effort or REASONING_EFFORT}).encode()
+def chat(messages, max_tokens, temperature, timeout=3600, top_p=1.0, effort=None, stop=None):
+    body = {"model": MODEL, "messages": messages, "max_tokens": max_tokens, "temperature": temperature, "top_p": top_p}
+    if "gpt-oss" in MODEL:
+        body["reasoning_effort"] = effort or REASONING_EFFORT
+    if stop:
+        body["stop"] = stop
+    body = json.dumps(body).encode()
     req = urlrequest.Request(API_BASE + "/chat/completions", data=body,
                              headers={"Content-Type": "application/json", "Authorization": "Bearer EMPTY"})
     last = None

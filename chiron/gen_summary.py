@@ -14,7 +14,7 @@ import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
-from common import DATA, OUT, append_jsonl, chapter_context, clean_text, load_chapters, load_narrators, read_jsonl
+from common import DATA, OUT, append_jsonl, chapter_context, clean_text, gen, load_chapters, load_narrators, read_jsonl
 import llm
 
 ASPECTS = ("Include aspects of the character like how they speak, what they look like, their personality, "
@@ -22,7 +22,7 @@ ASPECTS = ("Include aspects of the character like how they speak, what they look
 LIMIT = 700
 CAP = 900
 EMPTY = "No information yet."
-ROOT = OUT / "summary_v2"
+ROOT = OUT / ("summary_v2" if gen("x") == "x" else gen("summary"))     # other generators: outputs/summary_<gen>
 SYSTEM = {"role": "system", "content": "You are a helpful and expert writing assistant."}
 
 
@@ -83,7 +83,7 @@ def main():
     ap.add_argument("--upto", type=int, default=0, help="stop each chain at this boundary (smoke tests)")
     ap.add_argument("--headings", action="store_true", help="prefix each chapter with its heading and who narrates it")
     args = ap.parse_args()
-    assert llm.server_up(), "gpt-oss server not reachable"
+    assert llm.server_up(), "generation server not reachable"
     global ROOT
     ROOT = OUT / "summary_h" if args.headings else ROOT
     narrators = load_narrators() if args.headings else {}
