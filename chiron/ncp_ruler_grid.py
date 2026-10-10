@@ -34,7 +34,7 @@ COHORTS = Path("/home/toolkit/ncp_q4_v2_20260908/cohorts")
 CAST = "Supporting cast"
 INPUTS = DATA / "ncp_grid_inputs.jsonl"
 SHEETS = ["legacy", "charmem", "summary", "sheet_csum_flat", "sheet_legsum_x_500_flat",                       # Llama CHIRON condensed; gpt-oss
-          "sheet_legsum_q4b_x_flat", "summary_q4b", "sheet_csum_q4b_flat", "summary_l70", "sheet_csum_l70_flat"]   # Qwen3-4B; Llama summaries
+          "sheet_legsum_q4b_x_500_flat", "sheet_legsum_q4b_x_flat", "summary_q4b", "sheet_csum_q4b_flat", "summary_l70", "sheet_csum_l70_flat"]   # Qwen3-4B; Llama summaries
 PLOTS = [f"plot{g}_{kind}_{t}" for g in ("", "_q4b", "_l70") for kind in ("global", "hier") for t in (1000, 2000)]
 
 

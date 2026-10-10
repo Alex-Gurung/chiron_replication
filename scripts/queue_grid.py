@@ -24,7 +24,7 @@ GRID = {
             "PLX": ["plot_l70_hier_1000", "plot_l70_global_2000"]},
     "gptoss": {"CH": "sheet_legsum_x_500_flat", "RS": "summary", "PS": "sheet_csum_flat", "PL": "plot_global_1000", "FULL": "legacy_gptoss_x",
                "PLX": ["plot_hier_1000", "plot_global_2000"]},
-    "q4b": {"CH": "sheet_legsum_q4b_x_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x",
+    "q4b": {"CH": "sheet_legsum_q4b_x_500_flat", "CHL": "sheet_legsum_q4b_x_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x",
             "PLX": ["plot_q4b_hier_1000", "plot_q4b_global_2000"]},
 }
 REFS = ["ship|v2", "ship|none", "none|v2", "none|none"]

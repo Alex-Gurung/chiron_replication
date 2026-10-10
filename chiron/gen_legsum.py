@@ -99,7 +99,8 @@ def main():
                 {"role": "user", "content": SUMMARY_QUERY.format(character_sheet=sheets[k], instruction=instruction)}]
         try:
             if GEN != "gptoss":                                   # the archive's decoding: min(0.8 x input tokens, 2048) tokens
-                c = llm.chat(msgs, min(int(0.8 * 1.35 * len(sheets[k].split())), 2048), 0.6, top_p=0.9)["choices"][0]
+                cap = min(int(0.8 * 1.35 * len(sheets[k].split())), 2048)          # with --words W: at most 2 W tokens
+                c = llm.chat(msgs, min(cap, 2 * args.words) if args.words else cap, 0.6, top_p=0.9)["choices"][0]
                 text, meta = (c["message"].get("content") or "").strip(), {"finish_reason": c.get("finish_reason")}
                 if not text:
                     raise ValueError("empty summary")

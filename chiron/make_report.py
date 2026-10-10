@@ -605,7 +605,7 @@ def main():
 
     GRIDS = [("l70", "Llama-3.3-70B", {"CH": "legacy", "RS": "summary_l70", "PS": "sheet_csum_l70_flat", "PL": "plot_l70_global_1000", "FULL": "legacy_full"}),
              ("gptoss", "gpt-oss-120b", {"CH": "sheet_legsum_x_500_flat", "RS": "summary", "PS": "sheet_csum_flat", "PL": "plot_global_1000", "FULL": "legacy_gptoss_x"}),
-             ("q4b", "Qwen3-4B", {"CH": "sheet_legsum_q4b_x_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x"})]
+             ("q4b", "Qwen3-4B", {"CH": "sheet_legsum_q4b_x_500_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x"})]
     JUDGES = [("Qwen3.8-27B_nothink", "27B"), ("Llama-3.3-70B-Instruct", "Llama-70B"), ("Qwen3.5-9B-Base", "9B base"), ("Qwen3-4B-Instruct-2507", "4B")]
     GA = {m: load("main", m) for m, _ in JUDGES}
     NG = {m: (load("ncp_grid", m) or {}) for m in ("Qwen3-4B-Instruct-2507", "Qwen3.8-27B")}
