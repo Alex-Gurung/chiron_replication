@@ -603,6 +603,69 @@ def main():
                 "<th scope='col' class='num'>books better</th><th scope='col' class='num'>test cohort vs v2, nats/token</th>"
                 f"<th scope='col' class='num'>books better</th></tr></thead><tbody>{rows}</tbody>")
 
+    GRIDS = [("l70", "Llama-3.3-70B", {"CH": "legacy", "RS": "summary_l70", "PS": "sheet_csum_l70_flat", "PL": "plot_l70_global_1000", "FULL": "legacy_full"}),
+             ("gptoss", "gpt-oss-120b", {"CH": "sheet_legsum_x_500_flat", "RS": "summary", "PS": "sheet_csum_flat", "PL": "plot_global_1000", "FULL": "legacy_gptoss_x"}),
+             ("q4b", "Qwen3-4B", {"CH": "sheet_legsum_q4b_x_flat", "RS": "summary_q4b", "PS": "sheet_csum_q4b_flat", "PL": "plot_q4b_global_1000", "FULL": "legacy_q4b_x"})]
+    JUDGES = [("Qwen3.8-27B_nothink", "27B"), ("Llama-3.3-70B-Instruct", "Llama-70B"), ("Qwen3.5-9B-Base", "9B base"), ("Qwen3-4B-Instruct-2507", "4B")]
+    GA = {m: load("main", m) for m, _ in JUDGES}
+    NG = {m: (load("ncp_grid", m) or {}) for m in ("Qwen3-4B-Instruct-2507", "Qwen3.8-27B")}
+
+    def gacc(m, c):                                         # joint macro accuracy of a judge, hidden while under half the books are in
+        a = GA.get(m) or {}
+        r = (a.get("rows") or {}).get(c)
+        if not r or r["joint"]["books"] < len(a["books"]) / 2:
+            return None
+        return r["joint"]["macro"]
+
+    def ngain(m, c, ref):
+        return (NG[m].get("rows") or {}).get(f"{c}||{ref}")
+
+    def gcell(v):
+        return "<td class='num'>—</td>" if v is None else f"<td class='num'>{100 * v:.1f}</td>"
+
+    def ncell(r):
+        return "<td class='num'>—</td>" if not r else f"<td class='num'>{r['delta']:+.4f} <span class='sub'>{r['books_better']}/{r['books']}</span></td>"
+
+    def grid_table():
+        kinds = [("CH", "CHIRON condensed sheet"), ("RS", "Naive character summary, rolling"), ("PS", "Naive character summary, whole story (the paper's baseline)"),
+                 ("PL", "Plot summary, about 1,000 words"), ("CH&PL", "CHIRON sheet + plot summary"), ("RS&PL", "Rolling summary + plot summary"), ("FULL", "CHIRON notes, in full")]
+        body = []
+        for g, gname, r in GRIDS:
+            body.append(f"<tr class='group'><th scope='row' colspan='10'>Everything written by {gname}</th></tr>")
+            for k, label in kinds:
+                cond = "&".join(r[x] for x in k.split("&"))
+                tok = ((GA["Qwen3.8-27B_nothink"] or {}).get("rows") or {}).get(cond, {}).get("mean_tokens")
+                cells = "".join(gcell(gacc(m, cond)) for m, _ in JUDGES)
+                if k in ("CH", "RS", "PS"):
+                    ncp = "".join(ncell(ngain(m, f"ship|{r[k]}", "ship|none")) for m in NG) + "".join(ncell(ngain(m, f"none|{r[k]}", "none|none")) for m in NG)
+                elif k == "PL":
+                    ncp = "<td class='num'>—</td>" * 2 + "".join(ncell(ngain(m, f"{r['PL']}|none", "none|none")) for m in NG)
+                elif k in ("CH&PL", "RS&PL"):
+                    ncp = "<td class='num'>—</td>" * 2 + "".join(ncell(ngain(m, f"{r['PL']}|{r[k[:2]]}", "none|none")) for m in NG)
+                else:
+                    ncp = "<td class='num'>—</td>" * 4
+                body.append(f"<tr><th scope='row'>{label}</th><td class='num'>{'—' if not tok else f'{tok / 1000:.1f}k'}</td>{cells}{ncp}</tr>")
+        head = ("<thead><tr><th scope='col' rowspan='2'>Representation</th><th scope='col' class='num' rowspan='2'>Prompt tokens</th>"
+                "<th scope='colgroup' colspan='4'>Character identification, accuracy % by judge</th>"
+                "<th scope='colgroup' colspan='2'>Next section, in the full NCP prompt: gain over no sheets</th>"
+                "<th scope='colgroup' colspan='2'>Next section, as the only summary: gain over neither</th></tr><tr>"
+                + "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in JUDGES)
+                + "<th scope='col' class='num'>4B judge</th><th scope='col' class='num'>27B judge</th>" * 2 + "</tr></thead>")
+        return head + "<tbody>" + "".join(body) + "</tbody>"
+
+    def claims_table():
+        rows = [("Nothing (no plot summary, no character sheets)", "noinfo", None), ("Plot summary only (the dataset's chapter synopses)", "ncp_plot", "ship|none"),
+                ("Character sheets only (v2)", "v2", "none|v2"), ("Plot summary + character sheets", "v2&ncp_plot", "ship|v2")]
+        body = []
+        for label, cond, spec in rows:
+            cells = "".join(gcell(gacc(m, cond)) for m, _ in JUDGES)
+            ncp = "".join(("<td class='num'>0</td>" if spec is None else ncell(ngain(m, spec, "none|none"))) for m in NG)
+            body.append(f"<tr><th scope='row'>{label}</th>{cells}{ncp}</tr>")
+        head = ("<thead><tr><th scope='col' rowspan='2'>What the model is given</th><th scope='colgroup' colspan='4'>Character identification, accuracy % by judge</th>"
+                "<th scope='colgroup' colspan='2'>Writing the next section: log-probability gain, nats per token (books better)</th></tr><tr>"
+                + "".join(f"<th scope='col' class='num'>{n}</th>" for _, n in JUDGES) + "<th scope='col' class='num'>4B judge</th><th scope='col' class='num'>27B judge</th></tr></thead>")
+        return head + "<tbody>" + "".join(body) + "</tbody>"
+
     def traces_table():
         st_ = traces.get("stats", {})
         rows = "".join(f"<tr><th scope='row'>{LABEL.get(c, c)}</th><td class='num'>{100 * v['accuracy']:.0f}%</td><td class='num'>{v['median_words']:,.0f}</td>"
@@ -1009,7 +1072,7 @@ def main():
     ex = re.sub(r"\[CHAR (\d)\]", r'<mark class="m\1">[CHAR \1]</mark>', ex)
     names = ", ".join(f"{html.escape(l)} = <mark class='m{i}'>[CHAR {i}]</mark>" for l, i in sorted(it["answer"].items(), key=lambda kv: kv[1])) if it else ""
     page = TEMPLATE
-    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "NCP_TABLE": ncp_table(), "TRACES_TABLE": traces_table(),
+    for k, v in {"ORACLE_TABLE": oracle_table(), "MANUAL_TABLE": manual_table(), "SCORING_TABLE": scoring_table(), "ITEMS_TABLE": items_table(), "PPL_TABLE": ppl_table(), "NCP_TABLE": ncp_table(), "GRID_TABLE": grid_table(), "CLAIMS_TABLE": claims_table(), "TRACES_TABLE": traces_table(),
                  "ABLATION_TABLE": ablation_table(), "NEW_TABLE": new_table(), "NEW_TEXT": new_text(), "MAIN_TABLE": main_table(), "CONTROL_TABLE": control_table(), "PASSAGE_TABLE": passage_table(),
                  "BOOK_TABLE": book_table(), "FINDINGS": findings, "SECTIONS_TABLE": sections_table(),
                  "REASON_TABLE": reason_table(), "BOOKCH_TABLE": bookch_table(), "PLOT_TABLE": plot_table(), "EFFORT_TABLE": effort_table(), "GENDER_TABLE": gender_table(),
@@ -1134,6 +1197,18 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
     <h1>Can a character sheet put the names back?</h1>
     <p class="lede">CHIRON's masked-character test on the NCP novels. A model sees a passage with the three principals' names replaced by ids, plus one representation of each character built only from earlier chapters, and says which id is which. {{N_MAIN}} sections (about 320 words), {{N_SHORT}} short spans (about 50 words) and {{N_WINDOW}} dense windows (about 900 words); five model setups (Qwen3-4B, Qwen3.5-9B base, Qwen3.8-27B with thinking off and on, Mistral-7B).</p>
   </header>
+
+  <section aria-labelledby="claims">
+    <h2 id="claims">Is character information needed?</h2>
+    <p class="muted">Two downstream tasks. Character identification: the masked-character test of this page (names only is the &ldquo;nothing&rdquo; row; the plot summary and the sheets are each shown alone and together). Writing: the NCP task's own likelihood scorer on the real next section, with the plot-summary block and the character-sheet block of its prompt switched off and on (the previous two chapters, the chapter so far and the section synopsis stay in every row). Judges are listed per column; cells fill in as runs finish.</p>
+    <div class="table-wrap"><table>{{CLAIMS_TABLE}}</table></div>
+  </section>
+
+  <section aria-labelledby="fixed">
+    <h2 id="fixed">Same-model grid: CHIRON sheets, naive character summaries and plot summaries from one generator</h2>
+    <p class="muted">Each block is written by a single model, so a row differs from its neighbours only in the method: CHIRON's pipeline (questions per chapter, simplification, entailment filter, condensed to a sheet), a rolling character summary, the CHIRON paper's own baseline (the whole story so far summarised in one call), and a plot summary at about the same token budget. Character identification is accuracy over 21 books. The next-section columns are the NCP writer ruler: log-probability gain in nats per token, with the number of books where the row is better; &ldquo;in the full prompt&rdquo; swaps the sheets inside the dataset's own Story Information, &ldquo;as the only summary&rdquo; removes the dataset's plot summary too.</p>
+    <div class="table-wrap"><table>{{GRID_TABLE}}</table></div>
+  </section>
 
   <section aria-labelledby="ex">
     <h2 id="ex">What the model sees</h2>
