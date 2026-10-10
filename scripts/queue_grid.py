@@ -2,7 +2,8 @@
 writes the same kinds of representation, and each is scored on character identification and on the NCP writer ruler.
 
   python3 scripts/queue_grid.py charid GEN [--judges 27 small llama]   masked-character evals of GEN's representations
-  python3 scripts/queue_grid.py ncp TAG EVERY MODEL GEN...             NCP ruler wave for those generators' conditions
+  python3 scripts/queue_grid.py ncp TAG EVERY MODEL [--lean] GEN...    NCP ruler wave for those generators' conditions
+CHIRON_LANE picks the worker lane for the 27 / small / ncp jobs (default chiron).
 Representations per generator (GRID): CH = CHIRON condensed sheet, RS = rolling character summary, PS = the CHIRON
 paper's character summary, PL = plot summary of about 1,000 words (the matched budget), FULL = CHIRON notes in full.
 charid conditions: CH, RS, PS, PL, two more plot summaries, CH&PL, RS&PL (and FULL on the 27B at 262k).
@@ -38,10 +39,12 @@ def charid_conds(g):
             + [r[k] for k in ("PSF", "CHL") if k in r])
 
 
-def ncp_conds(g):
+def ncp_conds(g, lean=False):
+    """lean: without the paper's summary and the rolling summary + plot pair (6 conditions instead of 9)."""
     r = GRID[g]
-    return ([f"{p}|{r[x]}" for p in ("ship", "none") for x in ("CH", "RS", "PS")]
-            + [f"{r['PL']}|none", f"{r['PL']}|{r['CH']}", f"{r['PL']}|{r['RS']}"])
+    kinds = ("CH", "RS") if lean else ("CH", "RS", "PS")
+    return ([f"{p}|{r[x]}" for p in ("ship", "none") for x in kinds]
+            + [f"{r['PL']}|none", f"{r['PL']}|{r['CH']}"] + ([] if lean else [f"{r['PL']}|{r['RS']}"]))
 
 
 def main():
@@ -58,8 +61,9 @@ def main():
                     for part, cs in enumerate([conds[i:i + 4] for i in range(0, len(conds), 4)]):   # short conditions, four a job
                         addraw(f"gc27_{g}_{part}_{split}_s{k}of{n}", 1, env(CHIRON_THINKING=0) + srv("qwen27", False)
                                + ev("eval_mcp.py", split, f"items_{split}", cs, k, n, ["--rotations"]), -3)
-                    addraw(f"gc27_{g}_full_{split}_s{k}of{n}", 2, env(CHIRON_THINKING=0) + srv("qwen27", True)
-                           + ev("eval_mcp.py", split, f"items_{split}", [GRID[g]["FULL"]], k, n, ["--rotations"]), -2)
+                    if g == "q4b":                                         # the other generators' full notes are already scored
+                        addraw(f"gc27_{g}_full_{split}_s{k}of{n}", 2, env(CHIRON_THINKING=0) + srv("qwen27", True)
+                               + ev("eval_mcp.py", split, f"items_{split}", [GRID[g]["FULL"]], k, n, ["--rotations"]), -2)
             if "small" in judges:
                 addraw(f"gcs_{g}_{split}_q9b", 1, env(CHIRON_BASE=1) + srv("qwen9base", False) + ev("eval_mcp.py", split, f"items_{split}", conds, extra=["--rotations"]), -3)
                 addraw(f"gcs_{g}_{split}_q4b", 1, srv("qwen4b", False) + ev("eval_mcp.py", split, f"items_{split}", conds), -3)
@@ -71,8 +75,9 @@ def main():
                     ok = q.add(q.conn(), name, srv("llama70", False) + ev("eval_mcp.py", split, f"items_{split}", cs, k, n), gpus=4, lane="chiron_l70", priority=-3)
                     print(("queued " if ok else "exists ") + name)
     elif what == "ncp":
-        tag, every, model, gens = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5:]
-        conds = REFS + [c for g in gens for c in ncp_conds(g)]
+        tag, every, model = sys.argv[2], sys.argv[3], sys.argv[4]
+        lean, gens = "--lean" in sys.argv, [a for a in sys.argv[5:] if a != "--lean"]
+        conds = REFS + [c for g in gens for c in ncp_conds(g, lean)]
         short = "4b" if "4B" in model else "27"
         for k in range(8):
             addraw(f"grid{short}_{tag}_s{k}of8", 1, ["bash", f"{REPO}/scripts/ncp_ruler_grid.sh", str(k), "8", tag, every, model, *conds], -3)
