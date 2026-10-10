@@ -39,10 +39,24 @@ def length(target):
     return f
 
 
+def write(msgs, max_tokens):
+    """One reply. gpt-oss: validated and retried by llm.ask. Other generators: a reply that runs into the token limit (a
+    small model does not always stop) is kept up to its last full sentence; the resize rounds then bring it to length."""
+    if GEN == "gptoss":
+        return llm.ask(msgs, lambda x: x, max_tokens=max_tokens, as_json=False)
+    c = llm.chat(msgs, max_tokens, 0.1)["choices"][0]
+    text = (c["message"].get("content") or "").strip()
+    if c.get("finish_reason") == "length":
+        text = text[:max(text.rfind(". "), text.rfind(".\n")) + 1]
+    if not text:
+        raise ValueError("empty reply")
+    return text, {"finish_reason": c.get("finish_reason")}
+
+
 def summarize(msgs, target, max_tokens):
     """Write, then condense (or expand) the model's own summary until it is within [0.5, 1.8] x target words:
     gpt-oss writes about twice the length it is asked for, so each round asks for a length scaled by the last ratio."""
-    text, meta = llm.ask(msgs, lambda x: x, max_tokens=max_tokens, as_json=False)
+    text, meta = write(msgs, max_tokens)
     ask = target                                            # the length requested next; corrected by the model's own ratio
     for rnd in range(3):
         n = len(text.split())
@@ -50,9 +64,8 @@ def summarize(msgs, target, max_tokens):
             return text, {**meta, "resize_rounds": rnd}
         ask = max(50, int(ask * target / n))
         verb = "Shorten" if n > target else "Expand"
-        text, _ = llm.ask([SYSTEM, {"role": "user", "content": f"Plot summary ({n} words):\n{text}\n\n{verb} this plot summary "
-                                                                f"to about {ask} words. {ASK}"}],
-                          lambda x: x, max_tokens=max(20000, 5 * target), as_json=False)
+        text, _ = write([SYSTEM, {"role": "user", "content": f"Plot summary ({n} words):\n{text}\n\n{verb} this plot summary "
+                                                              f"to about {ask} words. {ASK}"}], max(20000, 5 * target) if GEN == "gptoss" else int(2.2 * target) + 300)
     n = len(text.split())
     if not 0.5 * target <= n <= 1.8 * target:
         raise ValueError(f"still {n} words after resizing")
