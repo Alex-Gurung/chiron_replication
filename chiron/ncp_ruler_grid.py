@@ -129,7 +129,9 @@ def main():
         from vllm import LLM
         llm = LLM(model=args.model, tensor_parallel_size=1, max_model_len=args.max_model_len,
                   gpu_memory_utilization=args.gpu_memory_utilization,
-                  **({} if canonical else {"max_num_seqs": 32}))        # the 27B's Mamba cache holds ~300 sequences, vLLM's default asks for 1,024
+                  # second judge: its Mamba cache holds ~300 sequences (vLLM's default asks for 1,024), and prompt logprobs over
+                  # its 250k vocabulary need the prefill cut into 2,048-token steps or the GPU runs out of memory
+                  **({} if canonical else {"max_num_seqs": 32, "max_num_batched_tokens": 2048}))
 
     def tokenize(conditions, target):
         if canonical:
