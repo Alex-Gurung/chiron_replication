@@ -78,6 +78,7 @@ def main():
             append_jsonl(raw / f"{b}.jsonl", {**rec, "text": text, "words": len(text.split())})
             return
         src = [x for x in sentences(text) if not (GNEG.search(x) and GMETA.search(x)) and not GABOUT.search(x)]
+        src = list(dict.fromkeys(src))                    # a looping summary repeats sentences: rate each one once
         ratings = list(calls.map(lambda x: rate(story, name, x), src))
         append_jsonl(raw / f"{b}.jsonl", {**rec, "text": text, "words": len(text.split())})
         kept = " ".join(x for x, v in zip(src, ratings) if v == 5)
