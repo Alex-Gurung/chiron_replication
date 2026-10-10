@@ -1060,6 +1060,17 @@ p { margin: 0; max-width: 70ch; }
 .muted, .sub { color: var(--muted); }
 .sub { font-size: 0.78rem; font-weight: 400; text-transform: none; letter-spacing: 0; }
 ul.findings { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; max-width: 74ch; }
+/* Floating section bar: sticks to the top, scrolls sideways inside itself, marks the section in view. */
+nav.toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); background: color-mix(in srgb, var(--bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); }
+nav.toc .strip { max-width: 64rem; margin: 0 auto; padding: 0.45rem 1.25rem; display: flex; gap: 0.3rem; overflow-x: auto; scrollbar-width: none; }
+nav.toc .strip::-webkit-scrollbar { display: none; }
+nav.toc button { flex: none; font: 500 0.78rem/1 var(--body); color: var(--muted); background: transparent; border: 1px solid transparent;
+  border-radius: 999px; padding: 0.42rem 0.7rem; cursor: pointer; white-space: nowrap; }
+nav.toc button:hover { color: var(--fg); border-color: var(--rule); }
+nav.toc button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+nav.toc button[aria-current="true"] { color: var(--fg); background: var(--surface); border-color: var(--rule); }
+main h2 { scroll-margin-top: 3.4rem; }
 .exhibit { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem; display: grid; gap: 0.6rem; }
 .exhibit blockquote { margin: 0; font: 0.95rem/1.7 var(--display); }
 .exhibit .key, .exhibit .q { font: 0.8rem/1.5 var(--mono); color: var(--muted); }
@@ -1115,8 +1126,10 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
 @media (max-width: 560px) { dl { grid-template-columns: 1fr; } dt { margin-top: 0.4rem; } }
 </style>
 
+<nav class="toc" aria-label="Sections"><div class="strip" id="toc"></div></nav>
+
 <main>
-  <header style="display:grid;gap:0.6rem">
+  <header style="display:grid;gap:0.6rem" id="top">
     <div class="eyebrow">CHIRON replication · NCP books · 30 September 2026</div>
     <h1>Can a character sheet put the names back?</h1>
     <p class="lede">CHIRON's masked-character test on the NCP novels. A model sees a passage with the three principals' names replaced by ids, plus one representation of each character built only from earlier chapters, and says which id is which. {{N_MAIN}} sections (about 320 words), {{N_SHORT}} short spans (about 50 words) and {{N_WINDOW}} dense windows (about 900 words); five model setups (Qwen3-4B, Qwen3.5-9B base, Qwen3.8-27B with thinking off and on, Mistral-7B).</p>
@@ -1562,6 +1575,37 @@ dt { color: var(--muted); } dd { margin: 0; min-width: 0; }
                                    { key: "stat", label: "Statistic", choices: [["med", "median"], ["mean", "mean"]] },
                                    { key: "bars", label: "Bars", choices: [["none", "off"], ["mid", "middle half"], ["p90", "10th–90th"]] }]);
   mount("pasbox", {{PASSAGE_DATA}});
+})();
+</script>
+<script>
+(function () {
+  // Section bar: one pill per <h2 id>; buttons scroll with scrollIntoView (plain #anchors leave the page under a base URL).
+  const short = { top: "Top", claims: "Claims", ex: "Example", reps: "Representations", find: "Findings", fixed: "Same-model grid", "new": "New sheets", scr: "Scoring",
+    main: "Main results", len: "Length", best: "Best of each", plt: "Plot vs character", bch: "Book text", pas: "Passage length",
+    rsn: "Reasoning", sim: "Similarity", gen: "Gender", orc: "Oracles", trc: "Traces", ppl: "Perplexity", ncp: "NCP prompt",
+    why: "Why Llama", secs: "Sheet sections", ctl: "Controls", other: "Other sets", books: "By book", setup: "Setup" };
+  const strip = document.getElementById("toc"), heads = [document.getElementById("top"), ...document.querySelectorAll("main h2[id]")];
+  const pills = new Map();
+  heads.forEach(h => {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = short[h.id] || h.textContent.trim().split(/[:(]/)[0].slice(0, 24);
+    b.title = h.id === "top" ? "Back to the top" : h.textContent.trim();
+    b.addEventListener("click", () => h.scrollIntoView({ behavior: "smooth", block: "start" }));
+    strip.appendChild(b); pills.set(h, b);
+  });
+  let current = null;
+  function mark() {
+    let best = heads[0];
+    for (const h of heads) if (h.getBoundingClientRect().top <= 80) best = h;
+    if (best === current) return;
+    if (current) pills.get(current).removeAttribute("aria-current");
+    current = best;
+    const b = pills.get(best); b.setAttribute("aria-current", "true");
+    strip.scrollTo({ left: b.offsetLeft - strip.clientWidth / 2 + b.clientWidth / 2, behavior: "smooth" });
+  }
+  let tick = false;
+  addEventListener("scroll", () => { if (!tick) { tick = true; requestAnimationFrame(() => { tick = false; mark(); }); } }, { passive: true });
+  mark();
 })();
 </script>
 """
