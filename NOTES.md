@@ -556,3 +556,9 @@ with the entire book, reasoning on short spans and dense windows.
   Sheets written by Qwen3-4B lower the 4B judge's likelihood (-0.008 to -0.012 in the full prompt) but raise the 27B's
   (+0.0047 / +0.0048): the judge reading its own model's text, not bad sheets.
   All sixteen 1-GPU pods stopped at 01:15; w97 (8 GPUs) kept for the Llama judge on the Qwen3-4B rows and the q4b full notes.
+- 02:55 Oct 11: grid finished; every chiron pod stopped. Llama-3.3-70B as judge (names only 55.5): Llama-written CHIRON
+  condensed 82.4, rolling 84.1, paper-style 80.0, plot 82.4, CHIRON + plot 85.0, rolling + plot 87.1; gpt-oss-written
+  80.5 / 82.9 / 76.8 / 81.8 / 85.4 / 86.4; Qwen3-4B-written 82.9 / 79.9 / 74.1 / 81.2 / 87.1 / 85.5. Same pattern as the
+  other judges: CHIRON beats the rolling summary only for the 4B generator (+3.0), beats the paper-style summary
+  everywhere. Qwen3-4B CHIRON notes in full on the 27B: 76.8 at 62k tokens (gpt-oss 75.9 at 41.5k, Llama 80.3 at 59k).
+  Report v46.
