@@ -1,8 +1,8 @@
 """Summarise ncp_ruler_grid.py: per condition, the gain in the true next section's log-probability over a reference.
 
   python3 chiron/analyze_ncp_grid.py [--model Qwen3-4B-Instruct-2507]
-Merges every tag's files of the model (a section's scores from different waves are joined; the references each wave
-repeats are checked to agree). For each condition c and each reference r in ("none|none", "ship|none", "ship|v2") that
+Merges every tag's files of the model. A delta always uses the reference scored in the same run as the condition
+(the 27B judge is not bit-exact across runs; the canonical 4B is). For each condition c and each reference r in ("none|none", "ship|none", "ship|v2") that
 shares sections with it: d = score(c) - score(r) per section (nats per token), its mean, B = 100 * (1 - exp(-d))
 averaged, the mean of per-book means, and the number of books where c is better. Writes
 outputs/analysis_ncp_grid_<model>.json {"rows": {"c||r": {...}}, "tokens": {c: mean prompt tokens}, "sections", "books"}.
@@ -21,28 +21,32 @@ def main():
     ap.add_argument("--model", default="Qwen3-4B-Instruct-2507")
     args = ap.parse_args()
     sec, book, toks, worst = collections.defaultdict(dict), {}, collections.defaultdict(list), 0.0
+    diff = collections.defaultdict(dict)                    # (condition, reference) -> section -> delta within one scoring run
     for f in sorted((OUT / "ncp_grid" / args.model).glob("*.jsonl")):
         for r in read_jsonl(f):
             if "scores" not in r:
                 continue
-            book[r["example_id"]] = r["book"]
+            i = r["example_id"]
+            book[i] = r["book"]
             for c, v in r["scores"].items():
-                if c in sec[r["example_id"]]:
-                    worst = max(worst, abs(sec[r["example_id"]][c] - v))
+                if c in sec[i]:
+                    worst = max(worst, abs(sec[i][c] - v))
                 else:
-                    sec[r["example_id"]][c] = v
+                    sec[i][c] = v
                     toks[c].append(r["prompt_tokens"][c])
+                for ref in REFS:
+                    if ref in r["scores"] and ref != c:
+                        diff[(c, ref)].setdefault(i, v - r["scores"][ref])
     conds = sorted({c for d in sec.values() for c in d})
     print(len(sec), "sections,", len(set(book.values())), "books,", len(conds), "conditions; repeated references differ by at most", f"{worst:.1e}", "nats")
     rows = {}
     for c in conds:
         for ref in REFS:
-            if c == ref:
+            dd = diff.get((c, ref))
+            if not dd:
                 continue
-            ids = [i for i, d in sec.items() if c in d and ref in d]
-            if not ids:
-                continue
-            d = [sec[i][c] - sec[i][ref] for i in ids]
+            ids = list(dd)
+            d = [dd[i] for i in ids]
             per = collections.defaultdict(list)
             for i, x in zip(ids, d):
                 per[book[i]].append(x)
