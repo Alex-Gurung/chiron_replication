@@ -543,3 +543,16 @@ with the entire book, reasoning on short spans and dense windows.
   Llama rolling +0.0175 (29/29); gpt-oss CHIRON +0.0117, rolling +0.0132; Qwen3-4B-written CHIRON -0.0086 (6/29),
   rolling -0.0124 (3/29): sheets written by the judge's own model lower the true text's likelihood (27B judge queued).
   Report v44 (five judges in the grid table).
+- 01:20 Oct 11: NCP grid complete on both judges (1,861 sections, 29 books; deltas use same-run references).
+  Canonical 4B: plot only +0.0237 (23/29), v2 only -0.0018, both +0.0387; v2 in the full prompt +0.0149 (29/29).
+  27B: plot only +0.0236 (29/29), v2 only +0.0141 (29/29), both +0.0269; v2 in the full prompt +0.0033 (25/29).
+  CHIRON condensed vs rolling summary, same generator (paired, nats/token; books better):
+    27B judge  Llama alone +0.0038 (29/29), full prompt +0.0011 (23/29); Qwen3-4B alone +0.0015 (20/29), full -0.0001;
+               gpt-oss full -0.0010 (10/29)
+    4B judge   Llama alone +0.0095 (26/29), full +0.0079 (28/29); Qwen3-4B alone +0.0075 (23/29), full +0.0037 (21/29);
+               gpt-oss alone -0.0055 (11/29), full -0.0014
+  CHIRON condensed vs the same model's plot summary, alone: Llama +0.0024 (18/29) on the 27B, +0.0114 (24/29) on the 4B;
+  Qwen3-4B +0.0035 (22/29) on the 27B; gpt-oss +0.0046 (22/29) on the 4B.
+  Sheets written by Qwen3-4B lower the 4B judge's likelihood (-0.008 to -0.012 in the full prompt) but raise the 27B's
+  (+0.0047 / +0.0048): the judge reading its own model's text, not bad sheets.
+  All sixteen 1-GPU pods stopped at 01:15; w97 (8 GPUs) kept for the Llama judge on the Qwen3-4B rows and the q4b full notes.
